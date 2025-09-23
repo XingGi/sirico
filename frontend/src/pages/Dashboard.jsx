@@ -36,6 +36,12 @@ function Dashboard() {
 
         {/* ↓↓↓ UBAH BAGIAN INI ↓↓↓ */}
         <div className="space-x-2">
+          <Link to="/bia" className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+            Modul BIA
+          </Link>
+          <Link to="/bpr" className="bg-teal-500 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded">
+            Modul BPR
+          </Link>
           <Link to="/rsca" className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
             Modul RSCA
           </Link>

@@ -1,8 +1,10 @@
+import os
 from flask import request, jsonify, Blueprint
-from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle
+from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario
 from . import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from datetime import datetime
+from app.ai_services import summarize_text_with_gemini, analyze_rsca_answers_with_gemini, suggest_risks_for_process_step, analyze_bia_with_gemini
 
 # Membuat Blueprint untuk API
 api_bp = Blueprint('api', __name__)
@@ -376,3 +378,303 @@ def submit_rsca_answers(cycle_id):
     
     db.session.commit()
     return jsonify({"msg": "Jawaban berhasil disimpan."}), 201
+
+@api_bp.route('/rsca-cycles/<int:cycle_id>/analyze', methods=['POST'])
+@jwt_required()
+def analyze_rsca_cycle(cycle_id):
+    """Memicu analisis AI pada semua jawaban dari sebuah siklus RSCA."""
+    # Dapatkan API Key
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan di server."}), 500
+
+    # Cari siklus dan semua jawabannya
+    cycle = RscaCycle.query.get_or_404(cycle_id)
+    answers = RscaAnswer.query.filter_by(cycle_id=cycle.id).all()
+
+    if not answers:
+        return jsonify({"msg": "Tidak ada jawaban untuk dianalisis di siklus ini."}), 404
+
+    # Format semua jawaban menjadi satu teks besar untuk dikirim ke AI
+    full_text_for_ai = ""
+    for ans in answers:
+        question = RscaQuestionnaire.query.get(ans.questionnaire_id)
+        department = Department.query.get(ans.department_id)
+        full_text_for_ai += f"Pertanyaan: {question.pertanyaan}\n"
+        full_text_for_ai += f"Departemen: {department.name}\n"
+        full_text_for_ai += f"Jawaban: {ans.jawaban}\n"
+        full_text_for_ai += f"Catatan: {ans.catatan}\n"
+        full_text_for_ai += "---\n"
+
+    # Panggil fungsi analisis AI
+    ai_result = analyze_rsca_answers_with_gemini(full_text_for_ai, gemini_api_key)
+
+    if not ai_result:
+        return jsonify({"msg": "Gagal mendapatkan hasil analisis dari AI."}), 500
+
+    # Simpan hasil analisis ke database
+    cycle.ai_summary = ai_result
+    db.session.commit()
+
+    return jsonify({"msg": "Analisis AI berhasil diselesaikan dan disimpan.", "summary": ai_result})
+
+# Membuat dan Membaca daftar Proses Bisnis
+@api_bp.route('/business-processes', methods=['POST'])
+@jwt_required()
+def create_business_process():
+    """Membuat proses bisnis baru."""
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    if not data or not data.get('nama_proses'):
+        return jsonify({"msg": "Nama proses wajib diisi."}), 400
+
+    new_process = BusinessProcess(
+        nama_proses=data['nama_proses'],
+        pemilik_proses=data.get('pemilik_proses'),
+        user_id=current_user_id
+    )
+    db.session.add(new_process)
+    db.session.commit()
+    return jsonify({"msg": "Proses bisnis berhasil dibuat.", "id": new_process.id}), 201
+
+@api_bp.route('/business-processes', methods=['GET'])
+@jwt_required()
+def get_business_processes():
+    """Mengambil semua proses bisnis milik pengguna."""
+    current_user_id = get_jwt_identity()
+    processes = BusinessProcess.query.filter_by(user_id=current_user_id).all()
+    process_list = [{
+        "id": p.id,
+        "nama_proses": p.nama_proses,
+        "pemilik_proses": p.pemilik_proses
+    } for p in processes]
+    return jsonify(process_list)
+
+# Mengelola satu Proses Bisnis spesifik dan langkah-langkahnya
+@api_bp.route('/business-processes/<int:process_id>', methods=['GET'])
+@jwt_required()
+def get_business_process_details(process_id):
+    """Mengambil detail satu proses bisnis beserta langkah-langkahnya."""
+    current_user_id = get_jwt_identity()
+    process = BusinessProcess.query.filter_by(id=process_id, user_id=current_user_id).first_or_404()
+    
+    steps = sorted(process.steps, key=lambda x: x.urutan) # Urutkan langkah berdasarkan nomor urutan
+
+    return jsonify({
+        "id": process.id,
+        "nama_proses": process.nama_proses,
+        "pemilik_proses": process.pemilik_proses,
+        "steps": [{
+            "id": s.id,
+            "nama_langkah": s.nama_langkah,
+            "deskripsi_langkah": s.deskripsi_langkah,
+            "urutan": s.urutan
+        } for s in steps]
+    })
+
+# Membuat Langkah Proses (Process Step) baru untuk sebuah proses bisnis
+@api_bp.route('/business-processes/<int:process_id>/steps', methods=['POST'])
+@jwt_required()
+def add_process_step(process_id):
+    """Menambahkan langkah proses baru ke dalam sebuah proses bisnis."""
+    current_user_id = get_jwt_identity()
+    process = BusinessProcess.query.filter_by(id=process_id, user_id=current_user_id).first_or_404()
+    
+    data = request.get_json()
+    if not data or not data.get('nama_langkah') or 'urutan' not in data:
+        return jsonify({"msg": "Nama langkah dan urutan wajib diisi."}), 400
+
+    new_step = ProcessStep(
+        nama_langkah=data['nama_langkah'],
+        deskripsi_langkah=data.get('deskripsi_langkah'),
+        urutan=data['urutan'],
+        process_id=process.id
+    )
+    db.session.add(new_step)
+    db.session.commit()
+    return jsonify({"msg": "Langkah proses berhasil ditambahkan.", "id": new_step.id}), 201
+
+# Mengelola satu Langkah Proses spesifik (Update & Delete)
+@api_bp.route('/steps/<int:step_id>', methods=['PUT'])
+@jwt_required()
+def update_process_step(step_id):
+    """Memperbarui sebuah langkah proses."""
+    current_user_id = get_jwt_identity()
+    step = ProcessStep.query.get_or_404(step_id)
+    # Otorisasi: Cek apakah langkah ini milik proses punya pengguna yang login
+    if str(step.business_process.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak"}), 403
+
+    data = request.get_json()
+    step.nama_langkah = data.get('nama_langkah', step.nama_langkah)
+    step.deskripsi_langkah = data.get('deskripsi_langkah', step.deskripsi_langkah)
+    step.urutan = data.get('urutan', step.urutan)
+    db.session.commit()
+    return jsonify({"msg": "Langkah proses berhasil diperbarui."})
+
+@api_bp.route('/steps/<int:step_id>', methods=['DELETE'])
+@jwt_required()
+def delete_process_step(step_id):
+    """Menghapus sebuah langkah proses."""
+    current_user_id = get_jwt_identity()
+    step = ProcessStep.query.get_or_404(step_id)
+    if str(step.business_process.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak"}), 403
+        
+    db.session.delete(step)
+    db.session.commit()
+    return jsonify({"msg": "Langkah proses berhasil dihapus."})
+
+@api_bp.route('/ai/suggest-risks-for-step', methods=['POST'])
+@jwt_required()
+def suggest_risks_ai():
+    """Menerima deskripsi langkah proses dan mengembalikan saran risiko dari AI."""
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
+
+    data = request.get_json()
+    step_description = data.get('step_description')
+    if not step_description:
+        return jsonify({"msg": "Deskripsi langkah (step_description) wajib diisi."}), 400
+
+    # Panggil fungsi AI
+    suggested_risks_raw = suggest_risks_for_process_step(step_description, gemini_api_key)
+
+    if not suggested_risks_raw:
+        return jsonify({"msg": "Gagal mendapatkan saran dari AI."}), 500
+
+    # Olah output dari AI menjadi sebuah list
+    risk_list = [risk.strip() for risk in suggested_risks_raw.strip().split('\n') if risk.strip()]
+
+    return jsonify(suggested_risks=risk_list)
+
+@api_bp.route('/critical-assets', methods=['POST'])
+@jwt_required()
+def create_critical_asset():
+    """Membuat aset kritis baru."""
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    if not data or not data.get('nama_aset') or not data.get('tipe_aset'):
+        return jsonify({"msg": "Nama dan tipe aset wajib diisi."}), 400
+
+    new_asset = CriticalAsset(
+        nama_aset=data['nama_aset'],
+        tipe_aset=data['tipe_aset'],
+        deskripsi=data.get('deskripsi'),
+        user_id=current_user_id
+    )
+    db.session.add(new_asset)
+    db.session.commit()
+    return jsonify({"msg": "Aset kritis berhasil dibuat.", "id": new_asset.id}), 201
+
+@api_bp.route('/critical-assets', methods=['GET'])
+@jwt_required()
+def get_critical_assets():
+    """Mengambil daftar semua aset kritis milik pengguna."""
+    current_user_id = get_jwt_identity()
+    assets = CriticalAsset.query.filter_by(user_id=current_user_id).all()
+    asset_list = [{
+        "id": asset.id,
+        "nama_aset": asset.nama_aset,
+        "tipe_aset": asset.tipe_aset
+    } for asset in assets]
+    return jsonify(asset_list)
+
+# --- API untuk Ketergantungan (Dependencies) ---
+
+@api_bp.route('/dependencies', methods=['POST'])
+@jwt_required()
+def create_dependency():
+    """Membuat hubungan ketergantungan baru antar aset."""
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    if not data or 'asset_id' not in data or 'depends_on_asset_id' not in data:
+        return jsonify({"msg": "asset_id dan depends_on_asset_id wajib diisi."}), 400
+
+    asset1 = CriticalAsset.query.filter_by(id=data['asset_id'], user_id=current_user_id).first_or_404("Aset asal tidak ditemukan atau bukan milik Anda.")
+    asset2 = CriticalAsset.query.filter_by(id=data['depends_on_asset_id'], user_id=current_user_id).first_or_404("Aset tujuan tidak ditemukan atau bukan milik Anda.")
+
+    new_dependency = Dependency(
+        asset_id=asset1.id,
+        depends_on_asset_id=asset2.id
+    )
+    db.session.add(new_dependency)
+    db.session.commit()
+    return jsonify({"msg": "Hubungan ketergantungan berhasil dibuat.", "id": new_dependency.id}), 201
+
+@api_bp.route('/critical-assets/<int:asset_id>/dependencies', methods=['GET'])
+@jwt_required()
+def get_asset_dependencies(asset_id):
+    """Mengambil semua ketergantungan untuk sebuah aset spesifik."""
+    current_user_id = get_jwt_identity()
+    asset = CriticalAsset.query.filter_by(id=asset_id, user_id=current_user_id).first_or_404()
+
+    # Aset-aset yang dibutuhkan oleh aset ini (dependencies_on)
+    depends_on_list = [{
+        "dependency_id": dep.id,
+        "asset_id": dep.depends_on.id,
+        "nama_aset": dep.depends_on.nama_aset
+    } for dep in asset.dependencies_on]
+
+    # Aset-aset lain yang membutuhkan aset ini (depended_on_by)
+    depended_on_by_list = [{
+        "dependency_id": dep.id,
+        "asset_id": dep.asset.id,
+        "nama_aset": dep.asset.nama_aset
+    } for dep in asset.depended_on_by]
+
+    return jsonify({
+        "depends_on": depends_on_list,
+        "depended_on_by": depended_on_by_list
+    })
+    
+@api_bp.route('/bia/simulate', methods=['POST'])
+@jwt_required()
+def simulate_bia():
+    """Menjalankan simulasi BIA dengan input dari frontend."""
+    current_user_id = get_jwt_identity()
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
+
+    data = request.get_json()
+    asset_id = data.get('asset_id')
+    duration = data.get('duration')
+
+    if not asset_id or not duration:
+        return jsonify({"msg": "asset_id dan duration wajib diisi."}), 400
+
+    failed_asset = CriticalAsset.query.filter_by(id=asset_id, user_id=current_user_id).first_or_404()
+
+    # --- Logika untuk menelusuri aset terdampak ---
+    impacted_assets_names = set()
+    assets_to_check = [failed_asset]
+    checked_ids = {failed_asset.id}
+
+    while assets_to_check:
+        current_asset = assets_to_check.pop(0)
+        # Cari semua aset yang bergantung pada current_asset
+        for dep in current_asset.depended_on_by:
+            if dep.asset.id not in checked_ids:
+                impacted_assets_names.add(dep.asset.nama_aset)
+                assets_to_check.append(dep.asset)
+                checked_ids.add(dep.asset.id)
+    
+    # Ambil beberapa KRI relevan untuk konteks (contoh sederhana)
+    relevant_kris = KRI.query.filter_by(user_id=current_user_id).limit(5).all()
+    kri_list = [{"nama_kri": k.nama_kri, "ambang_batas_kritis": k.ambang_batas_kritis} for k in relevant_kris]
+
+    # Panggil fungsi AI
+    analysis_result = analyze_bia_with_gemini(
+        failed_asset_name=failed_asset.nama_aset,
+        downtime=duration,
+        impacted_assets=list(impacted_assets_names),
+        kris=kri_list,
+        api_key=gemini_api_key
+    )
+
+    if not analysis_result:
+        return jsonify({"msg": "Gagal mendapatkan analisis dari AI."}), 500
+
+    return jsonify({"analysis": analysis_result})

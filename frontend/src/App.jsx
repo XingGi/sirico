@@ -6,6 +6,8 @@ import Dashboard from "./pages/Dashboard";
 import AssessmentStudio from "./pages/AssessmentStudio";
 import RSCA from "./pages/RSCA";
 import RscaQuestionnaireForm from "./pages/RscaQuestionnaireForm";
+import BPR from "./pages/BPR";
+import BIA from "./pages/BIA";
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
         <Route path="/assessment-studio" element={<AssessmentStudio />} />
         <Route path="/rsca" element={<RSCA />} />
         <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
+        <Route path="/bpr" element={<BPR />} />
+        <Route path="/bia" element={<BIA />} />
       </Routes>
     </Router>
   );
