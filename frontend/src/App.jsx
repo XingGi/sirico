@@ -8,6 +8,9 @@ import RSCA from "./pages/RSCA";
 import RscaQuestionnaireForm from "./pages/RscaQuestionnaireForm";
 import BPR from "./pages/BPR";
 import BIA from "./pages/BIA";
+import Layout from "./components/Layout";
+import AssessmentListPage from "./pages/AssessmentListPage";
+import AssessmentDetailPage from "./pages/AssessmentDetailPage";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -15,17 +18,23 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Rute Publik */}
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
+        {/* Rute Terlindungi SEKARANG dibungkus oleh Layout */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/assessment-studio" element={<AssessmentStudio />} />
-          <Route path="/rsca" element={<RSCA />} />
-          <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
-          <Route path="/bpr" element={<BPR />} />
-          <Route path="/bia" element={<BIA />} />
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/assessment-studio" element={<AssessmentStudio />} />
+            <Route path="/rsca" element={<RSCA />} />
+            <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
+            <Route path="/bpr" element={<BPR />} />
+            <Route path="/bia" element={<BIA />} />
+            <Route path="/assessments" element={<AssessmentListPage />} />
+            <Route path="/assessments/:assessmentId" element={<AssessmentDetailPage />} />
+          </Route>
         </Route>
       </Routes>
     </Router>

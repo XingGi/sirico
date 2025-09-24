@@ -1,35 +1,32 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; // <-- 1. Import useNavigate
+import { useNavigate, Link } from "react-router-dom";
+import { Card, Title, Button } from "@tremor/react";
 
 function Login() {
-  const navigate = useNavigate(); // <-- 2. Inisialisasi hook navigasi
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-  // ... (fungsi handleChange tidak berubah)
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true); // Mulai loading
     try {
       const response = await axios.post("http://127.0.0.1:5000/api/login", formData);
       const token = response.data.access_token;
-
-      console.log("Menerima token dari backend:", token);
-
-      // <-- 3. Simpan token ke localStorage
       localStorage.setItem("sirico-token", token);
-
-      alert("Login berhasil!");
-
-      // <-- 4. Arahkan ke halaman dasbor
       navigate("/dashboard");
     } catch (error) {
       alert("Error: " + (error.response?.data?.msg || "Email atau password salah."));
+    } finally {
+      setIsLoading(false); // Selesai loading
     }
   };
 

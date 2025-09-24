@@ -209,22 +209,42 @@ def create_assessment():
     
 @api_bp.route('/assessments', methods=['GET'])
 @jwt_required()
-def get_assessments():
-    """Mengambil semua proyek asesmen milik pengguna yang sedang login."""
+def get_all_assessments():
+    """Mengambil semua proyek asesmen milik pengguna (hanya data ringkas)."""
     current_user_id = get_jwt_identity()
     assessments = RiskAssessment.query.filter_by(user_id=current_user_id).order_by(RiskAssessment.tanggal_mulai.desc()).all()
     
-    assessment_list = []
-    for assessment in assessments:
-        assessment_list.append({
-            "id": assessment.id,
-            "nama_asesmen": assessment.nama_asesmen,
-            "deskripsi": assessment.deskripsi,
-            "tanggal_mulai": assessment.tanggal_mulai.isoformat(),
-            "tanggal_selesai": assessment.tanggal_selesai.isoformat() if assessment.tanggal_selesai else None
-        })
+    assessment_list = [{
+        "id": a.id,
+        "nama_asesmen": a.nama_asesmen,
+        "tanggal_mulai": a.tanggal_mulai.isoformat(),
+        "tanggal_selesai": a.tanggal_selesai.isoformat() if a.tanggal_selesai else None
+    } for a in assessments]
         
-    return jsonify(assessment_list), 200
+    return jsonify(assessment_list)
+
+@api_bp.route('/assessments/<int:assessment_id>', methods=['GET'])
+@jwt_required()
+def get_assessment_details(assessment_id):
+    """Mengambil data detail dari satu asesmen, termasuk risk register-nya."""
+    current_user_id = get_jwt_identity()
+    assessment = RiskAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    
+    risk_entries = [{
+        "id": r.id,
+        "kode_risiko": r.kode_risiko,
+        "deskripsi_risiko": r.deskripsi_risiko,
+        "level_risiko_inheren": r.level_risiko_inheren
+    } for r in assessment.risk_register_entries]
+    
+    return jsonify({
+        "id": assessment.id,
+        "nama_asesmen": assessment.nama_asesmen,
+        "deskripsi": assessment.deskripsi,
+        "ruang_lingkup": assessment.ruang_lingkup,
+        "tanggal_mulai": assessment.tanggal_mulai.isoformat(),
+        "risks": risk_entries
+    })
     
 @api_bp.route('/horizon-scan', methods=['GET'])
 @jwt_required()
