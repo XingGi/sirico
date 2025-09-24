@@ -1,15 +1,16 @@
 import React from "react";
+import { Title, Text } from "@tremor/react";
 import CreateAssessmentForm from "../components/CreateAssessmentForm";
 
 function AssessmentStudio() {
   return (
-    <div className="bg-gray-100 min-h-screen">
-      <header className="bg-white shadow p-4">
-        <h1 className="text-2xl font-bold text-gray-800">Assessment Studio</h1>
-      </header>
-      <main className="p-4 md:p-8">
+    <div className="p-6 sm:p-10">
+      <Title>Assessment Studio</Title>
+      <Text>Mulai evaluasi risiko baru untuk organisasi Anda.</Text>
+
+      <div className="mt-6">
         <CreateAssessmentForm />
-      </main>
+      </div>
     </div>
   );
 }

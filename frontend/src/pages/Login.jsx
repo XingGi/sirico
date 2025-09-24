@@ -32,36 +32,36 @@ function Login() {
 
   // ... (bagian return JSX tidak berubah)
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center">
-      {/* ... isi form ... */}
-      <div className="bg-white shadow-md rounded-lg p-8 w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Login ke SIRICO</h2>
+    <div className="min-h-screen bg-slate-800 flex flex-col justify-center items-center p-4">
+      <h1 className="text-3xl font-bold text-white mb-6">SIRICO</h1>
+
+      {/* ↓↓↓ 2. Ganti div dengan Card Tremor ↓↓↓ */}
+      <Card className="max-w-md w-full">
+        <Title className="text-center mb-6">Login ke Akun Anda</Title>
         <form onSubmit={handleSubmit}>
-          {/* ... input email dan password ... */}
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
+            <label className="block text-tremor-content text-sm font-medium mb-2" htmlFor="email">
               Alamat Email
             </label>
-            <input type="email" name="email" id="email" onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required />
+            <input type="email" name="email" id="email" onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required />
           </div>
           <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
+            <label className="block text-tremor-content text-sm font-medium mb-2" htmlFor="password">
               Password
             </label>
-            <input type="password" name="password" id="password" onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" required />
+            <input type="password" name="password" id="password" onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required />
           </div>
-          <div className="flex items-center justify-between">
-            <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+          <div className="flex flex-col items-center">
+            {/* ↓↓↓ 3. Ganti button dengan Button Tremor ↓↓↓ */}
+            <Button type="submit" className="w-full" loading={isLoading}>
               Login
-            </button>
-          </div>
-          <div className="text-center mt-4">
-            <a href="/register" className="font-bold text-sm text-blue-500 hover:text-blue-800">
-              Belum punya akun? Daftar
-            </a>
+            </Button>
+            <Link to="/register" className="mt-4 text-sm text-blue-600 hover:underline">
+              Belum punya akun? Daftar di sini
+            </Link>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

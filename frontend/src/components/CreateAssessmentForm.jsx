@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import apiClient from "../api";
 import { useNavigate } from "react-router-dom";
+import { Card, Title, Text, Button, TextInput, Textarea, ProgressBar } from "@tremor/react";
 
 function CreateAssessmentForm() {
   const [step, setStep] = useState(1);
@@ -11,6 +12,7 @@ function CreateAssessmentForm() {
     tanggal_mulai: "",
     tanggal_selesai: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -107,7 +109,7 @@ function CreateAssessmentForm() {
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-8 max-w-2xl mx-auto">
+    <Card className="bg-white shadow-md rounded-lg p-8 max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold text-center mb-2">Buat Asesmen Risiko Baru</h2>
       <p className="text-center text-gray-500 mb-6">Langkah {step} dari 3</p>
       <form onSubmit={handleSubmit}>
@@ -130,7 +132,7 @@ function CreateAssessmentForm() {
           )}
         </div>
       </form>
-    </div>
+    </Card>
   );
 }
 
