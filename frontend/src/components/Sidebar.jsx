@@ -1,45 +1,62 @@
-// frontend/src/components/Sidebar.jsx
 import React from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { FiGrid, FiBarChart2, FiCheckSquare, FiBriefcase, FiAlertTriangle, FiLogOut } from "react-icons/fi";
+// ↓↓↓ Tambahkan icon baru untuk tombol minimize/maximize ↓↓↓
+import { FiGrid, FiBarChart2, FiCheckSquare, FiBriefcase, FiAlertTriangle, FiLogOut, FiChevronsLeft } from "react-icons/fi";
 
-function Sidebar() {
+// 1. Terima props "isOpen" dan "toggle" dari Layout
+function Sidebar({ isOpen, toggle }) {
   const navigate = useNavigate();
-  const navLinkClasses = ({ isActive }) => (isActive ? "flex items-center p-3 my-1 text-white bg-blue-500 rounded-lg" : "flex items-center p-3 my-1 text-gray-300 hover:bg-slate-700 rounded-lg");
+
+  // 2. Buat class untuk NavLink menjadi dinamis
+  const navLinkClasses = ({ isActive }) => `flex items-center p-3 my-1 rounded-lg transition-colors duration-200 ${isActive ? "bg-blue-500 text-white" : "text-gray-300 hover:bg-slate-700"}`;
 
   const handleLogout = () => {
-    // Hapus token dari penyimpanan
     localStorage.removeItem("sirico-token");
-    // Arahkan pengguna ke halaman login
     navigate("/login");
   };
 
   return (
-    <aside className="w-64 bg-slate-800 text-white flex flex-col p-4">
-      <div className="text-2xl font-bold mb-10 text-center">
-        <Link to="/dashboard">SIRICO</Link>
+    // 3. Buat class <aside> menjadi dinamis untuk mengubah lebar
+    <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-all duration-300 ease-in-out ${isOpen ? "w-64" : "w-20"}`}>
+      {/* Tombol Toggle Sidebar */}
+      <div className="flex items-center mb-10" style={{ justifyContent: isOpen ? "space-between" : "center" }}>
+        {/* 4. Sembunyikan teks "SIRICO" saat sidebar tertutup */}
+        <h1 className={`text-2xl font-bold overflow-hidden transition-all duration-200 ${isOpen ? "w-32" : "w-0"}`}>
+          <Link to="/dashboard">SIRICO</Link>
+        </h1>
+        <button onClick={toggle} className="p-2 hover:bg-slate-700 rounded-lg">
+          <FiChevronsLeft className={`transform transition-transform duration-300 ${!isOpen && "rotate-180"}`} />
+        </button>
       </div>
+
       <nav className="flex-grow">
+        {/* 5. Sembunyikan semua teks menu saat sidebar tertutup */}
         <NavLink to="/dashboard" className={navLinkClasses}>
-          <FiGrid className="mr-3" /> Dashboard
+          <FiGrid className="h-6 w-6 flex-shrink-0" />
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Dashboard</span>
         </NavLink>
         <NavLink to="/assessment-studio" className={navLinkClasses}>
-          <FiCheckSquare className="mr-3" /> Assessment Studio
+          <FiCheckSquare className="h-6 w-6 flex-shrink-0" />
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Assessment Studio</span>
         </NavLink>
         <NavLink to="/rsca" className={navLinkClasses}>
-          <FiBriefcase className="mr-3" /> Modul RSCA
+          <FiBriefcase className="h-6 w-6 flex-shrink-0" />
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Modul RSCA</span>
         </NavLink>
         <NavLink to="/bpr" className={navLinkClasses}>
-          <FiBarChart2 className="mr-3" /> Modul BPR
+          <FiBarChart2 className="h-6 w-6 flex-shrink-0" />
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Modul BPR</span>
         </NavLink>
         <NavLink to="/bia" className={navLinkClasses}>
-          <FiAlertTriangle className="mr-3" /> Modul BIA
+          <FiAlertTriangle className="h-6 w-6 flex-shrink-0" />
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Modul BIA</span>
         </NavLink>
       </nav>
+
       <div>
-        {/* ↓↓↓ 4. Terapkan fungsi ke tombol onClick ↓↓↓ */}
         <button onClick={handleLogout} className="flex items-center p-3 w-full text-gray-300 hover:bg-slate-700 rounded-lg">
-          <FiLogOut className="mr-3" /> Logout
+          <FiLogOut className="h-6 w-6 flex-shrink-0" />
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Logout</span>
         </button>
       </div>
     </aside>

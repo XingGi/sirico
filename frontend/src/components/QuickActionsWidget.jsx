@@ -6,10 +6,10 @@ import ClickableCard from "./ClickableCard";
 
 function QuickActionsWidget() {
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <Title>Quick Actions</Title>
       <Text>Common tasks to get you started</Text>
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 flex-grow flex flex-col justify-between">
         <ClickableCard to="/assessment-studio">
           <div className="flex items-center">
             <FiPlusCircle className="w-6 h-6 mr-3 text-blue-500" />

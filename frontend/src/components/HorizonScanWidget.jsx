@@ -37,11 +37,12 @@ function HorizonScanWidget() {
       ) : entries.length > 0 ? (
         <div className="mt-4 space-y-4">
           {entries.map((entry) => (
-            <div key={entry.id} className="border-t border-gray-200 pt-3">
-              <a href={entry.source_url} target="_blank" rel="noopener noreferrer" className="text-tremor-content-emphasis font-medium hover:text-blue-600">
+            <div key={entry.id} className="bg-slate-50 p-4 rounded-md border">
+              <a href={entry.source_url} target="_blank" rel="noopener noreferrer" className="text-tremor-content-emphasis font-semibold hover:text-blue-600">
                 {entry.title}
               </a>
-              <Text className="mt-2 whitespace-pre-wrap">{entry.ai_summary}</Text>
+              {/* Kita gunakan div agar bisa memberi margin, bukan Text */}
+              <div className="mt-2 text-tremor-content whitespace-pre-wrap">{entry.ai_summary}</div>
             </div>
           ))}
         </div>

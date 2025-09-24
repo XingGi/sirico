@@ -27,7 +27,7 @@ function AssessmentListWidget() {
         {isLoading ? (
           <Text>Memuat...</Text>
         ) : assessments.length > 0 ? (
-          assessments.map((assessment) => (
+          assessments.slice(0, 5).map((assessment) => (
             // ↓↓↓ Bungkus setiap item dengan Link dan beri style ↓↓↓
             <Link
               key={assessment.id}
