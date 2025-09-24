@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import apiClient from "../api";
+import { Card, Title, Text } from "@tremor/react";
 
 function AssessmentListWidget() {
   const [assessments, setAssessments] = useState([]);
@@ -24,21 +25,21 @@ function AssessmentListWidget() {
   }
 
   return (
-    <div className="bg-white shadow-lg rounded-lg p-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">Recent Assessments</h3>
-      <div className="space-y-3">
+    <Card>
+      <Title>Recent Assessments</Title>
+      <div className="mt-4 space-y-3">
         {assessments.length > 0 ? (
           assessments.map((assessment) => (
-            <div key={assessment.id} className="border rounded-md p-3 hover:bg-gray-50">
-              <p className="font-semibold text-gray-800">{assessment.nama_asesmen}</p>
-              <p className="text-sm text-gray-500">Mulai: {assessment.tanggal_mulai}</p>
+            <div key={assessment.id} className="border-t border-gray-200 pt-3">
+              <Text className="font-semibold text-gray-800">{assessment.nama_asesmen}</Text>
+              <Text>Mulai: {assessment.tanggal_mulai}</Text>
             </div>
           ))
         ) : (
-          <p className="text-gray-600">Belum ada asesmen yang dibuat.</p>
+          <Text>Belum ada asesmen yang dibuat.</Text>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
