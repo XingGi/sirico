@@ -9,6 +9,8 @@ import RscaQuestionnaireForm from "./pages/RscaQuestionnaireForm";
 import BPR from "./pages/BPR";
 import BIA from "./pages/BIA";
 
+import ProtectedRoute from "./components/ProtectedRoute";
+
 function App() {
   return (
     <Router>
@@ -16,12 +18,15 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/assessment-studio" element={<AssessmentStudio />} />
-        <Route path="/rsca" element={<RSCA />} />
-        <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
-        <Route path="/bpr" element={<BPR />} />
-        <Route path="/bia" element={<BIA />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/assessment-studio" element={<AssessmentStudio />} />
+          <Route path="/rsca" element={<RSCA />} />
+          <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
+          <Route path="/bpr" element={<BPR />} />
+          <Route path="/bia" element={<BIA />} />
+        </Route>
       </Routes>
     </Router>
   );
