@@ -11,6 +11,7 @@ import BIA from "./pages/BIA";
 import Layout from "./components/Layout";
 import AssessmentListPage from "./pages/AssessmentListPage";
 import AssessmentDetailPage from "./pages/AssessmentDetailPage";
+import LandingPage from "./pages/LandingPage";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -19,7 +20,7 @@ function App() {
     <Router>
       <Routes>
         {/* Rute Publik */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
