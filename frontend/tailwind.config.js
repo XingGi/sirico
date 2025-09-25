@@ -19,6 +19,12 @@ module.exports = {
           primary: "#DC2626", // brand-red
           "background-subtle": "#F1F5F9",
         },
+        borderRadius: {
+          // Atur sudut default Tremor agar cocok dengan rounded-lg
+          "tremor-small": "0.5rem",
+          "tremor-default": "0.5rem",
+          "tremor-full": "9999px",
+        },
       },
     },
   },

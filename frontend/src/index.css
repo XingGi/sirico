@@ -4,5 +4,8 @@
 [class*="shadow-tremor-dropdown"] {
   background-color: white !important;
   z-index: 9999 !important;
-  /* z-index super tinggi untuk memastikan paling atas */
+}
+
+[class*="text-tremor-default"] {
+  border-radius: 0.75rem !important;
 }
