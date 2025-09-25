@@ -17,7 +17,7 @@ function Sidebar({ isOpen, toggle }) {
 
   return (
     // 3. Buat class <aside> menjadi dinamis untuk mengubah lebar
-    <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-all duration-300 ease-in-out ${isOpen ? "w-64" : "w-20"}`}>
+    <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-[width] duration-300 ease-in-out ${isOpen ? "w-64" : "w-20"}`}>
       {/* Tombol Toggle Sidebar */}
       <div className="flex items-center mb-10" style={{ justifyContent: isOpen ? "space-between" : "center" }}>
         {/* 4. Sembunyikan teks "SIRICO" saat sidebar tertutup */}

@@ -176,26 +176,34 @@ def create_assessment():
     data = request.get_json()
 
     # Validasi input
-    if not data or not data.get('nama_asesmen') or not data.get('tanggal_mulai'):
-        return jsonify({"msg": "Nama asesmen dan tanggal mulai wajib diisi"}), 400
+    if not data or not data.get('nama_asesmen'):
+        return jsonify({"msg": "Nama asesmen wajib diisi"}), 400
 
+    # Validasi minimal 1 kategori risiko
+    if not data.get('risk_categories') or len(data.get('risk_categories')) == 0:
+        return jsonify({"msg": "Pilih minimal satu Kategori Risiko."}), 400
+
+    # Coba konversi risk_limit ke float, default ke 0 jika gagal atau tidak ada
     try:
-        # Konversi string tanggal dari JSON ke objek Date Python
-        tanggal_mulai_obj = datetime.strptime(data['tanggal_mulai'], '%Y-%m-%d').date()
-        tanggal_selesai_obj = None
-        if data.get('tanggal_selesai'):
-            tanggal_selesai_obj = datetime.strptime(data['tanggal_selesai'], '%Y-%m-%d').date()
-
-    except ValueError:
-        return jsonify({"msg": "Format tanggal salah. Gunakan format YYYY-MM-DD."}), 400
+        risk_limit_val = float(data.get('risk_limit', 0))
+    except (ValueError, TypeError):
+        risk_limit_val = 0
 
     # Buat instance RiskAssessment baru
     new_assessment = RiskAssessment(
         nama_asesmen=data['nama_asesmen'],
-        deskripsi=data.get('deskripsi'),
-        ruang_lingkup=data.get('ruang_lingkup'),
-        tanggal_mulai=tanggal_mulai_obj,
-        tanggal_selesai=tanggal_selesai_obj,
+        tanggal_mulai=datetime.utcnow().date(),
+        company_industry=data.get('company_industry'),
+        company_type=data.get('company_type'),
+        company_assets=data.get('company_assets'),
+        currency=data.get('currency'),
+        risk_limit=risk_limit_val,
+        risk_categories=",".join(data.get('risk_categories', [])),
+        project_objective=data.get('project_objective'),
+        relevant_regulations=data.get('relevant_regulations'),
+        involved_departments=data.get('involved_departments'),
+        completed_actions=data.get('completed_actions'),
+        additional_risk_context=data.get('additional_risk_context'),
         user_id=current_user_id
     )
 

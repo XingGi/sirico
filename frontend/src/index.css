@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+[class*="shadow-tremor-dropdown"] {
+  background-color: white !important;
+  z-index: 9999 !important;
+  /* z-index super tinggi untuk memastikan paling atas */
+}

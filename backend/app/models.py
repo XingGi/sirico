@@ -46,14 +46,30 @@ class RiskAssessment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nama_asesmen = db.Column(db.String(200), nullable=False)
-    deskripsi = db.Column(db.Text, nullable=True)
-    ruang_lingkup = db.Column(db.Text, nullable=True)
     tanggal_mulai = db.Column(db.Date, nullable=False)
     tanggal_selesai = db.Column(db.Date, nullable=True)
     
+    # Company Information
+    company_industry = db.Column(db.String(100))
+    company_type = db.Column(db.String(100))
+    company_assets = db.Column(db.String(50))
+    currency = db.Column(db.String(10))
+    risk_limit = db.Column(db.Float)
+    
+    # Risk Categories (disimpan sebagai string dipisahkan koma)
+    risk_categories = db.Column(db.Text)
+    
+    # Project Context
+    project_objective = db.Column(db.Text)
+    relevant_regulations = db.Column(db.Text)
+    involved_departments = db.Column(db.Text)
+    completed_actions = db.Column(db.Text)
+    
+    # Additional Context
+    additional_risk_context = db.Column(db.Text)
+    
     # Foreign Key ke User yang melakukan asesmen
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    
     # Relationship ke RiskRegister (satu asesmen punya banyak risiko)
     risk_register_entries = db.relationship('RiskRegister', backref='assessment', lazy=True, cascade="all, delete-orphan")
 
