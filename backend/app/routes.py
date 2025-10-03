@@ -1,13 +1,27 @@
 import os
 from flask import request, jsonify, Blueprint
-from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario
+from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario, MasterData
 from . import db, bcrypt
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 from app.ai_services import summarize_text_with_gemini, analyze_rsca_answers_with_gemini, suggest_risks_for_process_step, analyze_bia_with_gemini
+from functools import wraps
 
 # Membuat Blueprint untuk API
 api_bp = Blueprint('api', __name__)
+
+def admin_required():
+    def wrapper(fn):
+        @wraps(fn)
+        @jwt_required()
+        def decorator(*args, **kwargs):
+            claims = get_jwt()
+            # Cek apakah 'role' di dalam token adalah 'admin'
+            if claims.get("role") != "admin":
+                return jsonify(msg="Hanya admin yang diizinkan!"), 403
+            return fn(*args, **kwargs)
+        return decorator
+    return wrapper
 
 @api_bp.route('/register', methods=['POST'])
 def register():
@@ -44,13 +58,33 @@ def login():
 
     user = User.query.filter_by(email=data['email']).first()
 
-    # Cek user dan password
     if user and bcrypt.check_password_hash(user.password_hash, data['password']):
-        # Jika berhasil, buat token JWT
-        access_token = create_access_token(identity=str(user.id))
+        # === PERUBAHAN: Sisipkan role ke dalam token JWT ===
+        additional_claims = {"role": user.role}
+        access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
         return jsonify(access_token=access_token)
 
     return jsonify({"msg": "Email atau password salah"}), 401
+
+
+# === ENDPOINT BARU: UNTUK MENGAMBIL INFO USER YANG SEDANG LOGIN ===
+@api_bp.route('/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    """Mengambil detail pengguna yang sedang login."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+    
+    claims = get_jwt()
+    
+    return jsonify({
+        "id": user.id,
+        "nama_lengkap": user.nama_lengkap,
+        "email": user.email,
+        "role": claims.get('role', 'user')
+    }), 200
 
 
 @api_bp.route('/logout', methods=['POST'])
@@ -706,3 +740,67 @@ def simulate_bia():
         return jsonify({"msg": "Gagal mendapatkan analisis dari AI."}), 500
 
     return jsonify({"analysis": analysis_result})
+
+@api_bp.route('/master-data', methods=['GET'])
+@jwt_required()
+def get_master_data():
+    """(Publik) Mengambil data master berdasarkan kategori untuk dropdown."""
+    category = request.args.get('category')
+    if not category:
+        return jsonify({"msg": "Parameter 'category' wajib diisi."}), 400
+    
+    data = MasterData.query.filter_by(category=category.upper()).all()
+    result = [{"key": item.key, "value": item.value} for item in data]
+    return jsonify(result)
+
+@api_bp.route('/admin/master-data', methods=['GET'])
+@admin_required() # <-- Menggunakan decorator admin
+def get_all_master_data():
+    """[Admin] Mengambil semua master data, dikelompokkan."""
+    all_data = MasterData.query.order_by(MasterData.category, MasterData.id).all()
+    grouped_data = {}
+    for item in all_data:
+        if item.category not in grouped_data:
+            grouped_data[item.category] = []
+        grouped_data[item.category].append({"id": item.id, "key": item.key, "value": item.value})
+    return jsonify(grouped_data)
+
+@api_bp.route('/admin/master-data', methods=['POST'])
+@admin_required() # <-- Menggunakan decorator admin
+def create_master_data():
+    """[Admin] Membuat entri master data baru."""
+    data = request.get_json()
+    if not data or not data.get('category') or not data.get('key') or not data.get('value'):
+        return jsonify({"msg": "Category, Key, dan Value wajib diisi"}), 400
+    
+    new_item = MasterData(
+        category=data['category'].upper(), 
+        key=data['key'], 
+        value=data['value']
+    )
+    db.session.add(new_item)
+    db.session.commit()
+    return jsonify({"msg": "Data berhasil dibuat", "id": new_item.id}), 201
+    
+@api_bp.route('/admin/master-data/<int:id>', methods=['DELETE'])
+@admin_required() # <-- Menggunakan decorator admin
+def delete_master_data(id):
+    """[Admin] Menghapus entri master data."""
+    item = MasterData.query.get_or_404(id)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({"msg": "Data berhasil dihapus"})
+
+@api_bp.route('/admin/master-data/<int:id>', methods=['PUT'])
+@admin_required()
+def update_master_data(id):
+    """[Admin] Memperbarui entri master data."""
+    item = MasterData.query.get_or_404(id)
+    data = request.get_json()
+
+    # Update key dan value jika ada di data yang dikirim
+    item.key = data.get('key', item.key)
+    item.value = data.get('value', item.value)
+
+    db.session.commit()
+    return jsonify({"msg": "Data berhasil diperbarui"})

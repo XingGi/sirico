@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { Card, Title, Button } from "@tremor/react";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
@@ -21,7 +23,7 @@ function Login() {
     try {
       const response = await axios.post("http://127.0.0.1:5000/api/login", formData);
       const token = response.data.access_token;
-      localStorage.setItem("sirico-token", token);
+      login(token);
       navigate("/dashboard");
     } catch (error) {
       alert("Error: " + (error.response?.data?.msg || "Email atau password salah."));

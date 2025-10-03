@@ -9,3 +9,9 @@
 [class*="text-tremor-default"] {
   border-radius: 0.75rem !important;
 }
+
+[class*="tremor-dialog-panel"] {
+  background-color: white !important;
+  z-index: 9999 !important;
+  border-radius: 0.75rem !important;
+}

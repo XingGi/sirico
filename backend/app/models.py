@@ -262,3 +262,14 @@ class ImpactScenario(db.Model):
     
     def __repr__(self):
         return f'<ImpactScenario {self.nama_skenario}>'
+    
+class MasterData(db.Model):
+    __tablename__ = 'master_data'
+
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(100), nullable=False, index=True)
+    key = db.Column(db.String(100), nullable=False)
+    value = db.Column(db.String(200), nullable=False)
+
+    def __repr__(self):
+        return f'<MasterData {self.category} - {self.key}>'

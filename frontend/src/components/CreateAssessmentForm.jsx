@@ -39,11 +39,45 @@ function CreateAssessmentForm() {
     additional_risk_context: "",
   });
 
+  // State untuk menampung pilihan dropdown dari API
+  const [options, setOptions] = useState({
+    industry: [],
+    companyType: [],
+    companyAssets: [],
+    currency: [],
+  });
+  const [isOptionsLoading, setIsOptionsLoading] = useState(true);
+
   const [displayRiskLimit, setDisplayRiskLimit] = useState("");
   const [outputLanguage, setOutputLanguage] = useState("ID");
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  // useEffect untuk mengambil data master dropdown
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [industryRes, typeRes, assetsRes, currencyRes] = await Promise.all([
+          apiClient.get("/master-data?category=INDUSTRY"),
+          apiClient.get("/master-data?category=COMPANY_TYPE"),
+          apiClient.get("/master-data?category=COMPANY_ASSETS"),
+          apiClient.get("/master-data?category=CURRENCY"),
+        ]);
+        setOptions({
+          industry: industryRes.data,
+          companyType: typeRes.data,
+          companyAssets: assetsRes.data,
+          currency: currencyRes.data,
+        });
+      } catch (error) {
+        console.error("Gagal memuat pilihan dropdown:", error);
+      } finally {
+        setIsOptionsLoading(false);
+      }
+    };
+    fetchOptions();
+  }, []);
 
   useEffect(() => {
     let completed = 0;
@@ -108,7 +142,7 @@ function CreateAssessmentForm() {
           <FiArchive className="w-6 h-6 text-gray-500" />
           <Title>Project Name *</Title>
         </div>
-        <TextInput name="nama_asesmen" value={formData.nama_asesmen} onChange={handleChange} placeholder="e.g., Digital Banking Platform Security Assessment" required className="mt-2 rounded-xl" />
+        <TextInput name="nama_asesmen" value={formData.nama_asesmen} onChange={handleChange} required className="mt-2" />
       </Card>
 
       <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
@@ -120,55 +154,17 @@ function CreateAssessmentForm() {
           <Text className="text-blue-800">Tell us about your organization and business context</Text>
         </div>
         <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* === PERUBAHAN 3: Menambahkan Ikon & Menggunakan SearchSelect === */}
           <div>
             <div className="flex items-center gap-x-2 mb-1">
               <FiHome className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Industry *</label>
             </div>
-            <SearchSelect className="rounded-xl" onValueChange={(v) => handleSelectChange(v, "company_industry")} placeholder="e.g., Banking, Insurance, Technology">
-              <SearchSelectItem value="banking">Perbankan</SearchSelectItem>
-              <SearchSelectItem value="insurance">Asuransi</SearchSelectItem>
-              <SearchSelectItem value="capital_market">Pasar Modal</SearchSelectItem>
-              <SearchSelectItem value="fintech">Teknologi Finansial (Fintech)</SearchSelectItem>
-              <SearchSelectItem value="multifinance">Multifinance</SearchSelectItem>
-              <SearchSelectItem value="savings_loan_coop">Koperasi Simpan Pinjam</SearchSelectItem>
-              <SearchSelectItem value="digital_asset_trading">Pedagang Aset Digital</SearchSelectItem>
-              <SearchSelectItem value="manufacturing">Manufaktur</SearchSelectItem>
-              <SearchSelectItem value="automotive">Otomotif</SearchSelectItem>
-              <SearchSelectItem value="textile">Tekstil</SearchSelectItem>
-              <SearchSelectItem value="chemical">Kimia</SearchSelectItem>
-              <SearchSelectItem value="pharmaceutical">Farmasi</SearchSelectItem>
-              <SearchSelectItem value="electronics">Elektronik</SearchSelectItem>
-              <SearchSelectItem value="metal_machinery">Logam &amp; Mesin</SearchSelectItem>
-              <SearchSelectItem value="it">Teknologi Informasi</SearchSelectItem>
-              <SearchSelectItem value="telecom">Telekomunikasi</SearchSelectItem>
-              <SearchSelectItem value="ecommerce">E-commerce</SearchSelectItem>
-              <SearchSelectItem value="media_creative">Media &amp; Kreatif</SearchSelectItem>
-              <SearchSelectItem value="energy">Energi</SearchSelectItem>
-              <SearchSelectItem value="mining">Pertambangan</SearchSelectItem>
-              <SearchSelectItem value="oil_gas">Migas</SearchSelectItem>
-              <SearchSelectItem value="forestry">Kehutanan</SearchSelectItem>
-              <SearchSelectItem value="plantation">Perkebunan</SearchSelectItem>
-              <SearchSelectItem value="agriculture">Pertanian</SearchSelectItem>
-              <SearchSelectItem value="fisheries">Perikanan</SearchSelectItem>
-              <SearchSelectItem value="construction">Konstruksi</SearchSelectItem>
-              <SearchSelectItem value="property">Properti</SearchSelectItem>
-              <SearchSelectItem value="transportation">Transportasi</SearchSelectItem>
-              <SearchSelectItem value="logistics">Logistik</SearchSelectItem>
-              <SearchSelectItem value="water_sanitation">Air &amp; Sanitasi</SearchSelectItem>
-              <SearchSelectItem value="electricity">Kelistrikan</SearchSelectItem>
-              <SearchSelectItem value="retail">Retail</SearchSelectItem>
-              <SearchSelectItem value="fnb">Food &amp; Beverage</SearchSelectItem>
-              <SearchSelectItem value="hospitality">Perhotelan &amp; Pariwisata</SearchSelectItem>
-              <SearchSelectItem value="consulting">Konsultan</SearchSelectItem>
-              <SearchSelectItem value="cleaning_services">Jasa Kebersihan</SearchSelectItem>
-              <SearchSelectItem value="healthcare">Kesehatan</SearchSelectItem>
-              <SearchSelectItem value="education">Pendidikan</SearchSelectItem>
-              <SearchSelectItem value="government">Pemerintahan</SearchSelectItem>
-              <SearchSelectItem value="nonprofit">Nirlaba</SearchSelectItem>
-              <SearchSelectItem value="intl_organization">Organisasi Internasional</SearchSelectItem>
-              <SearchSelectItem value="other">Lainnya</SearchSelectItem>
+            <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_industry")} placeholder="e.g., Banking, Insurance, Technology" disabled={isOptionsLoading}>
+              {options.industry.map((item) => (
+                <SearchSelectItem key={item.key} value={item.key}>
+                  {item.value}
+                </SearchSelectItem>
+              ))}
             </SearchSelect>
           </div>
           <div>
@@ -176,26 +172,12 @@ function CreateAssessmentForm() {
               <FiShield className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Company Type *</label>
             </div>
-            <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_type")} placeholder="e.g., Public Company, Private Company, Startup">
-              <SearchSelectItem value="Public">Public Company</SearchSelectItem>
-              <SearchSelectItem value="Private">Private Company</SearchSelectItem>
-              <SearchSelectItem value="Startup">Startup</SearchSelectItem>
-              <SearchSelectItem value="foreign_corp">Perusahaan Asing</SearchSelectItem>
-              <SearchSelectItem value="bumn">BUMN</SearchSelectItem>
-              <SearchSelectItem value="bumd">BUMD</SearchSelectItem>
-              <SearchSelectItem value="umkm">UMKM (Usaha Mikro, Kecil, dan Menengah)</SearchSelectItem>
-              <SearchSelectItem value="koperasi">Koperasi</SearchSelectItem>
-              <SearchSelectItem value="cv">Commanditaire Vennootschap (CV)</SearchSelectItem>
-              <SearchSelectItem value="firma">Firma (Fa)</SearchSelectItem>
-              <SearchSelectItem value="persekutuan_perdata">Persekutuan Perdata</SearchSelectItem>
-              <SearchSelectItem value="sole_proprietorship">Perusahaan Perorangan (UD)</SearchSelectItem>
-              <SearchSelectItem value="yayasan">Yayasan / Lembaga Nirlaba</SearchSelectItem>
-              <SearchSelectItem value="ormas_orpol">Ormas / Partai Politik</SearchSelectItem>
-              <SearchSelectItem value="lembaga_pendidikan">Lembaga Pendidikan / Pesantren</SearchSelectItem>
-              <SearchSelectItem value="perusahaan_publik">Perusahaan Terbuka (Tbk)</SearchSelectItem>
-              <SearchSelectItem value="joint_venture">Perusahaan Joint Venture</SearchSelectItem>
-              <SearchSelectItem value="representative_office">Kantor Perwakilan Perusahaan Asing</SearchSelectItem>
-              <SearchSelectItem value="other">Lainnya</SearchSelectItem>
+            <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_type")} placeholder="e.g., Public Company, Private Company, Startup" disabled={isOptionsLoading}>
+              {options.companyType.map((item) => (
+                <SearchSelectItem key={item.key} value={item.key}>
+                  {item.value}
+                </SearchSelectItem>
+              ))}
             </SearchSelect>
           </div>
           <div>
@@ -203,19 +185,12 @@ function CreateAssessmentForm() {
               <FiDollarSign className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Company Assets *</label>
             </div>
-            <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_assets")} placeholder="e.g., $1M - $10M, $10M - $50M">
-              <SearchSelectItem value="under_1b">&lt; Rp 1 Miliar</SearchSelectItem>
-              <SearchSelectItem value="1b_5b">Rp 1 - 5 Miliar</SearchSelectItem>
-              <SearchSelectItem value="5b_10b">Rp 5 - 10 Miliar</SearchSelectItem>
-              <SearchSelectItem value="10b_25b">Rp 10 - 25 Miliar</SearchSelectItem>
-              <SearchSelectItem value="25b_50b">Rp 25 - 50 Miliar</SearchSelectItem>
-              <SearchSelectItem value="50b_100b">Rp 50 - 100 Miliar</SearchSelectItem>
-              <SearchSelectItem value="100b_250b">Rp 100 - 250 Miliar</SearchSelectItem>
-              <SearchSelectItem value="250b_500b">Rp 250 - 500 Miliar</SearchSelectItem>
-              <SearchSelectItem value="500b_1t">Rp 500 Miliar - 1 Triliun</SearchSelectItem>
-              <SearchSelectItem value="1t_2.5t">Rp 1 - 2.5 Triliun</SearchSelectItem>
-              <SearchSelectItem value="2.5t_5t">Rp 2.5 - 5 Triliun</SearchSelectItem>
-              <SearchSelectItem value="over_5t">&gt; Rp 5 Triliun</SearchSelectItem>
+            <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_assets")} placeholder="e.g., $1M - $10M, $10M - $50M" disabled={isOptionsLoading}>
+              {options.companyAssets.map((item) => (
+                <SearchSelectItem key={item.key} value={item.key}>
+                  {item.value}
+                </SearchSelectItem>
+              ))}
             </SearchSelect>
           </div>
           <div className="flex gap-2">
@@ -223,24 +198,24 @@ function CreateAssessmentForm() {
               <div className="mb-1">
                 <label className="text-sm font-medium text-gray-700">Currency</label>
               </div>
-              <SearchSelect defaultValue="IDR" onValueChange={(v) => handleSelectChange(v, "currency")}>
-                <SearchSelectItem value="idr">IDR</SearchSelectItem>
-                <SearchSelectItem value="usd">USD</SearchSelectItem>
-                <SearchSelectItem value="eur">EUR</SearchSelectItem>
-                <SearchSelectItem value="sgd">SGD</SearchSelectItem>
-              </SearchSelect>
+              <Select defaultValue="IDR" onValueChange={(v) => handleSelectChange(v, "currency")} disabled={isOptionsLoading}>
+                {options.currency.map((item) => (
+                  <SelectItem key={item.key} value={item.key}>
+                    {item.value}
+                  </SelectItem>
+                ))}
+              </Select>
             </div>
             <div className="w-2/3">
               <div className="mb-1">
                 <label className="text-sm font-medium text-gray-700">Risk Limit</label>
               </div>
-              <TextInput className="rounded-xl" name="risk_limit" value={displayRiskLimit} onChange={handleRiskLimitChange} placeholder="e.g. 5,000,000" />
+              <TextInput name="risk_limit" value={displayRiskLimit} onChange={handleRiskLimitChange} placeholder="e.g. 5,000,000" />
             </div>
           </div>
         </div>
       </Card>
 
-      {/* === PERUBAHAN UTAMA DI SINI === */}
       <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
         <div className="bg-orange-50 p-5">
           <div className="flex items-center gap-2">
@@ -278,7 +253,6 @@ function CreateAssessmentForm() {
           </div>
         </div>
       </Card>
-
       <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
         <div className="bg-green-50 p-5">
           <div className="flex items-center gap-2">
@@ -288,58 +262,36 @@ function CreateAssessmentForm() {
           <Text className="text-green-800">Provide detailed context for comprehensive risk analysis.</Text>
         </div>
         <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-          {/* === PERUBAHAN 4: Menambahkan Ikon & Placeholder di Project Context === */}
           <div>
             <div className="flex items-center gap-x-2 mb-1">
               <FiTarget className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Project Objective *</label>
             </div>
-            <Textarea
-              className="rounded-xl"
-              name="project_objective"
-              value={formData.project_objective}
-              onChange={handleChange}
-              required
-              placeholder="e.g., Implement new digital banking platform to enhance customer experience and operational efficiency..."
-            />
+            <Textarea name="project_objective" value={formData.project_objective} onChange={handleChange} required placeholder="e.g., Implement new digital banking platform to enhance customer experience and operational efficiency..." />
           </div>
           <div>
             <div className="flex items-center gap-x-2 mb-1">
               <FiBookOpen className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Relevant Regulations</label>
             </div>
-            <Textarea className="rounded-xl" name="relevant_regulations" value={formData.relevant_regulations} onChange={handleChange} placeholder="Type regulations separated by commas. (e.g., GDPR, ISO 27001, POJK)..." />
+            <Textarea name="relevant_regulations" value={formData.relevant_regulations} onChange={handleChange} placeholder="Type regulations separated by commas. (e.g., GDPR, ISO 27001, POJK)..." />
           </div>
           <div>
             <div className="flex items-center gap-x-2 mb-1">
               <FiUsers className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Involved Departments *</label>
             </div>
-            <Textarea
-              className="rounded-xl"
-              name="involved_departments"
-              value={formData.involved_departments}
-              onChange={handleChange}
-              required
-              placeholder="e.g., IT Department, Risk Management, Legal & Compliance, Operations, Customer Service..."
-            />
+            <Textarea name="involved_departments" value={formData.involved_departments} onChange={handleChange} required placeholder="e.g., IT Department, Risk Management, Legal & Compliance, Operations, Customer Service..." />
           </div>
           <div>
             <div className="flex items-center gap-x-2 mb-1">
               <FiClipboard className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Completed Actions</label>
             </div>
-            <Textarea
-              className="rounded-xl"
-              name="completed_actions"
-              value={formData.completed_actions}
-              onChange={handleChange}
-              placeholder="e.g., Initial security assessment completed, vendor due diligence performed, pilot testing with 100 users..."
-            />
+            <Textarea name="completed_actions" value={formData.completed_actions} onChange={handleChange} placeholder="e.g., Initial security assessment completed, vendor due diligence performed, pilot testing with 100 users..." />
           </div>
         </div>
       </Card>
-
       <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
         <div className="bg-purple-50 p-5">
           <div className="flex items-center gap-2">
@@ -354,13 +306,12 @@ function CreateAssessmentForm() {
             value={formData.additional_risk_context}
             onChange={handleChange}
             required
-            className="mt-1 rounded-lg"
+            className="mt-1"
             rows={4}
             placeholder="e.g., We are particularly concerned about data privacy during the migration process, tight time constraints, third-party integrations..."
           />
         </div>
       </Card>
-
       <Card className="rounded-xl shadow-lg">
         <div className="flex items-center justify-between">
           <div className="w-1/4">
