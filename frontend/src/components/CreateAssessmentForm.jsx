@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import apiClient from "../api";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import AsyncSelect from "react-select/async";
+import { components } from "react-select";
 import { Card, Title, Text, Button, TextInput, Textarea, Select, SearchSelect, SelectItem, SearchSelectItem, ProgressBar } from "@tremor/react";
 import { FiCpu, FiArchive, FiBriefcase, FiFlag, FiCheckSquare, FiPlusSquare, FiHome, FiShield, FiDollarSign, FiTarget, FiBookOpen, FiUsers, FiClipboard } from "react-icons/fi";
 
@@ -22,6 +24,17 @@ const RISK_CATEGORIES = [
 ];
 
 const requiredFields = ["nama_asesmen", "project_objective", "involved_departments", "additional_risk_context", "risk_categories"];
+
+const RegulationOption = (props) => {
+  return (
+    <components.Option {...props}>
+      <div className="flex flex-col">
+        <span className="font-semibold">{props.data.label}</span>
+        <span className="text-sm text-gray-500 mt-1">{props.data.description}</span>
+      </div>
+    </components.Option>
+  );
+};
 
 function CreateAssessmentForm() {
   const [formData, setFormData] = useState({
@@ -115,6 +128,24 @@ function CreateAssessmentForm() {
     const currentCategories = formData.risk_categories;
     const newCategories = currentCategories.includes(categoryName) ? currentCategories.filter((c) => c !== categoryName) : [...currentCategories, categoryName];
     setFormData({ ...formData, risk_categories: newCategories });
+  };
+
+  const loadRegulationOptions = (inputValue, callback) => {
+    // Jangan cari jika input kurang dari 2 karakter
+    if (inputValue.length < 2) {
+      callback([]);
+      return;
+    }
+    // Panggil API pencarian
+    apiClient.get(`/regulations/search?q=${inputValue}`).then((response) => {
+      callback(response.data);
+    });
+  };
+
+  const handleRegulationChange = (selectedOptions) => {
+    // Ubah format dari array of objects menjadi string dipisahkan koma
+    const regulationNames = selectedOptions.map((option) => option.label).join(", ");
+    setFormData({ ...formData, relevant_regulations: regulationNames });
   };
 
   const handleSubmit = async (e) => {
@@ -274,7 +305,31 @@ function CreateAssessmentForm() {
               <FiBookOpen className="h-5 w-5 text-gray-400" />
               <label className="text-sm font-medium text-gray-700">Relevant Regulations</label>
             </div>
-            <Textarea name="relevant_regulations" value={formData.relevant_regulations} onChange={handleChange} placeholder="Type regulations separated by commas. (e.g., GDPR, ISO 27001, POJK)..." />
+            <AsyncSelect
+              isMulti // Izinkan memilih lebih dari satu
+              cacheOptions
+              defaultOptions
+              loadOptions={loadRegulationOptions}
+              onChange={handleRegulationChange}
+              placeholder="Ketik untuk mencari regulasi..."
+              // Style kustom agar cocok dengan Tremor
+              styles={{
+                control: (baseStyles, state) => ({
+                  ...baseStyles,
+                  borderRadius: "0.75rem",
+                  borderColor: state.isFocused ? "#3b82f6" : "#d1d5db",
+                  boxShadow: state.isFocused ? "0 0 0 1px #3b82f6" : "none",
+                  "&:hover": {
+                    borderColor: "#9ca3af",
+                  },
+                  // Menyamakan tinggi dengan Textarea
+                  minHeight: "65px",
+                  alignItems: "flex-start", // Membuat tag/placeholder mulai dari atas
+                }),
+                option: (base, state) => ({ ...base, backgroundColor: state.isFocused ? "#eff6ff" : "white", color: "black" }),
+              }}
+              components={{ Option: RegulationOption }}
+            />
           </div>
           <div>
             <div className="flex items-center gap-x-2 mb-1">

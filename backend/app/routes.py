@@ -1,11 +1,12 @@
 import os
-from flask import request, jsonify, Blueprint
-from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario, MasterData
+from flask import request, jsonify, Blueprint, current_app
+from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario, MasterData, Regulation
 from . import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 from app.ai_services import summarize_text_with_gemini, analyze_rsca_answers_with_gemini, suggest_risks_for_process_step, analyze_bia_with_gemini
 from functools import wraps
+from werkzeug.utils import secure_filename
 
 # Membuat Blueprint untuk API
 api_bp = Blueprint('api', __name__)
@@ -804,3 +805,98 @@ def update_master_data(id):
 
     db.session.commit()
     return jsonify({"msg": "Data berhasil diperbarui"})
+
+# Regulation
+@api_bp.route('/admin/regulations', methods=['GET'])
+@admin_required()
+def get_regulations():
+    """[Admin] Mengambil semua data regulasi."""
+    regulations = Regulation.query.order_by(Regulation.name).all()
+    return jsonify([{
+        "id": reg.id,
+        "name": reg.name,
+        "description": reg.description,
+        "filename": reg.filename,
+        "created_at": reg.created_at.isoformat()
+    } for reg in regulations])
+
+@api_bp.route('/admin/regulations', methods=['POST'])
+@admin_required()
+def create_regulation():
+    """[Admin] Menambah regulasi baru dan meng-upload file."""
+    # Ambil data form
+    name = request.form.get('name')
+    description = request.form.get('description')
+    
+    if not name or 'file' not in request.files:
+        return jsonify({"msg": "Nama regulasi dan file wajib diisi."}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"msg": "Tidak ada file yang dipilih."}), 400
+
+    # Simpan file dengan aman
+    filename = secure_filename(file.filename)
+    # Pastikan direktori uploads ada
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+    file.save(os.path.join(upload_folder, filename))
+
+    # Simpan informasi ke database
+    new_regulation = Regulation(
+        name=name,
+        description=description,
+        filename=filename
+    )
+    db.session.add(new_regulation)
+    db.session.commit()
+
+    return jsonify({"msg": "Regulasi berhasil ditambahkan."}), 201
+
+@api_bp.route('/admin/regulations/<int:id>', methods=['DELETE'])
+@admin_required()
+def delete_regulation(id):
+    """[Admin] Menghapus regulasi dan file terkait."""
+    regulation = Regulation.query.get_or_404(id)
+    
+    # Hapus file dari folder uploads jika ada
+    if regulation.filename:
+        try:
+            os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], regulation.filename))
+        except OSError as e:
+            print(f"Error saat menghapus file: {e.strerror}")
+            
+    # Hapus data dari database
+    db.session.delete(regulation)
+    db.session.commit()
+    
+    return jsonify({"msg": "Regulasi berhasil dihapus."})
+
+
+# === ENDPOINT UNTUK PENCARIAN REGULASI (AUTO-SUGGEST) ===
+
+@api_bp.route('/regulations/search', methods=['GET'])
+@jwt_required()
+def search_regulations():
+    """Mencari regulasi berdasarkan query untuk form assessment."""
+    query = request.args.get('q', '')
+    if len(query) < 2: # Hanya cari jika user sudah mengetik minimal 2 huruf
+        return jsonify([])
+
+    # Cari regulasi yang namanya mengandung query (case-insensitive)
+    search_term = f"%{query}%"
+    regulations = Regulation.query.filter(Regulation.name.ilike(search_term)).limit(10).all()
+
+    return jsonify([{
+        "value": reg.id,  # ID akan menjadi nilai yang disimpan
+        "label": reg.name, # Nama akan menjadi teks yang ditampilkan
+        "description": reg.description
+    } for reg in regulations])
+
+from flask import send_from_directory
+
+@api_bp.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Menyajikan file yang sudah di-upload."""
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)

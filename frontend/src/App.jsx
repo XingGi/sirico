@@ -13,6 +13,7 @@ import AssessmentListPage from "./pages/AssessmentListPage";
 import AssessmentDetailPage from "./pages/AssessmentDetailPage";
 import LandingPage from "./pages/LandingPage";
 import MasterDataPage from "./pages/admin/MasterDataPage";
+import RegulationPage from "./pages/admin/RegulationPage";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -37,6 +38,7 @@ function App() {
             <Route path="/assessments" element={<AssessmentListPage />} />
             <Route path="/assessments/:assessmentId" element={<AssessmentDetailPage />} />
             <Route path="/admin/master-data" element={<MasterDataPage />} />
+            <Route path="/admin/regulations" element={<RegulationPage />} />
           </Route>
         </Route>
       </Routes>

@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 // ↓↓↓ Tambahkan icon baru untuk tombol minimize/maximize ↓↓↓
-import { FiGrid, FiBarChart2, FiCheckSquare, FiBriefcase, FiAlertTriangle, FiLogOut, FiChevronsLeft, FiDatabase } from "react-icons/fi";
+import { FiGrid, FiBarChart2, FiCheckSquare, FiBriefcase, FiAlertTriangle, FiLogOut, FiChevronsLeft, FiDatabase, FiBookOpen } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
 
 // 1. Terima props "isOpen" dan "toggle" dari Layout
@@ -16,6 +16,10 @@ function Sidebar({ isOpen, toggle }) {
   //   localStorage.removeItem("sirico-token");
   //   navigate("/login");
   // };
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     // 3. Buat class <aside> menjadi dinamis untuk mengubah lebar
@@ -55,15 +59,24 @@ function Sidebar({ isOpen, toggle }) {
         </NavLink>
         {/* === 3. Tampilkan Menu Master Data jika rolenya "admin" === */}
         {user && user.role === "admin" && (
-          <NavLink to="/admin/master-data" className={navLinkClasses}>
-            <FiDatabase className="h-6 w-6 flex-shrink-0" />
-            <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Master Data</span>
-          </NavLink>
+          <>
+            {" "}
+            {/* Gunakan Fragment untuk mengelompokkan menu admin */}
+            <NavLink to="/admin/master-data" className={navLinkClasses}>
+              <FiDatabase className="h-6 w-6 flex-shrink-0" />
+              <span className={`ml-3 ...`}>Master Data</span>
+            </NavLink>
+            {/* 2. TAMBAHKAN MENU BARU DI SINI */}
+            <NavLink to="/admin/regulations" className={navLinkClasses}>
+              <FiBookOpen className="h-6 w-6 flex-shrink-0" />
+              <span className={`ml-3 ...`}>Master Regulasi</span>
+            </NavLink>
+          </>
         )}
       </nav>
 
       <div>
-        <button onClick={logout} className="flex items-center p-3 w-full text-gray-300 hover:bg-slate-700 rounded-lg">
+        <button onClick={handleLogout} className="flex items-center p-3 w-full text-gray-300 hover:bg-slate-700 rounded-lg">
           <FiLogOut className="h-6 w-6 flex-shrink-0" />
           <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Logout</span>
         </button>

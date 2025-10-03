@@ -273,3 +273,16 @@ class MasterData(db.Model):
 
     def __repr__(self):
         return f'<MasterData {self.category} - {self.key}>'
+    
+class Regulation(db.Model):
+    """Model untuk menyimpan data master regulasi."""
+    __tablename__ = 'regulations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(300), nullable=False, index=True)
+    description = db.Column(db.Text, nullable=True)
+    filename = db.Column(db.String(300), nullable=True) # Nama file yang di-upload
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Regulation {self.name}>'
