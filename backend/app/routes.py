@@ -4,7 +4,7 @@ from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, D
 from . import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
-from app.ai_services import summarize_text_with_gemini, analyze_rsca_answers_with_gemini, suggest_risks_for_process_step, analyze_bia_with_gemini
+from app.ai_services import summarize_text_with_gemini, analyze_rsca_answers_with_gemini, suggest_risks_for_process_step, analyze_bia_with_gemini, analyze_assessment_with_gemini
 from functools import wraps
 from werkzeug.utils import secure_filename
 
@@ -273,6 +273,10 @@ def get_assessment_details(assessment_id):
     current_user_id = get_jwt_identity()
     assessment = RiskAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
     
+    creator_user = User.query.get(assessment.user_id)
+    created_by_user_name = creator_user.nama_lengkap if creator_user else "N/A"
+    created_by_user_email = creator_user.email if creator_user else ""
+    
     risk_entries = [{
         "id": r.id,
         "kode_risiko": r.kode_risiko,
@@ -283,9 +287,24 @@ def get_assessment_details(assessment_id):
     return jsonify({
         "id": assessment.id,
         "nama_asesmen": assessment.nama_asesmen,
-        "deskripsi": assessment.deskripsi,
-        "ruang_lingkup": assessment.ruang_lingkup,
         "tanggal_mulai": assessment.tanggal_mulai.isoformat(),
+        "created_by_user_name": created_by_user_name,
+        "created_by_user_email": created_by_user_email,
+        
+        # Data detail dari form
+        "company_industry": assessment.company_industry,
+        "company_type": assessment.company_type,
+        "company_assets": assessment.company_assets,
+        "currency": assessment.currency,
+        "risk_limit": assessment.risk_limit,
+        "risk_categories": assessment.risk_categories,
+        "project_objective": assessment.project_objective,
+        "relevant_regulations": assessment.relevant_regulations,
+        "involved_departments": assessment.involved_departments,
+        "completed_actions": assessment.completed_actions,
+        "additional_risk_context": assessment.additional_risk_context,
+
+        # Data risiko yang diidentifikasi AI
         "risks": risk_entries
     })
     
@@ -742,6 +761,7 @@ def simulate_bia():
 
     return jsonify({"analysis": analysis_result})
 
+# === ENDPOINTS UNTUK MASTER DATA ===
 @api_bp.route('/master-data', methods=['GET'])
 @jwt_required()
 def get_master_data():
@@ -806,7 +826,7 @@ def update_master_data(id):
     db.session.commit()
     return jsonify({"msg": "Data berhasil diperbarui"})
 
-# Regulation
+# === ENDPOINTS UNTUK MASTER REGULASI ===
 @api_bp.route('/admin/regulations', methods=['GET'])
 @admin_required()
 def get_regulations():
@@ -900,3 +920,56 @@ from flask import send_from_directory
 def uploaded_file(filename):
     """Menyajikan file yang sudah di-upload."""
     return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+
+# === ENDPOINT BARU UNTUK ANALISIS AI ===
+@api_bp.route('/assessments/analyze', methods=['POST'])
+@jwt_required()
+def analyze_assessment():
+    current_user_id = get_jwt_identity()
+    form_data = request.get_json()
+    if not form_data or not form_data.get('nama_asesmen'):
+        return jsonify({"msg": "Nama asesmen wajib diisi"}), 400
+    if not form_data.get('risk_categories'):
+        return jsonify({"msg": "Pilih minimal satu Kategori Risiko."}), 400
+
+    new_assessment = RiskAssessment(
+        nama_asesmen=form_data.get('nama_asesmen'),
+        tanggal_mulai=datetime.utcnow().date(),
+        company_industry=form_data.get('company_industry'),
+        company_type=form_data.get('company_type'),
+        company_assets=form_data.get('company_assets'),
+        currency=form_data.get('currency'),
+        risk_limit=float(form_data.get('risk_limit', 0)),
+        risk_categories=",".join(form_data.get('risk_categories', [])),
+        project_objective=form_data.get('project_objective'),
+        relevant_regulations=form_data.get('relevant_regulations'),
+        involved_departments=form_data.get('involved_departments'),
+        completed_actions=form_data.get('completed_actions'),
+        additional_risk_context=form_data.get('additional_risk_context'),
+        user_id=current_user_id
+    )
+    db.session.add(new_assessment)
+    db.session.flush()
+    assessment_id = new_assessment.id
+    
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        db.session.rollback()
+        return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
+        
+    identified_risks = analyze_assessment_with_gemini(form_data, gemini_api_key)
+
+    if identified_risks:
+        for risk in identified_risks:
+            new_risk_entry = RiskRegister(
+                kode_risiko=risk['kode_risiko'],
+                deskripsi_risiko=risk['deskripsi_risiko'],
+                assessment_id=assessment_id
+            )
+            db.session.add(new_risk_entry)
+    else:
+        db.session.commit()
+        return jsonify({"msg": "Asesmen berhasil dibuat, namun analisis AI gagal.", "assessment_id": assessment_id}), 500
+
+    db.session.commit()
+    return jsonify({"msg": "Analisis risiko AI berhasil dan disimpan.", "assessment_id": assessment_id}), 201

@@ -1,4 +1,5 @@
 import google.generativeai as genai
+import re
 
 def summarize_text_with_gemini(text_to_summarize: str, api_key: str) -> str | None:
     """
@@ -16,7 +17,7 @@ def summarize_text_with_gemini(text_to_summarize: str, api_key: str) -> str | No
         genai.configure(api_key=api_key)
 
         # Inisialisasi model
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-2.5-pro')
 
         # Membuat prompt yang spesifik untuk AI
         prompt = f"""
@@ -47,7 +48,7 @@ def analyze_rsca_answers_with_gemini(all_answers_text: str, api_key: str) -> str
     """
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-2.5-pro')
 
         prompt = f"""
         Anda adalah seorang konsultan manajemen risiko senior dengan pengalaman puluhan tahun.
@@ -77,7 +78,7 @@ def suggest_risks_for_process_step(step_description: str, api_key: str) -> str |
     """
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-2.5-pro')
 
         prompt = f"""
         Anda adalah seorang konsultan manajemen risiko dan auditor internal yang sangat berpengalaman.
@@ -112,7 +113,7 @@ def analyze_bia_with_gemini(failed_asset_name: str, downtime: int, impacted_asse
     """
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-2.5-pro')
 
         # Format data yang dikumpulkan menjadi teks yang mudah dibaca AI
         impacted_assets_str = ", ".join(impacted_assets) if impacted_assets else "Tidak ada aset lain yang terdampak langsung."
@@ -143,4 +144,91 @@ def analyze_bia_with_gemini(failed_asset_name: str, downtime: int, impacted_asse
         
     except Exception as e:
         print(f"Error saat menganalisis BIA dengan Gemini API: {e}")
+        return None
+    
+def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None:
+    """
+    Menganalisis data lengkap dari form asesmen untuk mengidentifikasi risiko.
+    """
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-pro')
+
+        # === Merangkai semua data form menjadi sebuah konteks yang kaya untuk AI ===
+        konteks = f"""
+        **Nama Proyek:**
+        {form_data.get('nama_asesmen', 'Tidak ada')}
+
+        **Informasi Perusahaan:**
+        - Industri: {form_data.get('company_industry', 'Tidak ada')}
+        - Tipe Perusahaan: {form_data.get('company_type', 'Tidak ada')}
+        - Aset Perusahaan: {form_data.get('company_assets', 'Tidak ada')}
+        - Mata Uang: {form_data.get('currency', 'Tidak ada')}
+        - Batas Risiko (Risk Limit): {form_data.get('risk_limit', 'Tidak ada')}
+
+        **Kategori Risiko yang Menjadi Fokus:**
+        {form_data.get('risk_categories', 'Tidak ada')}
+
+        **Konteks Proyek:**
+        - Tujuan Proyek: {form_data.get('project_objective', 'Tidak ada')}
+        - Regulasi Terkait: {form_data.get('relevant_regulations', 'Tidak ada')}
+        - Departemen yang Terlibat: {form_data.get('involved_departments', 'Tidak ada')}
+        - Tindakan yang Sudah Selesai: {form_data.get('completed_actions', 'Tidak ada')}
+
+        **Konteks Risiko Tambahan:**
+        {form_data.get('additional_risk_context', 'Tidak ada')}
+        """
+
+        prompt = f"""
+        Anda adalah seorang Chief Risk Officer (CRO) yang sangat berpengalaman di sebuah perusahaan multinasional.
+        Berdasarkan informasi proyek yang komprehensif di bawah ini, tugas Anda adalah:
+
+        1.  Identifikasi 5 (lima) potensi risiko paling signifikan yang mungkin terjadi.
+        2.  Untuk setiap risiko, berikan deskripsi singkat (1-2 kalimat) yang menjelaskan mengapa risiko tersebut relevan dengan konteks proyek.
+        3.  Sajikan hasilnya HANYA dalam format berikut, pisahkan setiap entri dengan "---":
+            NAMA_RISIKO_1: Deskripsi singkat risiko 1.
+            ---
+            NAMA_RISIKO_2: Deskripsi singkat risiko 2.
+            ---
+            NAMA_RISIKO_3: Deskripsi singkat risiko 3.
+            ---
+            ...dan seterusnya.
+
+        JANGAN gunakan bullet points, penomoran, atau format lain. Pastikan nama risiko dan deskripsi dipisahkan oleh tanda titik dua (:).
+
+        Berikut adalah konteks proyeknya:
+        ---
+        {konteks}
+        ---
+        """
+
+        response = model.generate_content(prompt)
+        
+        print("--- RAW AI RESPONSE ---")
+        print(response.text)
+        print("-----------------------")
+        
+        # === Memproses hasil teks dari AI menjadi daftar yang terstruktur ===
+        risks = []
+        # Pola regex untuk memisahkan nama dan deskripsi
+        pattern = re.compile(r"(.+?):(.+)")
+        
+        # Pisahkan setiap entri risiko berdasarkan "---"
+        entries = response.text.strip().split('---')
+        
+        for entry in entries:
+            if entry.strip():
+                match = pattern.match(entry.strip())
+                if match:
+                    nama_risiko = match.group(1).strip()
+                    deskripsi_risiko = match.group(2).strip()
+                    risks.append({
+                        "kode_risiko": "AI-" + nama_risiko.replace(" ", "_")[:15].upper(),
+                        "deskripsi_risiko": f"{nama_risiko}: {deskripsi_risiko}"
+                    })
+        
+        return risks
+
+    except Exception as e:
+        print(f"Error saat menganalisis asesmen dengan Gemini API: {e}")
         return None
