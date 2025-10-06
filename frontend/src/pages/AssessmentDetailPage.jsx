@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Grid, Col, Badge, Button } from "@tremor/react";
 import { FiDownload, FiFileText } from "react-icons/fi";
 import apiClient from "../api";
+import RiskCriteriaReference from "../components/RiskCriteriaReference";
 // import { useAuth } from "../context/AuthContext";
 
 function AssessmentDetailPage() {
@@ -164,9 +165,13 @@ function AssessmentDetailPage() {
         </div>
       </Card>
 
+      <div className="mt-6">
+        <RiskCriteriaReference riskLimit={assessment.risk_limit} />
+      </div>
+
       {/* Placeholder untuk bagian selanjutnya */}
       <div className="mt-6 p-6 border-2 border-dashed rounded-xl text-center">
-        <Text className="text-gray-500">Bagian 2: Risk Assessment Criteria Reference akan dibangun di sini.</Text>
+        <Text className="text-gray-500">Bagian 3: Risk Assessment Results (Table) akan dibangun di sini.</Text>
       </div>
     </div>
   );
