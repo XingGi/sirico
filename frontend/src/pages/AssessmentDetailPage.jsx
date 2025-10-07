@@ -5,6 +5,7 @@ import { FiDownload, FiFileText, FiMaximize, FiMinimize } from "react-icons/fi";
 import apiClient from "../api";
 import RiskCriteriaReference from "../components/RiskCriteriaReference";
 import RiskResultsTable from "../components/RiskResultsTable";
+import EditRiskItemSidebar from "../components/EditRiskItemSidebar";
 // import { useAuth } from "../context/AuthContext";
 
 function AssessmentDetailPage() {
@@ -17,6 +18,8 @@ function AssessmentDetailPage() {
   const [selectedRisks, setSelectedRisks] = useState([]); // Menyimpan ID risiko yang dipilih
   const [isFullscreen, setIsFullscreen] = useState(false);
   const tableCardRef = useRef(null); // Referensi ke Card tabel
+  const [isEditSidebarOpen, setIsEditSidebarOpen] = useState(false);
+  const [editingRisk, setEditingRisk] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,6 +45,26 @@ function AssessmentDetailPage() {
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [assessmentId]);
+
+  const handleEditClick = (risk) => {
+    setEditingRisk(risk); // Set data risiko yang akan di-pass ke sidebar
+    setIsEditSidebarOpen(true); // Buka sidebar
+  };
+
+  // ↓↓↓ 4. Buat fungsi untuk menutup sidebar ↓↓↓
+  const handleCloseSidebar = () => {
+    setIsEditSidebarOpen(false);
+    setEditingRisk(null); // Kosongkan data
+  };
+
+  // ↓↓↓ 5. Buat fungsi untuk mengupdate state setelah menyimpan ↓↓↓
+  const handleSaveRisk = (updatedRisk) => {
+    // Cari dan ganti data risiko yang lama dengan yang baru di state `assessment`
+    setAssessment((prev) => ({
+      ...prev,
+      risks: prev.risks.map((r) => (r.id === updatedRisk.id ? updatedRisk : r)),
+    }));
+  };
 
   if (isLoading) return <div className="p-10">Memuat Laporan Asesmen Risiko...</div>;
   if (!assessment) return <div className="p-10">Gagal memuat data asesmen.</div>;
@@ -82,165 +105,168 @@ function AssessmentDetailPage() {
   const isAllSelected = assessment?.risks.length > 0 && selectedRisks.length === assessment.risks.length;
 
   return (
-    <div className="p-6 sm:p-10 bg-slate-50 min-h-full">
-      <Title>Risk Assessment Results</Title>
-      <Text>AI-powered comprehensive risk analysis and recommendations</Text>
+    <>
+      <div className="p-6 sm:p-10 bg-slate-50 min-h-full">
+        <Title>Risk Assessment Results</Title>
+        <Text>AI-powered comprehensive risk analysis and recommendations</Text>
 
-      <Card className="mt-6 rounded-xl shadow-lg">
-        <div className="flex justify-between items-start">
-          <div>
-            <Title>Risk Assessment Summary</Title>
-            <Text>Assessment overview and key information</Text>
+        <Card className="mt-6 rounded-xl shadow-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <Title>Risk Assessment Summary</Title>
+              <Text>Assessment overview and key information</Text>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" icon={FiDownload} disabled>
+                Download Excel
+              </Button>
+              <Button variant="secondary" icon={FiFileText} disabled>
+                Download PDF
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" icon={FiDownload} disabled>
-              Download Excel
-            </Button>
-            <Button variant="secondary" icon={FiFileText} disabled>
-              Download PDF
-            </Button>
-          </div>
-        </div>
 
-        <Grid numItemsLg={2} className="gap-x-12 gap-y-6 mt-6 border-t pt-6">
-          {/* --- Kolom Kiri --- */}
-          <Col>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Assessment Info</h3>
-                <div className="mt-2 grid grid-cols-3 gap-4">
-                  <div>
-                    <Text>ID</Text>
-                    <Text className="font-medium text-gray-800">RA-{assessment.id.toString().padStart(5, "0")}</Text>
-                  </div>
-                  <div>
-                    <Text>Date</Text>
-                    <Text className="font-medium text-gray-800">{assessment.tanggal_mulai}</Text>
-                  </div>
-                  <div>
-                    <Text>Created by</Text>
-                    <Text className="font-medium text-gray-800">{assessment.created_by_user_name || "N/A"}</Text>
-                    <Text className="text-xs text-gray-500">{assessment.created_by_user_email || ""}</Text>
+          <Grid numItemsLg={2} className="gap-x-12 gap-y-6 mt-6 border-t pt-6">
+            {/* --- Kolom Kiri --- */}
+            <Col>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Assessment Info</h3>
+                  <div className="mt-2 grid grid-cols-3 gap-4">
+                    <div>
+                      <Text>ID</Text>
+                      <Text className="font-medium text-gray-800">RA-{assessment.id.toString().padStart(5, "0")}</Text>
+                    </div>
+                    <div>
+                      <Text>Date</Text>
+                      <Text className="font-medium text-gray-800">{assessment.tanggal_mulai}</Text>
+                    </div>
+                    <div>
+                      <Text>Created by</Text>
+                      <Text className="font-medium text-gray-800">{assessment.created_by_user_name || "N/A"}</Text>
+                      <Text className="text-xs text-gray-500">{assessment.created_by_user_email || ""}</Text>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Project Context</h3>
-                <div className="mt-2 grid grid-cols-1 gap-4">
-                  <div>
-                    <Text>Objective</Text>
-                    <Text className="font-medium text-gray-800">{assessment.project_objective || "-"}</Text>
-                  </div>
-                  <div>
-                    <Text>Involved Units</Text>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {assessment.involved_departments?.split(",").map((unit) => (
-                        <Badge key={unit} color="green">
-                          {unit.trim()}
-                        </Badge>
-                      ))}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Project Context</h3>
+                  <div className="mt-2 grid grid-cols-1 gap-4">
+                    <div>
+                      <Text>Objective</Text>
+                      <Text className="font-medium text-gray-800">{assessment.project_objective || "-"}</Text>
+                    </div>
+                    <div>
+                      <Text>Involved Units</Text>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {assessment.involved_departments?.split(",").map((unit) => (
+                          <Badge key={unit} color="green">
+                            {unit.trim()}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </Col>
+            </Col>
 
-          {/* --- Kolom Kanan --- */}
-          <Col>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Company Info</h3>
-                <div className="mt-2 grid grid-cols-2 gap-4">
-                  <div>
-                    <Text>Type</Text>
-                    <Badge color="blue">{assessment.company_type || "-"}</Badge>
-                  </div>
-                  <div>
-                    <Text>Industry</Text>
-                    <Badge color="blue">{industryDisplay}</Badge>
-                  </div>
-                  <div>
-                    <Text>Asset Value</Text>
-                    <Badge color="blue">{assetValueDisplay || "-"}</Badge>
-                  </div>
-                  <div>
-                    <Text>Risk Limit</Text>
-                    <Text className="font-medium text-gray-800">Rp {formatNumber(assessment.risk_limit)}</Text>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Project Context</h3>
-                <div className="mt-2 grid grid-cols-1 gap-4">
-                  <div>
-                    <Text>Regulations</Text>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {assessment.relevant_regulations?.split(",").map((reg) => (
-                        <Badge key={reg} color="amber">
-                          {reg.trim()}
-                        </Badge>
-                      ))}
+            {/* --- Kolom Kanan --- */}
+            <Col>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Company Info</h3>
+                  <div className="mt-2 grid grid-cols-2 gap-4">
+                    <div>
+                      <Text>Type</Text>
+                      <Badge color="blue">{assessment.company_type || "-"}</Badge>
+                    </div>
+                    <div>
+                      <Text>Industry</Text>
+                      <Badge color="blue">{industryDisplay}</Badge>
+                    </div>
+                    <div>
+                      <Text>Asset Value</Text>
+                      <Badge color="blue">{assetValueDisplay || "-"}</Badge>
+                    </div>
+                    <div>
+                      <Text>Risk Limit</Text>
+                      <Text className="font-medium text-gray-800">Rp {formatNumber(assessment.risk_limit)}</Text>
                     </div>
                   </div>
-                  <div>
-                    <Text>Actions Taken</Text>
-                    <Text className="font-medium text-gray-800">{assessment.completed_actions || "-"}</Text>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Project Context</h3>
+                  <div className="mt-2 grid grid-cols-1 gap-4">
+                    <div>
+                      <Text>Regulations</Text>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {assessment.relevant_regulations?.split(",").map((reg) => (
+                          <Badge key={reg} color="amber">
+                            {reg.trim()}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Text>Actions Taken</Text>
+                      <Text className="font-medium text-gray-800">{assessment.completed_actions || "-"}</Text>
+                    </div>
                   </div>
                 </div>
               </div>
+            </Col>
+          </Grid>
+
+          <div className="mt-6 border-t pt-6">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Risk Types</h3>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {assessment.risk_categories?.split(",").map((cat) => (
+                <Badge key={cat} color="rose">
+                  {cat.trim()}
+                </Badge>
+              ))}
             </div>
-          </Col>
-        </Grid>
-
-        <div className="mt-6 border-t pt-6">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Risk Types</h3>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {assessment.risk_categories?.split(",").map((cat) => (
-              <Badge key={cat} color="rose">
-                {cat.trim()}
-              </Badge>
-            ))}
           </div>
+        </Card>
+
+        <div className="mt-6">
+          <RiskCriteriaReference riskLimit={assessment.risk_limit} />
         </div>
-      </Card>
 
-      <div className="mt-6">
-        <RiskCriteriaReference riskLimit={assessment.risk_limit} />
-      </div>
-
-      <Card className="mt-6 rounded-xl shadow-lg fullscreen-card" ref={tableCardRef}>
-        <div className="flex justify-between items-center">
-          <div>
-            <Title>Risk Assessment Results</Title>
-            <Text>Detailed analysis of identified risks. Total: {assessment.risks?.length || 0} risks.</Text>
-          </div>
-          {/* === TOMBOL AKSI BARU DI SINI === */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <Switch id="select-all" checked={isAllSelected} onChange={handleSelectAll} />
-              <label htmlFor="select-all" className="text-sm cursor-pointer">
-                Select All ({selectedRisks.length})
-              </label>
+        <Card className="mt-6 rounded-xl shadow-lg fullscreen-card" ref={tableCardRef}>
+          <div className="flex justify-between items-center">
+            <div>
+              <Title>Risk Assessment Results</Title>
+              <Text>Detailed analysis of identified risks. Total: {assessment.risks?.length || 0} risks.</Text>
             </div>
-            <Button variant="secondary" onClick={handleAddToRegister} disabled={selectedRisks.length === 0}>
-              Add to Risk Register ({selectedRisks.length})
-            </Button>
-            <Button variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen}>
-              {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-            </Button>
+            {/* === TOMBOL AKSI BARU DI SINI === */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2">
+                <Switch id="select-all" checked={isAllSelected} onChange={handleSelectAll} />
+                <label htmlFor="select-all" className="text-sm cursor-pointer">
+                  Select All ({selectedRisks.length})
+                </label>
+              </div>
+              <Button variant="secondary" onClick={handleAddToRegister} disabled={selectedRisks.length === 0}>
+                Add to Risk Register ({selectedRisks.length})
+              </Button>
+              <Button variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen}>
+                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="overflow-x-auto mt-11">
-          <RiskResultsTable risks={assessment.risks} selectedRisks={selectedRisks} onRowSelect={handleRowSelect} />
-        </div>
-      </Card>
+          <div className="overflow-x-auto mt-11">
+            <RiskResultsTable risks={assessment.risks} selectedRisks={selectedRisks} onRowSelect={handleRowSelect} onEditClick={handleEditClick} />
+          </div>
+        </Card>
 
-      {/* Placeholder untuk bagian selanjutnya */}
-      <div className="mt-6 p-6 border-2 border-dashed rounded-xl text-center">
-        <Text className="text-gray-500">Bagian 4: Risk Matrix akan dibangun di sini.</Text>
+        {/* Placeholder untuk bagian selanjutnya */}
+        <div className="mt-6 p-6 border-2 border-dashed rounded-xl text-center">
+          <Text className="text-gray-500">Bagian 4: Risk Matrix akan dibangun di sini.</Text>
+        </div>
       </div>
-    </div>
+      <EditRiskItemSidebar risk={editingRisk} isOpen={isEditSidebarOpen} onClose={handleCloseSidebar} onSave={handleSaveRisk} />
+    </>
   );
 }
 

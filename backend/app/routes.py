@@ -1004,3 +1004,47 @@ def analyze_assessment():
 
     db.session.commit()
     return jsonify({"msg": "Analisis risiko AI berhasil dan disimpan.", "assessment_id": assessment_id}), 201
+
+@api_bp.route('/risks/<int:risk_id>', methods=['PUT'])
+@jwt_required()
+def update_risk_item(risk_id):
+    """Memperbarui detail satu item risiko."""
+    current_user_id = get_jwt_identity()
+    
+    # Cari risk item berdasarkan ID-nya
+    risk_item = RiskRegister.query.get_or_404(risk_id)
+
+    # Otorisasi: Pastikan risk item ini milik asesmen yang dibuat oleh user yang sedang login
+    assessment_owner_id = str(risk_item.assessment.user_id)
+    if assessment_owner_id != current_user_id:
+        return jsonify({"msg": "Akses ditolak. Anda bukan pemilik asesmen ini."}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Request body tidak boleh kosong"}), 400
+
+    # Update semua field yang mungkin diubah dari sidebar
+    risk_item.objective = data.get('objective', risk_item.objective)
+    risk_item.deskripsi_risiko = data.get('deskripsi_risiko', risk_item.deskripsi_risiko)
+    risk_item.risk_causes = data.get('risk_causes', risk_item.risk_causes)
+    risk_item.risk_impacts = data.get('risk_impacts', risk_item.risk_impacts)
+    risk_item.existing_controls = data.get('existing_controls', risk_item.existing_controls)
+    risk_item.control_effectiveness = data.get('control_effectiveness', risk_item.control_effectiveness)
+    risk_item.mitigation_plan = data.get('mitigation_plan', risk_item.mitigation_plan)
+    
+    # Helper untuk memastikan nilai integer tidak error jika kosong
+    def safe_int(value, default):
+        try:
+            return int(value) if value is not None else default
+        except (ValueError, TypeError):
+            return default
+
+    risk_item.inherent_likelihood = safe_int(data.get('inherent_likelihood'), risk_item.inherent_likelihood)
+    risk_item.inherent_impact = safe_int(data.get('inherent_impact'), risk_item.inherent_impact)
+    risk_item.residual_likelihood = safe_int(data.get('residual_likelihood'), risk_item.residual_likelihood)
+    risk_item.residual_impact = safe_int(data.get('residual_impact'), risk_item.residual_impact)
+
+    # Simpan perubahan ke database
+    db.session.commit()
+
+    return jsonify({"msg": "Item risiko berhasil diperbarui."}), 200

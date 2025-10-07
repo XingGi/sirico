@@ -1,5 +1,6 @@
 import React from "react";
-import { Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Switch } from "@tremor/react";
+import { Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Switch, Button } from "@tremor/react";
+import { FiEdit2 } from "react-icons/fi";
 
 const getLevelInfo = (likelihood, impact) => {
   const level = (likelihood || 0) * (impact || 0);
@@ -10,7 +11,7 @@ const getLevelInfo = (likelihood, impact) => {
   return { text: "1 - Low", color: "bg-green-300 text-black" };
 };
 
-function RiskResultsTable({ risks, selectedRisks, onRowSelect }) {
+function RiskResultsTable({ risks, selectedRisks, onRowSelect, onEditClick }) {
   return (
     <Table className="min-w-[3000px]">
       <TableHead>
@@ -48,7 +49,19 @@ function RiskResultsTable({ risks, selectedRisks, onRowSelect }) {
               </TableCell>
               <TableCell className="sticky left-12 bg-white z-10 font-medium text-xs text-center">{index + 1}</TableCell>
               <TableCell className="sticky left-24 bg-white z-10 text-xs">{risk.kode_risiko}</TableCell>
-              <TableCell className="text-xs whitespace-normal">{risk.objective}</TableCell>
+              <TableCell className="text-xs whitespace-normal">
+                {risk.objective}
+                <div className="mt-1">
+                  <Button
+                    variant="light"
+                    size="xs"
+                    icon={FiEdit2}
+                    onClick={() => onEditClick(risk)} // Panggil fungsi saat diklik
+                  >
+                    Edit
+                  </Button>
+                </div>
+              </TableCell>
               <TableCell className="text-center">
                 <Badge color="cyan">{risk.risk_type}</Badge>
               </TableCell>
