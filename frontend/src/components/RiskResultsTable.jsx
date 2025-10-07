@@ -1,5 +1,5 @@
 import React from "react";
-import { Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge } from "@tremor/react";
+import { Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Switch } from "@tremor/react";
 
 const getLevelInfo = (likelihood, impact) => {
   const level = (likelihood || 0) * (impact || 0);
@@ -10,13 +10,14 @@ const getLevelInfo = (likelihood, impact) => {
   return { text: "1 - Low", color: "bg-green-300 text-black" };
 };
 
-function RiskResultsTable({ risks }) {
+function RiskResultsTable({ risks, selectedRisks, onRowSelect }) {
   return (
     <Table className="min-w-[3000px]">
       <TableHead>
-        <TableRow className="bg-slate-100">
-          <TableHeaderCell className="sticky left-0 bg-slate-100 z-20 w-12 text-xs">No</TableHeaderCell>
-          <TableHeaderCell className="sticky left-12 bg-slate-100 z-20 w-28 text-xs">Risk Code</TableHeaderCell>
+        <TableRow className="bg-blue-900 text-white">
+          <TableHeaderCell className="sticky left-0 z-20 w-12 text-xs"></TableHeaderCell>
+          <TableHeaderCell className="sticky left-12 z-20 w-12 text-xs">No</TableHeaderCell>
+          <TableHeaderCell className="sticky left-24 z-20 w-28 text-xs">Risk Code</TableHeaderCell>
           <TableHeaderCell className="text-xs w-64">Objective</TableHeaderCell>
           <TableHeaderCell className="text-xs">Risk Type</TableHeaderCell>
           <TableHeaderCell className="text-xs w-72">Risk Description</TableHeaderCell>
@@ -38,11 +39,15 @@ function RiskResultsTable({ risks }) {
         {risks?.map((risk, index) => {
           const inherentRisk = getLevelInfo(risk.inherent_likelihood, risk.inherent_impact);
           const residualRisk = getLevelInfo(risk.residual_likelihood, risk.residual_impact);
+          const isSelected = selectedRisks.includes(risk.id);
 
           return (
-            <TableRow key={risk.id} className="[&>td]:p-2">
-              <TableCell className="sticky left-0 bg-white z-10 font-medium text-xs text-center">{index + 1}</TableCell>
-              <TableCell className="sticky left-12 bg-white z-10 text-xs">{risk.kode_risiko}</TableCell>
+            <TableRow key={risk.id} className={`[&>td]:p-2 ${isSelected ? "bg-blue-50" : ""}`}>
+              <TableCell className="sticky left-0 bg-white z-10 text-center">
+                <Switch checked={isSelected} onChange={() => onRowSelect(risk.id)} />
+              </TableCell>
+              <TableCell className="sticky left-12 bg-white z-10 font-medium text-xs text-center">{index + 1}</TableCell>
+              <TableCell className="sticky left-24 bg-white z-10 text-xs">{risk.kode_risiko}</TableCell>
               <TableCell className="text-xs whitespace-normal">{risk.objective}</TableCell>
               <TableCell className="text-center">
                 <Badge color="cyan">{risk.risk_type}</Badge>

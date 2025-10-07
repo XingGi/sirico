@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Grid, Col, Badge, Button } from "@tremor/react";
-import { FiDownload, FiFileText } from "react-icons/fi";
+import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Grid, Col, Badge, Button, Switch } from "@tremor/react";
+import { FiDownload, FiFileText, FiMaximize, FiMinimize } from "react-icons/fi";
 import apiClient from "../api";
 import RiskCriteriaReference from "../components/RiskCriteriaReference";
 import RiskResultsTable from "../components/RiskResultsTable";
@@ -14,6 +14,9 @@ function AssessmentDetailPage() {
   const [industryOptions, setIndustryOptions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   // const { user } = useAuth();
+  const [selectedRisks, setSelectedRisks] = useState([]); // Menyimpan ID risiko yang dipilih
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const tableCardRef = useRef(null); // Referensi ke Card tabel
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,6 +34,13 @@ function AssessmentDetailPage() {
       }
     };
     fetchData();
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [assessmentId]);
 
   if (isLoading) return <div className="p-10">Memuat Laporan Asesmen Risiko...</div>;
@@ -41,6 +51,35 @@ function AssessmentDetailPage() {
   // Cari nilai 'value' yang sesuai untuk 'key' yang tersimpan di database
   const assetValueDisplay = assetOptions.find((opt) => opt.key === assessment.company_assets)?.value || assessment.company_assets;
   const industryDisplay = industryOptions.find((opt) => opt.key === assessment.company_industry)?.value || assessment.company_industry || "-";
+
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedRisks(assessment.risks.map((r) => r.id));
+    } else {
+      setSelectedRisks([]);
+    }
+  };
+
+  const handleRowSelect = (riskId) => {
+    setSelectedRisks((prev) => (prev.includes(riskId) ? prev.filter((id) => id !== riskId) : [...prev, riskId]));
+  };
+
+  const handleAddToRegister = () => {
+    // Logika untuk menambahkan ke risk register akan kita buat nanti
+    alert(`Menambahkan ${selectedRisks.length} risiko terpilih ke Risk Register Utama.\nID Risiko: ${selectedRisks.join(", ")}`);
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      tableCardRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const isAllSelected = assessment?.risks.length > 0 && selectedRisks.length === assessment.risks.length;
 
   return (
     <div className="p-6 sm:p-10 bg-slate-50 min-h-full">
@@ -170,11 +209,30 @@ function AssessmentDetailPage() {
         <RiskCriteriaReference riskLimit={assessment.risk_limit} />
       </div>
 
-      <Card className="mt-6 rounded-xl shadow-lg">
-        <Title>Risk Assessment Results</Title>
-        <Text>Detailed analysis of identified risks. Total: {assessment.risks?.length || 0} risks.</Text>
-        <div className="mt-4 overflow-x-auto rounded-lg border">
-          <RiskResultsTable risks={assessment.risks} />
+      <Card className="mt-6 rounded-xl shadow-lg fullscreen-card" ref={tableCardRef}>
+        <div className="flex justify-between items-center">
+          <div>
+            <Title>Risk Assessment Results</Title>
+            <Text>Detailed analysis of identified risks. Total: {assessment.risks?.length || 0} risks.</Text>
+          </div>
+          {/* === TOMBOL AKSI BARU DI SINI === */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Switch id="select-all" checked={isAllSelected} onChange={handleSelectAll} />
+              <label htmlFor="select-all" className="text-sm cursor-pointer">
+                Select All ({selectedRisks.length})
+              </label>
+            </div>
+            <Button variant="secondary" onClick={handleAddToRegister} disabled={selectedRisks.length === 0}>
+              Add to Risk Register ({selectedRisks.length})
+            </Button>
+            <Button variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen}>
+              {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            </Button>
+          </div>
+        </div>
+        <div className="overflow-x-auto mt-11">
+          <RiskResultsTable risks={assessment.risks} selectedRisks={selectedRisks} onRowSelect={handleRowSelect} />
         </div>
       </Card>
 
