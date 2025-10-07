@@ -64,12 +64,12 @@ function Sidebar({ isOpen, toggle }) {
             {/* Gunakan Fragment untuk mengelompokkan menu admin */}
             <NavLink to="/admin/master-data" className={navLinkClasses}>
               <FiDatabase className="h-6 w-6 flex-shrink-0" />
-              <span className={`ml-3 ...`}>Master Data</span>
+              <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Master Data</span>
             </NavLink>
             {/* 2. TAMBAHKAN MENU BARU DI SINI */}
             <NavLink to="/admin/regulations" className={navLinkClasses}>
               <FiBookOpen className="h-6 w-6 flex-shrink-0" />
-              <span className={`ml-3 ...`}>Master Regulasi</span>
+              <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Master Regulasi</span>
             </NavLink>
           </>
         )}

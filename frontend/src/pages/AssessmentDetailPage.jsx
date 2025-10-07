@@ -6,6 +6,7 @@ import apiClient from "../api";
 import RiskCriteriaReference from "../components/RiskCriteriaReference";
 import RiskResultsTable from "../components/RiskResultsTable";
 import EditRiskItemSidebar from "../components/EditRiskItemSidebar";
+import RiskMatrix from "../components/RiskMatrix";
 // import { useAuth } from "../context/AuthContext";
 
 function AssessmentDetailPage() {
@@ -260,9 +261,11 @@ function AssessmentDetailPage() {
           </div>
         </Card>
 
+        <RiskMatrix risks={assessment.risks} />
+
         {/* Placeholder untuk bagian selanjutnya */}
         <div className="mt-6 p-6 border-2 border-dashed rounded-xl text-center">
-          <Text className="text-gray-500">Bagian 4: Risk Matrix akan dibangun di sini.</Text>
+          <Text className="text-gray-500">Bagian 5, 6, 7 akan dibangun di sini.</Text>
         </div>
       </div>
       <EditRiskItemSidebar risk={editingRisk} isOpen={isEditSidebarOpen} onClose={handleCloseSidebar} onSave={handleSaveRisk} />
