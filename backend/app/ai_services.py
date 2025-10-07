@@ -1,5 +1,6 @@
 import google.generativeai as genai
 import re
+import json
 
 def summarize_text_with_gemini(text_to_summarize: str, api_key: str) -> str | None:
     """
@@ -148,55 +149,31 @@ def analyze_bia_with_gemini(failed_asset_name: str, downtime: int, impacted_asse
     
 def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None:
     """
-    Menganalisis data lengkap dari form asesmen untuk mengidentifikasi risiko.
+    Menganalisis data lengkap dari form asesmen untuk menghasilkan Risk Register yang detail.
     """
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.5-pro')
 
-        # === Merangkai semua data form menjadi sebuah konteks yang kaya untuk AI ===
         konteks = f"""
-        **Nama Proyek:**
-        {form_data.get('nama_asesmen', 'Tidak ada')}
-
-        **Informasi Perusahaan:**
-        - Industri: {form_data.get('company_industry', 'Tidak ada')}
-        - Tipe Perusahaan: {form_data.get('company_type', 'Tidak ada')}
-        - Aset Perusahaan: {form_data.get('company_assets', 'Tidak ada')}
-        - Mata Uang: {form_data.get('currency', 'Tidak ada')}
-        - Batas Risiko (Risk Limit): {form_data.get('risk_limit', 'Tidak ada')}
-
-        **Kategori Risiko yang Menjadi Fokus:**
-        {form_data.get('risk_categories', 'Tidak ada')}
-
-        **Konteks Proyek:**
-        - Tujuan Proyek: {form_data.get('project_objective', 'Tidak ada')}
-        - Regulasi Terkait: {form_data.get('relevant_regulations', 'Tidak ada')}
-        - Departemen yang Terlibat: {form_data.get('involved_departments', 'Tidak ada')}
-        - Tindakan yang Sudah Selesai: {form_data.get('completed_actions', 'Tidak ada')}
-
-        **Konteks Risiko Tambahan:**
-        {form_data.get('additional_risk_context', 'Tidak ada')}
+        **Nama Proyek:** {form_data.get('nama_asesmen')}
+        **Info Perusahaan:** Industri: {form_data.get('company_industry')}, Tipe: {form_data.get('company_type')}
+        **Regulasi Terkait:** {form_data.get('relevant_regulations')}
+        **Tujuan Proyek:** {form_data.get('project_objective')}
+        **Konteks Tambahan:** {form_data.get('additional_risk_context')}
         """
 
         prompt = f"""
-        Anda adalah seorang Chief Risk Officer (CRO) yang sangat berpengalaman di sebuah perusahaan multinasional.
-        Berdasarkan informasi proyek yang komprehensif di bawah ini, tugas Anda adalah:
+        Anda adalah seorang Chief Risk Officer (CRO) profesional. Berdasarkan konteks proyek di bawah ini, identifikasi 10 potensi risiko paling signifikan.
+        Jawaban Anda HARUS berupa array JSON yang valid. Setiap objek dalam array harus memiliki kunci-kunci berikut: "objective", "risk_type", "risk_description", "potential_cause", "potential_impact", "existing_control", "control_effectiveness", "inherent_likelihood", "inherent_impact", "mitigation_plan", "residual_likelihood", "residual_impact".
 
-        1.  Identifikasi 5 (lima) potensi risiko paling signifikan yang mungkin terjadi.
-        2.  Untuk setiap risiko, berikan deskripsi singkat (1-2 kalimat) yang menjelaskan mengapa risiko tersebut relevan dengan konteks proyek.
-        3.  Sajikan hasilnya HANYA dalam format berikut, pisahkan setiap entri dengan "---":
-            NAMA_RISIKO_1: Deskripsi singkat risiko 1.
-            ---
-            NAMA_RISIKO_2: Deskripsi singkat risiko 2.
-            ---
-            NAMA_RISIKO_3: Deskripsi singkat risiko 3.
-            ---
-            ...dan seterusnya.
+        - "objective" adalah tujuan dari mitigasi risiko (contoh: 'Menjaga stabilitas suku bunga kredit').
+        - "risk_type" harus salah satu dari: 'RP' (Risiko Pasar), 'RK' (Risiko Kepatuhan), 'RO' (Risiko Operasional), atau 'RR' (Risiko Reputasi).
+        - "control_effectiveness" harus salah satu dari: 'Not Effective', 'Partially Effective', 'Fully Effective'.
+        - Semua skor likelihood dan impact HARUS berupa angka integer antara 1 dan 5.
+        - Semua field lain HARUS berupa string singkat dan jelas dalam Bahasa Indonesia.
 
-        JANGAN gunakan bullet points, penomoran, atau format lain. Pastikan nama risiko dan deskripsi dipisahkan oleh tanda titik dua (:).
-
-        Berikut adalah konteks proyeknya:
+        Konteks Proyek:
         ---
         {konteks}
         ---
@@ -204,30 +181,34 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
 
         response = model.generate_content(prompt)
         
-        print("--- RAW AI RESPONSE ---")
-        print(response.text)
-        print("-----------------------")
+        print("--- RAW AI RESPONSE ---"); print(response.text); print("-----------------------")
         
-        # === Memproses hasil teks dari AI menjadi daftar yang terstruktur ===
-        risks = []
-        # Pola regex untuk memisahkan nama dan deskripsi
-        pattern = re.compile(r"(.+?):(.+)")
-        
-        # Pisahkan setiap entri risiko berdasarkan "---"
-        entries = response.text.strip().split('---')
-        
-        for entry in entries:
-            if entry.strip():
-                match = pattern.match(entry.strip())
-                if match:
-                    nama_risiko = match.group(1).strip()
-                    deskripsi_risiko = match.group(2).strip()
-                    risks.append({
-                        "kode_risiko": "AI-" + nama_risiko.replace(" ", "_")[:15].upper(),
-                        "deskripsi_risiko": f"{nama_risiko}: {deskripsi_risiko}"
-                    })
-        
-        return risks
+        cleaned_text = response.text.strip().replace('```json', '').replace('```', '')
+        parsed_risks = json.loads(cleaned_text)
+
+        risks_for_db = []
+        # Gunakan enumerate untuk mendapatkan 'i' (index)
+        for i, risk in enumerate(parsed_risks): 
+            risk_type_prefix = risk.get('risk_type', 'XX').upper()
+            kode_risiko = f"{risk_type_prefix}{str(i+1).zfill(3)}"
+            
+            risks_for_db.append({
+                # === PERBAIKAN DI SINI ===
+                "kode_risiko": kode_risiko,
+                "objective": risk.get('objective'),
+                "risk_type": risk.get('risk_type'),
+                "deskripsi_risiko": risk.get('risk_description'),
+                "risk_causes": risk.get('potential_cause'),
+                "risk_impacts": risk.get('potential_impact'),
+                "existing_controls": risk.get('existing_control'),
+                "control_effectiveness": risk.get('control_effectiveness'),
+                "inherent_likelihood": risk.get('inherent_likelihood'),
+                "inherent_impact": risk.get('inherent_impact'),
+                "mitigation_plan": risk.get('mitigation_plan'),
+                "residual_likelihood": risk.get('residual_likelihood'),
+                "residual_impact": risk.get('residual_impact'),
+            })
+        return risks_for_db
 
     except Exception as e:
         print(f"Error saat menganalisis asesmen dengan Gemini API: {e}")

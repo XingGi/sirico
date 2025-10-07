@@ -280,8 +280,18 @@ def get_assessment_details(assessment_id):
     risk_entries = [{
         "id": r.id,
         "kode_risiko": r.kode_risiko,
+        "objective": r.objective,
+        "risk_type": r.risk_type,
         "deskripsi_risiko": r.deskripsi_risiko,
-        "level_risiko_inheren": r.level_risiko_inheren
+        "risk_causes": r.risk_causes,
+        "risk_impacts": r.risk_impacts,
+        "existing_controls": r.existing_controls,
+        "control_effectiveness": r.control_effectiveness,
+        "inherent_likelihood": r.inherent_likelihood,
+        "inherent_impact": r.inherent_impact,
+        "mitigation_plan": r.mitigation_plan,
+        "residual_likelihood": r.residual_likelihood,
+        "residual_impact": r.residual_impact,
     } for r in assessment.risk_register_entries]
     
     return jsonify({
@@ -290,8 +300,6 @@ def get_assessment_details(assessment_id):
         "tanggal_mulai": assessment.tanggal_mulai.isoformat(),
         "created_by_user_name": created_by_user_name,
         "created_by_user_email": created_by_user_email,
-        
-        # Data detail dari form
         "company_industry": assessment.company_industry,
         "company_type": assessment.company_type,
         "company_assets": assessment.company_assets,
@@ -303,8 +311,6 @@ def get_assessment_details(assessment_id):
         "involved_departments": assessment.involved_departments,
         "completed_actions": assessment.completed_actions,
         "additional_risk_context": assessment.additional_risk_context,
-
-        # Data risiko yang diidentifikasi AI
         "risks": risk_entries
     })
     
@@ -927,11 +933,14 @@ def uploaded_file(filename):
 def analyze_assessment():
     current_user_id = get_jwt_identity()
     form_data = request.get_json()
+
+    # --- Validasi Input (Tidak Berubah) ---
     if not form_data or not form_data.get('nama_asesmen'):
         return jsonify({"msg": "Nama asesmen wajib diisi"}), 400
     if not form_data.get('risk_categories'):
         return jsonify({"msg": "Pilih minimal satu Kategori Risiko."}), 400
 
+    # --- 1. Buat dan Simpan Proyek Asesmen (Tidak Berubah) ---
     new_assessment = RiskAssessment(
         nama_asesmen=form_data.get('nama_asesmen'),
         tanggal_mulai=datetime.utcnow().date(),
@@ -951,7 +960,8 @@ def analyze_assessment():
     db.session.add(new_assessment)
     db.session.flush()
     assessment_id = new_assessment.id
-    
+
+    # --- 2. Panggil Layanan AI (Tidak Berubah) ---
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
         db.session.rollback()
@@ -959,12 +969,33 @@ def analyze_assessment():
         
     identified_risks = analyze_assessment_with_gemini(form_data, gemini_api_key)
 
+    # --- 3. Simpan Hasil Analisis AI ke Risk Register (DIPERBAIKI) ---
     if identified_risks:
         for risk in identified_risks:
+            # Helper untuk mengubah nilai menjadi integer dengan aman
+            def safe_int(value):
+                try:
+                    return int(value)
+                except (ValueError, TypeError):
+                    return None
+
             new_risk_entry = RiskRegister(
-                kode_risiko=risk['kode_risiko'],
-                deskripsi_risiko=risk['deskripsi_risiko'],
-                assessment_id=assessment_id
+                kode_risiko=risk.get('kode_risiko'),
+                objective=risk.get('objective'),
+                risk_type=risk.get('risk_type'),
+                deskripsi_risiko=risk.get('deskripsi_risiko'),
+                risk_causes=risk.get('risk_causes'),
+                risk_impacts=risk.get('risk_impacts'),
+                existing_controls=risk.get('existing_controls'),
+                control_effectiveness=risk.get('control_effectiveness'),
+                mitigation_plan=risk.get('mitigation_plan'),
+                assessment_id=assessment_id,
+                
+                # Gunakan helper 'safe_int' untuk memastikan tipe datanya benar
+                inherent_likelihood=safe_int(risk.get('inherent_likelihood')),
+                inherent_impact=safe_int(risk.get('inherent_impact')),
+                residual_likelihood=safe_int(risk.get('residual_likelihood')),
+                residual_impact=safe_int(risk.get('residual_impact')),
             )
             db.session.add(new_risk_entry)
     else:

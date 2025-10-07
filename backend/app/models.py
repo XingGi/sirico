@@ -76,22 +76,32 @@ class RiskAssessment(db.Model):
     def __repr__(self):
         return f'<RiskAssessment {self.nama_asesmen}>'
 
-
 class RiskRegister(db.Model):
     """Model untuk setiap entri risiko dalam sebuah asesmen."""
     __tablename__ = 'risk_register'
 
     id = db.Column(db.Integer, primary_key=True)
     kode_risiko = db.Column(db.String(20), unique=True, nullable=False)
-    deskripsi_risiko = db.Column(db.Text, nullable=False)
     
-    # Level risiko bisa berupa angka (misal: 1-5) atau teks (misal: 'Rendah', 'Sedang', 'Tinggi')
-    # Kita gunakan String untuk fleksibilitas
-    level_risiko_inheren = db.Column(db.String(50), nullable=True)
-    level_risiko_kontrol = db.Column(db.String(50), nullable=True)
-    level_risiko_residual = db.Column(db.String(50), nullable=True)
+    # === KOLOM-KOLOM BARU YANG DETAIL SESUAI REFERENSI ===
+    objective = db.Column(db.Text)
+    risk_type = db.Column(db.String(50))
+    deskripsi_risiko = db.Column(db.Text)
+    risk_causes = db.Column(db.Text)
+    risk_impacts = db.Column(db.Text)
+    existing_controls = db.Column(db.Text)
+    control_effectiveness = db.Column(db.String(50))
+    mitigation_plan = db.Column(db.Text)
+    
+    # Inherent Risk (skor 1-5)
+    inherent_likelihood = db.Column(db.Integer)
+    inherent_impact = db.Column(db.Integer)
+    
+    # Residual Risk (skor 1-5)
+    residual_likelihood = db.Column(db.Integer)
+    residual_impact = db.Column(db.Integer)
 
-    # Foreign Key ke proyek asesmen
+    # Foreign Key
     assessment_id = db.Column(db.Integer, db.ForeignKey('risk_assessments.id'), nullable=False)
 
     def __repr__(self):

@@ -4,6 +4,7 @@ import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBo
 import { FiDownload, FiFileText } from "react-icons/fi";
 import apiClient from "../api";
 import RiskCriteriaReference from "../components/RiskCriteriaReference";
+import RiskResultsTable from "../components/RiskResultsTable";
 // import { useAuth } from "../context/AuthContext";
 
 function AssessmentDetailPage() {
@@ -169,9 +170,17 @@ function AssessmentDetailPage() {
         <RiskCriteriaReference riskLimit={assessment.risk_limit} />
       </div>
 
+      <Card className="mt-6 rounded-xl shadow-lg">
+        <Title>Risk Assessment Results</Title>
+        <Text>Detailed analysis of identified risks. Total: {assessment.risks?.length || 0} risks.</Text>
+        <div className="mt-4 overflow-x-auto rounded-lg border">
+          <RiskResultsTable risks={assessment.risks} />
+        </div>
+      </Card>
+
       {/* Placeholder untuk bagian selanjutnya */}
       <div className="mt-6 p-6 border-2 border-dashed rounded-xl text-center">
-        <Text className="text-gray-500">Bagian 3: Risk Assessment Results (Table) akan dibangun di sini.</Text>
+        <Text className="text-gray-500">Bagian 4: Risk Matrix akan dibangun di sini.</Text>
       </div>
     </div>
   );
