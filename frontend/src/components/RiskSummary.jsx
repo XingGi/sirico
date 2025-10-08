@@ -17,6 +17,14 @@ const RISK_LEVELS_CONFIG = {
 const LEVEL_ORDER = ["Low", "Low to Moderate", "Moderate", "Moderate to High", "High"];
 const RISK_TYPE_HEX_COLORS = ["#3b82f6", "#22d3ee", "#6366f1", "#8b5cf6", "#d946ef", "#ec4899"];
 
+const RISK_TYPE_MAP = {
+  RP: "Risiko Pasar",
+  RK: "Risiko Kepatuhan",
+  RO: "Risiko Operasional",
+  RR: "Risiko Reputasi",
+  "N/A": "Tidak Diketahui",
+};
+
 const getLevelKeyByScore = (likelihood, impact) => {
   const score = (likelihood || 0) * (impact || 0);
   if (score >= 15) return "High";
@@ -31,8 +39,9 @@ const valueFormatter = (number) => `${new Intl.NumberFormat("us").format(number)
 
 function RiskSummary({ risks = [] }) {
   const riskTypeCounts = risks.reduce((acc, risk) => {
-    const type = risk.risk_type || "N/A";
-    acc[type] = (acc[type] || 0) + 1;
+    const abbreviation = risk.risk_type || "N/A";
+    const fullName = RISK_TYPE_MAP[abbreviation] || abbreviation;
+    acc[fullName] = (acc[fullName] || 0) + 1;
     return acc;
   }, {});
 

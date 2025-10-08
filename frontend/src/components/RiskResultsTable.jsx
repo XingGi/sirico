@@ -11,6 +11,14 @@ const getLevelInfo = (likelihood, impact) => {
   return { text: "1 - Low", color: "bg-green-300 text-black" };
 };
 
+const RISK_TYPE_MAP = {
+  RP: "Risiko Pasar",
+  RK: "Risiko Kepatuhan",
+  RO: "Risiko Operasional",
+  RR: "Risiko Reputasi",
+  "N/A": "Tidak Diketahui",
+};
+
 function RiskResultsTable({ risks, selectedRisks, onRowSelect, onEditClick }) {
   return (
     <Table className="min-w-[3000px]">
@@ -41,6 +49,7 @@ function RiskResultsTable({ risks, selectedRisks, onRowSelect, onEditClick }) {
           const inherentRisk = getLevelInfo(risk.inherent_likelihood, risk.inherent_impact);
           const residualRisk = getLevelInfo(risk.residual_likelihood, risk.residual_impact);
           const isSelected = selectedRisks.includes(risk.id);
+          const riskTypeFullName = RISK_TYPE_MAP[risk.risk_type] || risk.risk_type;
 
           return (
             <TableRow key={risk.id} className={`[&>td]:p-2 ${isSelected ? "bg-blue-50" : ""}`}>
@@ -63,7 +72,7 @@ function RiskResultsTable({ risks, selectedRisks, onRowSelect, onEditClick }) {
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <Badge color="cyan">{risk.risk_type}</Badge>
+                <Badge color="cyan">{riskTypeFullName}</Badge>
               </TableCell>
               <TableCell className="text-xs whitespace-normal">{risk.deskripsi_risiko}</TableCell>
               <TableCell className="text-xs whitespace-normal">{risk.risk_causes}</TableCell>
