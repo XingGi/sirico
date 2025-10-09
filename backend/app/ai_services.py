@@ -167,11 +167,12 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
         Anda adalah seorang Chief Risk Officer (CRO) profesional. Berdasarkan konteks proyek di bawah ini, identifikasi 10 potensi risiko paling signifikan.
         Jawaban Anda HARUS berupa array JSON yang valid. Setiap objek dalam array harus memiliki kunci-kunci berikut: "objective", "risk_type", "risk_description", "potential_cause", "potential_impact", "existing_control", "control_effectiveness", "inherent_likelihood", "inherent_impact", "mitigation_plan", "residual_likelihood", "residual_impact".
 
-        - "objective" adalah tujuan dari mitigasi risiko (contoh: 'Menjaga stabilitas suku bunga kredit').
+        - "objective" adalah tujuan dari mitigasi risiko.
         - "risk_type" harus salah satu dari: 'RP' (Risiko Pasar), 'RK' (Risiko Kepatuhan), 'RO' (Risiko Operasional), atau 'RR' (Risiko Reputasi).
         - "control_effectiveness" harus salah satu dari: 'Not Effective', 'Partially Effective', 'Fully Effective'.
         - Semua skor likelihood dan impact HARUS berupa angka integer antara 1 dan 5.
         - Semua field lain HARUS berupa string singkat dan jelas dalam Bahasa Indonesia.
+        - JANGAN menyertakan kunci "kode_risiko" dalam output JSON Anda.
 
         Konteks Proyek:
         ---
@@ -212,4 +213,56 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
 
     except Exception as e:
         print(f"Error saat menganalisis asesmen dengan Gemini API: {e}")
+        return None
+    
+def generate_detailed_risk_analysis_with_gemini(risks: list, api_key: str) -> dict | None:
+    """
+    Menganalisis daftar risiko dan menghasilkan laporan multi-bagian yang mendalam.
+    """
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-pro')
+
+        risk_details = ""
+        for r in risks:
+            likelihood = r.get('inherent_likelihood') or 0
+            impact = r.get('inherent_impact') or 0
+            risk_level_score = likelihood * impact
+            risk_details += f"- Kode: {r.get('kode_risiko')}, Deskripsi: {r.get('deskripsi_risiko')} (Level Inherent: {risk_level_score}, Tipe: {r.get('risk_type')})\n"
+
+        prompt = f"""
+        Anda adalah seorang Chief Risk Officer (CRO) virtual kelas dunia. Anda sedang menyiapkan laporan analisis risiko untuk dewan direksi.
+        Berdasarkan daftar risiko yang telah diidentifikasi berikut ini:
+        ---
+        {risk_details}
+        ---
+        Buatlah laporan analisis yang komprehensif. Jawaban Anda HARUS berupa sebuah objek JSON tunggal yang valid tanpa markdown.
+        Objek JSON tersebut harus memiliki kunci-kunci berikut: "executive_summary", "risk_profile_analysis", "immediate_priorities", "critical_risks_discussion", "implementation_plan", "next_steps".
+
+        Ikuti instruksi detail untuk setiap kunci:
+        1. "executive_summary": (string) Tulis paragraf kesimpulan umum (4-5 kalimat) tentang lanskap risiko proyek ini.
+        2. "risk_profile_analysis": (object) Buat objek dengan dua kunci: "summary" (sebuah paragraf string yang menganalisis distribusi risiko) dan "distribution" (sebuah objek yang berisi jumlah risiko untuk setiap level, contoh: {{"High": 2, "Moderate to High": 3, ...}}).
+        3. "immediate_priorities": (array of strings) Identifikasi 3 area prioritas teratas yang memerlukan tindakan segera, sajikan sebagai array string.
+        4. "critical_risks_discussion": (array of objects) Pilih 2 risiko paling kritis dari daftar. Untuk setiap risiko, buat objek dengan kunci: "risk_code" (string), "discussion" (paragraf string yang membahas mengapa risiko ini kritis), dan "mitigation_target" (string, contoh: "Target mitigasi ini adalah Q2 2026.").
+        5. "implementation_plan": (array of strings) Buat daftar 4 langkah implementasi mitigasi yang paling penting, beri target kuartal (contoh: "Q1 2026: Lakukan audit keamanan siber menyeluruh.").
+        6. "next_steps": (string) Tulis satu paragraf berisi rekomendasi langkah selanjutnya yang lebih bersifat umum dan strategis.
+        """
+
+        response = model.generate_content(prompt)
+        
+        try:
+            match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if match:
+                json_string = match.group(0)
+                analysis_result = json.loads(json_string)
+                return analysis_result
+            else:
+                return None
+        except (json.JSONDecodeError, TypeError):
+            print("Peringatan: Gagal mem-parse output dari AI untuk analisis detail. Output mentah:")
+            print(response.text)
+            return None
+
+    except Exception as e:
+        print(f"Error saat membuat analisis detail dengan Gemini API: {e}")
         return None

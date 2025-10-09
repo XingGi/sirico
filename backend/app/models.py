@@ -72,7 +72,13 @@ class RiskAssessment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     # Relationship ke RiskRegister (satu asesmen punya banyak risiko)
     risk_register_entries = db.relationship('RiskRegister', backref='assessment', lazy=True, cascade="all, delete-orphan")
-
+    ai_executive_summary = db.Column(db.Text, nullable=True)
+    ai_risk_profile_analysis = db.Column(db.Text, nullable=True) # Akan menyimpan JSON
+    ai_immediate_priorities = db.Column(db.Text, nullable=True) # Akan menyimpan JSON
+    ai_critical_risks_discussion = db.Column(db.Text, nullable=True) # Akan menyimpan JSON
+    ai_implementation_plan = db.Column(db.Text, nullable=True) # Akan menyimpan JSON
+    ai_next_steps = db.Column(db.Text, nullable=True)
+    
     def __repr__(self):
         return f'<RiskAssessment {self.nama_asesmen}>'
 

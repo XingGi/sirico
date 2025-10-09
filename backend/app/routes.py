@@ -1,10 +1,11 @@
 import os
+import json
 from flask import request, jsonify, Blueprint, current_app
 from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario, MasterData, Regulation
 from . import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
-from app.ai_services import summarize_text_with_gemini, analyze_rsca_answers_with_gemini, suggest_risks_for_process_step, analyze_bia_with_gemini, analyze_assessment_with_gemini
+from app.ai_services import summarize_text_with_gemini, analyze_rsca_answers_with_gemini, suggest_risks_for_process_step, analyze_bia_with_gemini, analyze_assessment_with_gemini, generate_detailed_risk_analysis_with_gemini
 from functools import wraps
 from werkzeug.utils import secure_filename
 
@@ -294,6 +295,13 @@ def get_assessment_details(assessment_id):
         "residual_impact": r.residual_impact,
     } for r in assessment.risk_register_entries]
     
+    def safe_json_loads(json_string):
+        if not json_string: return None
+        try:
+            return json.loads(json_string)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    
     return jsonify({
         "id": assessment.id,
         "nama_asesmen": assessment.nama_asesmen,
@@ -311,7 +319,13 @@ def get_assessment_details(assessment_id):
         "involved_departments": assessment.involved_departments,
         "completed_actions": assessment.completed_actions,
         "additional_risk_context": assessment.additional_risk_context,
-        "risks": risk_entries
+        "risks": risk_entries,
+        "ai_executive_summary": assessment.ai_executive_summary,
+        "ai_risk_profile_analysis": safe_json_loads(assessment.ai_risk_profile_analysis),
+        "ai_immediate_priorities": safe_json_loads(assessment.ai_immediate_priorities),
+        "ai_critical_risks_discussion": safe_json_loads(assessment.ai_critical_risks_discussion),
+        "ai_implementation_plan": safe_json_loads(assessment.ai_implementation_plan),
+        "ai_next_steps": assessment.ai_next_steps,
     })
     
 @api_bp.route('/horizon-scan', methods=['GET'])
@@ -971,16 +985,18 @@ def analyze_assessment():
 
     # --- 3. Simpan Hasil Analisis AI ke Risk Register (DIPERBAIKI) ---
     if identified_risks:
-        for risk in identified_risks:
-            # Helper untuk mengubah nilai menjadi integer dengan aman
+        for i, risk in enumerate(identified_risks):
             def safe_int(value):
                 try:
                     return int(value)
                 except (ValueError, TypeError):
                     return None
+            
+            risk_type_prefix = risk.get('risk_type', 'XX').upper()
+            kode_risiko_unik = f"A{assessment_id}-{risk_type_prefix}{str(i+1).zfill(2)}"
 
             new_risk_entry = RiskRegister(
-                kode_risiko=risk.get('kode_risiko'),
+                kode_risiko=kode_risiko_unik,
                 objective=risk.get('objective'),
                 risk_type=risk.get('risk_type'),
                 deskripsi_risiko=risk.get('deskripsi_risiko'),
@@ -998,6 +1014,18 @@ def analyze_assessment():
                 residual_impact=safe_int(risk.get('residual_impact')),
             )
             db.session.add(new_risk_entry)
+            
+            print("Membuat ringkasan dan rekomendasi dari risiko yang teridentifikasi...")
+            analysis_content = generate_detailed_risk_analysis_with_gemini(identified_risks, gemini_api_key)
+            
+            if analysis_content:
+                new_assessment.ai_executive_summary = analysis_content.get("executive_summary")
+                new_assessment.ai_risk_profile_analysis = json.dumps(analysis_content.get("risk_profile_analysis"))
+                new_assessment.ai_immediate_priorities = json.dumps(analysis_content.get("immediate_priorities"))
+                new_assessment.ai_critical_risks_discussion = json.dumps(analysis_content.get("critical_risks_discussion"))
+                new_assessment.ai_implementation_plan = json.dumps(analysis_content.get("implementation_plan"))
+                new_assessment.ai_next_steps = analysis_content.get("next_steps")
+                print("Analisis detail berhasil dibuat.")
     else:
         db.session.commit()
         return jsonify({"msg": "Asesmen berhasil dibuat, namun analisis AI gagal.", "assessment_id": assessment_id}), 500

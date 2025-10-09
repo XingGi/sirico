@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Grid, Col, Badge, Button, Switch } from "@tremor/react";
-import { FiDownload, FiFileText, FiMaximize, FiMinimize } from "react-icons/fi";
+import { FiDownload, FiFileText, FiMaximize, FiMinimize, FiAlertTriangle, FiInfo, FiZap } from "react-icons/fi";
 import apiClient from "../api";
 import RiskCriteriaReference from "../components/RiskCriteriaReference";
 import RiskResultsTable from "../components/RiskResultsTable";
 import EditRiskItemSidebar from "../components/EditRiskItemSidebar";
 import RiskMatrix from "../components/RiskMatrix";
 import RiskSummary from "../components/RiskSummary";
+import AIGeneratedAnalysis from "../components/AIGeneratedAnalysis";
 // import { useAuth } from "../context/AuthContext";
 
 function AssessmentDetailPage() {
@@ -266,8 +267,42 @@ function AssessmentDetailPage() {
 
         <RiskSummary risks={assessment.risks} />
 
+        <AIGeneratedAnalysis analysisData={assessment} />
+
+        <Card className="mt-6 rounded-xl bg-orange-50 border border-orange-200">
+          <div className="flex items-center gap-3">
+            <FiAlertTriangle className="w-6 h-6 text-orange-500" />
+            <div>
+              <Title className="text-orange-800">Important Disclaimer</Title>
+              <Text className="text-orange-700">Legal and usage considerations</Text>
+            </div>
+          </div>
+
+          <Card className="mt-4 rounded-xl shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <FiInfo className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <Title>Assessment Limitations & Recommendations</Title>
+                <Text className="mt-2 text-tremor-default text-tremor-content">
+                  Assessment ini memberikan gambaran awal mengenai profil risiko organisasi Anda, berdasarkan input yang tersedia saat ini. Namun, setiap organisasi memiliki konteks dan dinamika yang unik. Pastikan untuk mereview kembali
+                  hasil ini secara internal, dan lakukan penyesuaian bila diperlukan agar selaras dengan situasi aktual di lapangan. Bila hasil tampak tidak sesuai, evaluasi kembali input yang digunakan untuk mendapatkan gambaran yang lebih
+                  akurat.
+                </Text>
+                <div className="mt-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-md flex items-start gap-2">
+                  <FiZap className="flex-shrink-0 w-5 h-5 mt-1" />
+                  <Text className="text-yellow-800">
+                    <span className="font-semibold">Pro Tip:</span> Untuk hasil optimal, lakukan review berkala dan update assessment sesuai perubahan kondisi bisnis.
+                  </Text>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </Card>
+
         <div className="mt-6 p-6 border-2 border-dashed rounded-xl text-center">
-          <Text className="text-gray-500">Bagian 6 & 7 akan dibangun di sini.</Text>
+          <Text className="text-gray-500">Bagian 7 akan dibangun di sini.</Text>
         </div>
       </div>
       <EditRiskItemSidebar risk={editingRisk} isOpen={isEditSidebarOpen} onClose={handleCloseSidebar} onSave={handleSaveRisk} />
