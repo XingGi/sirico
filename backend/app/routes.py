@@ -258,12 +258,20 @@ def get_all_assessments():
     current_user_id = get_jwt_identity()
     assessments = RiskAssessment.query.filter_by(user_id=current_user_id).order_by(RiskAssessment.tanggal_mulai.desc()).all()
     
-    assessment_list = [{
-        "id": a.id,
-        "nama_asesmen": a.nama_asesmen,
-        "tanggal_mulai": a.tanggal_mulai.isoformat(),
-        "tanggal_selesai": a.tanggal_selesai.isoformat() if a.tanggal_selesai else None
-    } for a in assessments]
+    assessment_list = []
+    for a in assessments:
+        assessment_list.append({
+            "id": a.id,
+            "nama_asesmen": a.nama_asesmen,
+            "tanggal_mulai": a.tanggal_mulai.isoformat(),
+            "tanggal_selesai": a.tanggal_selesai.isoformat() if a.tanggal_selesai else None,
+            # --- TAMBAHAN BARU: Sertakan data industri dan risiko ---
+            "company_industry": a.company_industry,
+            "risks": [{
+                "inherent_likelihood": r.inherent_likelihood,
+                "inherent_impact": r.inherent_impact
+            } for r in a.risk_register_entries]
+        })
         
     return jsonify(assessment_list)
 

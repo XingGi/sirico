@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 // ↓↓↓ Tambahkan icon baru untuk tombol minimize/maximize ↓↓↓
-import { FiGrid, FiBarChart2, FiCheckSquare, FiBriefcase, FiAlertTriangle, FiLogOut, FiChevronsLeft, FiDatabase, FiBookOpen } from "react-icons/fi";
+import { FiGrid, FiBarChart2, FiCheckSquare, FiBriefcase, FiAlertTriangle, FiLogOut, FiChevronsLeft, FiDatabase, FiBookOpen, FiList } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
 
 // 1. Terima props "isOpen" dan "toggle" dari Layout
@@ -41,9 +41,13 @@ function Sidebar({ isOpen, toggle }) {
           <FiGrid className="h-6 w-6 flex-shrink-0" />
           <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Dashboard</span>
         </NavLink>
-        <NavLink to="/assessment-studio" className={navLinkClasses}>
+        <NavLink to="/assessments" className={navLinkClasses}>
           <FiCheckSquare className="h-6 w-6 flex-shrink-0" />
-          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Assessment Studio</span>
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Risk Assessment</span>
+        </NavLink>
+        <NavLink to="/risk-register" className={navLinkClasses}>
+          <FiList className="h-6 w-6 flex-shrink-0" />
+          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Risk Register</span>
         </NavLink>
         <NavLink to="/rsca" className={navLinkClasses}>
           <FiBriefcase className="h-6 w-6 flex-shrink-0" />

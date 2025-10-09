@@ -31,6 +31,9 @@ function App() {
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/assessment-studio" element={<AssessmentStudio />} />
+            <Route path="/assessments" element={<AssessmentListPage />} />
+            <Route path="/assessments/:assessmentId" element={<AssessmentDetailPage />} />
+            <Route path="/risk-register" element={<div>Halaman Risk Register Utama</div>} />
             <Route path="/rsca" element={<RSCA />} />
             <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
             <Route path="/bpr" element={<BPR />} />
