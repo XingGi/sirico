@@ -90,9 +90,16 @@ function AssessmentDetailPage() {
     setSelectedRisks((prev) => (prev.includes(riskId) ? prev.filter((id) => id !== riskId) : [...prev, riskId]));
   };
 
-  const handleAddToRegister = () => {
-    // Logika untuk menambahkan ke risk register akan kita buat nanti
-    alert(`Menambahkan ${selectedRisks.length} risiko terpilih ke Risk Register Utama.\nID Risiko: ${selectedRisks.join(", ")}`);
+  const handleAddToRegister = async () => {
+    if (selectedRisks.length === 0) return;
+    try {
+      await apiClient.post("/risk-register/import", { risk_ids: selectedRisks });
+      alert(`Sukses! ${selectedRisks.length} risiko telah ditambahkan ke Risk Register Utama.`);
+      setSelectedRisks([]); // Kosongkan pilihan setelah berhasil
+    } catch (error) {
+      alert("Gagal menambahkan risiko ke register.");
+      console.error("Import error:", error);
+    }
   };
 
   const toggleFullscreen = () => {

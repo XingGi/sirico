@@ -14,6 +14,7 @@ import AssessmentDetailPage from "./pages/AssessmentDetailPage";
 import LandingPage from "./pages/LandingPage";
 import MasterDataPage from "./pages/admin/MasterDataPage";
 import RegulationPage from "./pages/admin/RegulationPage";
+import RiskRegisterPage from "./pages/RiskRegisterPage";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -33,7 +34,7 @@ function App() {
             <Route path="/assessment-studio" element={<AssessmentStudio />} />
             <Route path="/assessments" element={<AssessmentListPage />} />
             <Route path="/assessments/:assessmentId" element={<AssessmentDetailPage />} />
-            <Route path="/risk-register" element={<div>Halaman Risk Register Utama</div>} />
+            <Route path="/risk-register" element={<RiskRegisterPage />} />
             <Route path="/rsca" element={<RSCA />} />
             <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
             <Route path="/bpr" element={<BPR />} />

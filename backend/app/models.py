@@ -88,6 +88,7 @@ class RiskRegister(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     kode_risiko = db.Column(db.String(20), unique=True, nullable=False)
+    title = db.Column(db.Text, nullable=True)
     
     # === KOLOM-KOLOM BARU YANG DETAIL SESUAI REFERENSI ===
     objective = db.Column(db.Text)
@@ -302,3 +303,40 @@ class Regulation(db.Model):
 
     def __repr__(self):
         return f'<Regulation {self.name}>'
+    
+class MainRiskRegister(db.Model):
+    """Model untuk Risk Register terpusat."""
+    __tablename__ = 'main_risk_register'
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    title = db.Column(db.Text, nullable=True)
+    
+    # Data risiko yang disalin dari RiskRegister per asesmen
+    kode_risiko = db.Column(db.String(50)) # Dibuat tidak unique agar bisa impor risiko yg sama dari asesmen berbeda
+    objective = db.Column(db.Text)
+    risk_type = db.Column(db.String(50))
+    deskripsi_risiko = db.Column(db.Text)
+    risk_causes = db.Column(db.Text)
+    risk_impacts = db.Column(db.Text)
+    existing_controls = db.Column(db.Text)
+    control_effectiveness = db.Column(db.String(50))
+    mitigation_plan = db.Column(db.Text)
+    
+    inherent_likelihood = db.Column(db.Integer)
+    inherent_impact = db.Column(db.Integer)
+    
+    residual_likelihood = db.Column(db.Integer)
+    residual_impact = db.Column(db.Integer)
+    
+    # Field tambahan untuk register utama
+    status = db.Column(db.String(50), default='Open') # Cth: Open, In Progress, Closed
+    treatment_option = db.Column(db.String(50), default='Reduce')
+
+    # Foreign Key ke User
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # Foreign key ke assessment asal (opsional, tapi bagus untuk traceability)
+    source_assessment_id = db.Column(db.Integer, db.ForeignKey('risk_assessments.id'), nullable=True)
+
+    def __repr__(self):
+        return f'<MainRiskRegister {self.kode_risiko}>'

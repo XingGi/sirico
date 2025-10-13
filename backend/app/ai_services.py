@@ -167,6 +167,7 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
         Anda adalah seorang Chief Risk Officer (CRO) profesional. Berdasarkan konteks proyek di bawah ini, identifikasi 10 potensi risiko paling signifikan.
         Jawaban Anda HARUS berupa array JSON yang valid. Setiap objek dalam array harus memiliki kunci-kunci berikut: "objective", "risk_type", "risk_description", "potential_cause", "potential_impact", "existing_control", "control_effectiveness", "inherent_likelihood", "inherent_impact", "mitigation_plan", "residual_likelihood", "residual_impact".
 
+        - "title": (WAJIB) Buat judul risiko yang singkat dan deskriptif, maksimal 5 kata. Contoh: "Penurunan Kepercayaan Publik".
         - "objective" adalah tujuan dari mitigasi risiko.
         - "risk_type" harus salah satu dari: 'RP' (Risiko Pasar), 'RK' (Risiko Kepatuhan), 'RO' (Risiko Operasional), atau 'RR' (Risiko Reputasi).
         - "control_effectiveness" harus salah satu dari: 'Not Effective', 'Partially Effective', 'Fully Effective'.
