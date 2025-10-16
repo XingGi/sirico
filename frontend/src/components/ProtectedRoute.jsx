@@ -7,7 +7,7 @@ const ProtectedRoute = () => {
 
   // Jika ada token, tampilkan halaman yang diminta (melalui <Outlet />).
   // Jika tidak ada token, paksa arahkan ke halaman login.
-  return token ? <Outlet /> : <Navigate to="/login" replace />;
+  return token ? <Outlet /> : <Navigate to="/" replace />;
 };
 
 export default ProtectedRoute;

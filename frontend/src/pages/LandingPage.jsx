@@ -7,6 +7,7 @@ import { FiShield, FiBriefcase, FiBarChart2, FiAlertTriangle, FiArrowRight } fro
 import AuthModal from "../components/AuthModal";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useAuth } from "../context/AuthContext";
 
 // Data untuk fitur-fitur yang akan ditampilkan
 const features = [
@@ -34,7 +35,8 @@ const features = [
 
 function LandingPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalView, setModalView] = useState("login"); // 'login' atau 'register'
+  const [modalView, setModalView] = useState("login");
+  const { user } = useAuth();
 
   // 3. Buat fungsi untuk membuka modal
   const handleOpenLogin = () => {
@@ -63,13 +65,22 @@ function LandingPage() {
           </h1>
           <p className="mt-6 max-w-2xl mx-auto text-lg text-slate-600">SIRICO membantu Anda mengidentifikasi, menganalisis, dan memitigasi risiko dengan lebih efisien melalui alat-alat canggih yang didukung AI.</p>
           <div className="mt-8 flex justify-center gap-4">
-            {/* 5. Ubah tombol ini agar membuka modal juga */}
-            <button onClick={handleOpenRegister} className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-              Mulai Gratis <FiArrowRight className="ml-2" />
-            </button>
-            <button onClick={handleOpenLogin} className="inline-flex items-center justify-center px-6 py-3 border border-slate-300 text-base font-medium rounded-md text-slate-700 bg-white hover:bg-slate-100">
-              Login
-            </button>
+            {user ? (
+              // Jika user sudah login
+              <Link to="/dashboard" className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                Lanjutkan ke Dashboard <FiArrowRight className="ml-2" />
+              </Link>
+            ) : (
+              // Jika belum login
+              <>
+                <button onClick={handleOpenRegister} className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                  Mulai Gratis <FiArrowRight className="ml-2" />
+                </button>
+                <button onClick={handleOpenLogin} className="inline-flex items-center justify-center px-6 py-3 border border-slate-300 text-base font-medium rounded-md text-slate-700 bg-white hover:bg-slate-100">
+                  Login
+                </button>
+              </>
+            )}
           </div>
         </motion.div>
 

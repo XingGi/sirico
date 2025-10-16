@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
         // Hapus token yang tidak valid dari penyimpanan
         localStorage.removeItem("sirico-token");
         // Arahkan paksa pengguna ke halaman login
-        window.location.href = "/login";
+        window.location.href = "/";
       }
     }
     // Kembalikan error agar bisa ditangani oleh komponen jika perlu (selain error 401/422)
