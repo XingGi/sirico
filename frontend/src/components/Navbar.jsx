@@ -4,7 +4,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { FiLogIn } from "react-icons/fi";
 
-function Navbar() {
+function Navbar({ onLoginClick, onRegisterClick }) {
   return (
     <nav className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -15,12 +15,12 @@ function Navbar() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <Link to="/login" className="text-gray-600 hover:text-blue-600 font-medium">
+            <button onClick={onLoginClick} className="text-gray-600 hover:text-blue-600 font-medium">
               Login
-            </Link>
-            <Link to="/register" className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700">
+            </button>
+            <button onClick={onRegisterClick} className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700">
               Daftar Sekarang
-            </Link>
+            </button>
           </div>
         </div>
       </div>

@@ -1,7 +1,5 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AssessmentStudio from "./pages/AssessmentStudio";
 import RSCA from "./pages/RSCA";
@@ -24,8 +22,6 @@ function App() {
       <Routes>
         {/* Rute Publik */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
 
         {/* Rute Terlindungi SEKARANG dibungkus oleh Layout */}
         <Route element={<ProtectedRoute />}>

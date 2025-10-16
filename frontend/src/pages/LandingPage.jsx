@@ -1,9 +1,10 @@
 // frontend/src/pages/LandingPage.jsx
 
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FiShield, FiBriefcase, FiBarChart2, FiAlertTriangle, FiArrowRight } from "react-icons/fi";
+import AuthModal from "../components/AuthModal";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
@@ -32,9 +33,27 @@ const features = [
 ];
 
 function LandingPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalView, setModalView] = useState("login"); // 'login' atau 'register'
+
+  // 3. Buat fungsi untuk membuka modal
+  const handleOpenLogin = () => {
+    setModalView("login");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenRegister = () => {
+    setModalView("register");
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
   return (
     <div className="bg-slate-50">
-      <Navbar />
+      {/* 4. Kirim fungsi handler ke Navbar */}
+      <Navbar onLoginClick={handleOpenLogin} onRegisterClick={handleOpenRegister} />
 
       {/* Hero Section */}
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -44,12 +63,13 @@ function LandingPage() {
           </h1>
           <p className="mt-6 max-w-2xl mx-auto text-lg text-slate-600">SIRICO membantu Anda mengidentifikasi, menganalisis, dan memitigasi risiko dengan lebih efisien melalui alat-alat canggih yang didukung AI.</p>
           <div className="mt-8 flex justify-center gap-4">
-            <Link to="/register" className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+            {/* 5. Ubah tombol ini agar membuka modal juga */}
+            <button onClick={handleOpenRegister} className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
               Mulai Gratis <FiArrowRight className="ml-2" />
-            </Link>
-            <Link to="/login" className="inline-flex items-center justify-center px-6 py-3 border border-slate-300 text-base font-medium rounded-md text-slate-700 bg-white hover:bg-slate-100">
+            </button>
+            <button onClick={handleOpenLogin} className="inline-flex items-center justify-center px-6 py-3 border border-slate-300 text-base font-medium rounded-md text-slate-700 bg-white hover:bg-slate-100">
               Login
-            </Link>
+            </button>
           </div>
         </motion.div>
 
@@ -76,6 +96,7 @@ function LandingPage() {
       </main>
 
       <Footer />
+      <AuthModal isOpen={isModalOpen} onClose={handleCloseModal} initialView={modalView} />
     </div>
   );
 }
