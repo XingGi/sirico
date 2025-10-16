@@ -1,10 +1,11 @@
 // frontend/src/pages/risk_management/BasicAssessmentListPage.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, Title, Text, Button, Dialog, DialogPanel, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell } from "@tremor/react";
-import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle } from "react-icons/fi";
+import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle, FiDownload, FiMaximize, FiMinimize } from "react-icons/fi";
 import apiClient from "../../api";
+import BasicAssessmentView from "../../components/BasicAssessmentView";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return "Rp 0";
@@ -22,6 +23,9 @@ function BasicAssessmentListPage() {
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [isViewLoading, setIsViewLoading] = useState(false);
 
+  const [isViewFullscreen, setIsViewFullscreen] = useState(false);
+  const viewContentRef = useRef(null);
+
   useEffect(() => {
     setIsLoading(true);
     apiClient
@@ -29,6 +33,15 @@ function BasicAssessmentListPage() {
       .then((response) => setAssessments(response.data))
       .catch((error) => console.error("Gagal memuat asesmen dasar:", error))
       .finally(() => setIsLoading(false));
+
+    const handleFullscreenChange = () => {
+      setIsViewFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
   }, []);
 
   const handleViewClick = async (assessmentId) => {
@@ -43,6 +56,14 @@ function BasicAssessmentListPage() {
       setIsViewModalOpen(false);
     } finally {
       setIsViewLoading(false);
+    }
+  };
+
+  const toggleViewFullscreen = () => {
+    if (!document.fullscreenElement) {
+      viewContentRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
     }
   };
 
@@ -157,64 +178,32 @@ function BasicAssessmentListPage() {
       </Dialog>
       {/* Modal untuk View Detail Asesmen */}
       <Dialog open={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} static={true}>
-        <DialogPanel className="max-w-4xl">
+        {/* 1. Ubah ukuran DialogPanel agar memenuhi sebagian besar layar */}
+        <DialogPanel className="w-full max-w-7xl h-[90vh] flex flex-col">
           {isViewLoading ? (
-            <Text className="text-center">Memuat detail...</Text>
+            <Text className="text-center p-12">Memuat detail...</Text>
           ) : (
             selectedAssessment && (
               <>
-                <Title>Detail Asesmen: {selectedAssessment.nama_unit_kerja}</Title>
-                <Text>{selectedAssessment.nama_perusahaan}</Text>
-
-                <div className="mt-6 max-h-[70vh] overflow-y-auto space-y-6 pr-2">
-                  {/* Data Konteks */}
-                  <Card>
-                    <Title as="h3">Konteks Organisasi</Title>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableHeaderCell>Eksternal</TableHeaderCell>
-                          <TableHeaderCell>Internal</TableHeaderCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedAssessment.contexts.map((ctx, i) => (
-                          <TableRow key={i}>
-                            <TableCell>{ctx.external}</TableCell>
-                            <TableCell>{ctx.internal}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </Card>
-                  {/* Data Analisis Risiko */}
-                  <Card>
-                    <Title as="h3">Analisis Risiko</Title>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableHeaderCell>Deskripsi</TableHeaderCell>
-                          <TableHeaderCell>Skor (W)</TableHeaderCell>
-                          <TableHeaderCell>Nilai Bersih</TableHeaderCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedAssessment.analyses.map((an, i) => {
-                          const riskInfo = selectedAssessment.risks[an.risk_identification_id];
-                          return (
-                            <TableRow key={i}>
-                              <TableCell>{riskInfo?.deskripsi_risiko}</TableCell>
-                              <TableCell>{(an.probabilitas || 0) * (an.dampak || 0)}</TableCell>
-                              <TableCell>{formatCurrency((an.dampak_finansial || 0) * ((an.probabilitas_kualitatif || 0) / 100))}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </Card>
+                <div className="flex justify-between items-start flex-shrink-0">
+                  <div>
+                    <Title>Detail Asesmen: {selectedAssessment.nama_unit_kerja}</Title>
+                    <Text>{selectedAssessment.nama_perusahaan}</Text>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button icon={FiDownload} disabled>
+                      Export to Excel
+                    </Button>
+                    <Button variant="light" icon={isViewFullscreen ? FiMinimize : FiMaximize} onClick={toggleViewFullscreen} />
+                  </div>
                 </div>
 
-                <div className="flex justify-end mt-6">
+                {/* 2. Buat area konten bisa di-scroll dan mengisi ruang yang tersisa */}
+                <div ref={viewContentRef} className="mt-6 flex-grow overflow-y-auto pr-2 view-fullscreen-content">
+                  <BasicAssessmentView assessmentData={selectedAssessment} />
+                </div>
+
+                <div className="flex justify-end mt-6 flex-shrink-0">
                   <Button onClick={() => setIsViewModalOpen(false)}>Tutup</Button>
                 </div>
               </>

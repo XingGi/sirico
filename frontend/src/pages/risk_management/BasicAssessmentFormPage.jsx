@@ -353,8 +353,8 @@ function BasicAssessmentFormPage() {
                     <TableCell className="whitespace-normal">{ctx.external}</TableCell>
                     <TableCell className="whitespace-normal">{ctx.internal}</TableCell>
                     <TableCell className="text-right">
-                      <Button icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditContext(index)} />
-                      <Button icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteContext(index)} />
+                      <Button type="button" icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditContext(index)} />
+                      <Button type="button" icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteContext(index)} />
                     </TableCell>
                   </TableRow>
                 ))
@@ -382,7 +382,7 @@ function BasicAssessmentFormPage() {
               <Button type="button" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} />
             </div>
           </div>
-          <div className="overflow-x-auto mt-4 pt-8 -mt-4">
+          <div className="overflow-x-auto mt-4 pt-8">
             <Table className="min-w-[1600px]">
               <TableHead className="sticky top-0 z-10 bg-white">
                 <TableRow>
@@ -423,8 +423,8 @@ function BasicAssessmentFormPage() {
                       <TableCell className="whitespace-normal">{risk.internal_control}</TableCell>
                       <TableCell className="whitespace-normal">{risk.deskripsi_dampak}</TableCell>
                       <TableCell className="text-right">
-                        <Button icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditRisk(index)} />
-                        <Button icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteRisk(index)} />
+                        <Button type="button" icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditRisk(index)} />
+                        <Button type="button" icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteRisk(index)} />
                       </TableCell>
                     </TableRow>
                   ))
@@ -480,8 +480,8 @@ function BasicAssessmentFormPage() {
                         <TableCell>{formatCurrency(analysis.dampak_finansial)}</TableCell>
                         <TableCell>{formatCurrency(nilaiBersih)}</TableCell>
                         <TableCell className="text-right">
-                          <Button icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditAnalysis(index)} />
-                          <Button icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteAnalysis(index)} />
+                          <Button type="button" icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditAnalysis(index)} />
+                          <Button type="button" icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteAnalysis(index)} />
                         </TableCell>
                       </TableRow>
                     );
@@ -641,6 +641,45 @@ function BasicAssessmentFormPage() {
                 <TextInput value={(currentAnalysis.probabilitas || 0) * (currentAnalysis.dampak || 0)} disabled />
               </div>
             </div>
+            <Card className="p-3 bg-slate-50">
+              <Text className="font-semibold text-tremor-content">Referensi Probabilitas Risiko</Text>
+              <Table className="mt-2 text-xs">
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell>Level</TableHeaderCell>
+                    <TableHeaderCell>Kualitatif (%)</TableHeaderCell>
+                    <TableHeaderCell>Frekuensi</TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>1 - Sangat Rendah</TableCell>
+                    <TableCell>&lt;10%</TableCell>
+                    <TableCell>&lt; 2 kali/tahun</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>2 - Rendah</TableCell>
+                    <TableCell>10 - 40%</TableCell>
+                    <TableCell>2 - 3 kali/tahun</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>3 - Sedang</TableCell>
+                    <TableCell>41 - 60%</TableCell>
+                    <TableCell>4 - 6 kali/tahun</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>4 - Tinggi</TableCell>
+                    <TableCell>61 - 80%</TableCell>
+                    <TableCell>7 - 9 kali/tahun</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>5 - Sangat Tinggi</TableCell>
+                    <TableCell>&gt;81%</TableCell>
+                    <TableCell>&gt; 9 kali/tahun</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </Card>
             <div>
               <label>Probabilitas Kualitatif (%)</label>
               <NumberInput icon={() => <span>%</span>} value={currentAnalysis.probabilitas_kualitatif} onValueChange={(val) => handleAnalysisChange("probabilitas_kualitatif", val)} min={0} max={100} />
