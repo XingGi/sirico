@@ -30,7 +30,7 @@ function QuickActionsWidget() {
           </div>
         </ClickableCard>
 
-        <ClickableCard to="/dashboard">
+        <ClickableCard to="/risk-register">
           <div className="flex items-center">
             <FiShield className="w-6 h-6 mr-3 text-blue-500" />
             <div>

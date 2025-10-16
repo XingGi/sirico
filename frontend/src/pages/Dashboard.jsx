@@ -82,16 +82,15 @@ function Dashboard() {
           </Col>
         </Grid>
 
-        {/* BARIS KETIGA: Horizon Scanner (1 baris penuh) */}
-        <div className="mt-6">
-          <HorizonScanWidget />
-        </div>
-
         {/* BARIS KEEMPAT: Risk Matrix dan Top Risks */}
         <Grid numItemsLg={2} className="gap-6 mt-6">
           <RiskMatrixWidget />
           <TopRisksWidget />
         </Grid>
+
+        <div className="mt-6">
+          <HorizonScanWidget />
+        </div>
 
         {/* BARIS KELIMA: Key Risk Indicators */}
         <div className="mt-6">

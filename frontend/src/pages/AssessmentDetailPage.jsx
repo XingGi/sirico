@@ -307,10 +307,6 @@ function AssessmentDetailPage() {
             </div>
           </Card>
         </Card>
-
-        <div className="mt-6 p-6 border-2 border-dashed rounded-xl text-center">
-          <Text className="text-gray-500">Bagian 7 akan dibangun di sini.</Text>
-        </div>
       </div>
       <EditRiskItemSidebar risk={editingRisk} isOpen={isEditSidebarOpen} onClose={handleCloseSidebar} onSave={handleSaveRisk} />
     </>
