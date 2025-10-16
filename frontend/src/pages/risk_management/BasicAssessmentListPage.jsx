@@ -22,6 +22,7 @@ function BasicAssessmentListPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [isViewLoading, setIsViewLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [isViewFullscreen, setIsViewFullscreen] = useState(false);
   const viewContentRef = useRef(null);
@@ -64,6 +65,32 @@ function BasicAssessmentListPage() {
       viewContentRef.current?.requestFullscreen();
     } else {
       document.exitFullscreen();
+    }
+  };
+
+  const handleExportClick = async (assessmentId, assessmentName) => {
+    setIsExporting(true);
+    try {
+      const response = await apiClient.get(`/basic-assessments/${assessmentId}/export`, {
+        responseType: "blob", // Penting: memberitahu axios untuk menerima file
+      });
+
+      // Buat URL sementara dari file blob yang diterima
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Asesmen_Dasar_${assessmentName}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+
+      // Hapus link sementara
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Gagal mengekspor file:", error);
+      alert("Gagal mengekspor file Excel.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -191,7 +218,7 @@ function BasicAssessmentListPage() {
                     <Text>{selectedAssessment.nama_perusahaan}</Text>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button icon={FiDownload} disabled>
+                    <Button icon={FiDownload} onClick={() => handleExportClick(selectedAssessment.id, selectedAssessment.nama_unit_kerja)} loading={isExporting}>
                       Export to Excel
                     </Button>
                     <Button variant="light" icon={isViewFullscreen ? FiMinimize : FiMaximize} onClick={toggleViewFullscreen} />
