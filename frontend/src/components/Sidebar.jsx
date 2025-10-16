@@ -30,9 +30,9 @@ const menuItems = [
     title: "Risk Management Level",
     icon: <FiLayers />,
     children: [
-      { title: "Dasar", path: "/", icon: <FiArrowDownCircle /> },
-      { title: "Madya", path: "/", icon: <FiArrowRightCircle /> },
-      { title: "Utama", path: "/", icon: <FiArrowUpCircle /> },
+      { title: "Dasar", path: "/risk-management/dasar", icon: <FiArrowDownCircle /> },
+      { title: "Madya", path: "/risk-management/madya", icon: <FiArrowRightCircle /> },
+      { title: "Utama", path: "/risk-management/utama", icon: <FiArrowUpCircle /> },
     ],
   },
   { title: "Risk Assessment", path: "/assessments", icon: <FiCheckSquare /> },

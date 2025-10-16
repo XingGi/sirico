@@ -13,6 +13,8 @@ import LandingPage from "./pages/LandingPage";
 import MasterDataPage from "./pages/admin/MasterDataPage";
 import RegulationPage from "./pages/admin/RegulationPage";
 import RiskRegisterPage from "./pages/RiskRegisterPage";
+import BasicAssessmentListPage from "./pages/risk_management/BasicAssessmentListPage";
+import BasicAssessmentFormPage from "./pages/risk_management/BasicAssessmentFormPage";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -37,6 +39,9 @@ function App() {
             <Route path="/bia" element={<BIA />} />
             <Route path="/assessments" element={<AssessmentListPage />} />
             <Route path="/assessments/:assessmentId" element={<AssessmentDetailPage />} />
+            <Route path="/risk-management/dasar" element={<BasicAssessmentListPage />} />
+            <Route path="/risk-management/dasar/new" element={<BasicAssessmentFormPage />} />
+            <Route path="/risk-management/dasar/edit/:assessmentId" element={<BasicAssessmentFormPage />} />
             <Route path="/admin/master-data" element={<MasterDataPage />} />
             <Route path="/admin/regulations" element={<RegulationPage />} />
           </Route>

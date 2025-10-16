@@ -1,7 +1,7 @@
 import os
 import json
 from flask import request, jsonify, Blueprint, current_app
-from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario, MasterData, Regulation, MainRiskRegister
+from .models import User, KRI, RiskAssessment, HorizonScanEntry, RiskRegister, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, BusinessProcess, ProcessStep, CriticalAsset, Dependency, ImpactScenario, MasterData, Regulation, MainRiskRegister, BasicAssessment, OrganizationalContext, BasicRiskIdentification, BasicRiskAnalysis
 from . import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
@@ -1211,3 +1211,213 @@ def bulk_delete_main_risk_register_items():
     
     db.session.commit()
     return jsonify({"msg": f"{len(risk_ids_to_delete)} risiko berhasil dihapus."}), 200
+
+@api_bp.route('/basic-assessments', methods=['POST'])
+@jwt_required()
+def create_basic_assessment():
+    """Endpoint untuk membuat Asesmen Dasar baru beserta konteks dan risikonya."""
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or not data.get('nama_unit_kerja') or not data.get('nama_perusahaan'):
+        return jsonify({"msg": "Nama Unit Kerja dan Nama Perusahaan wajib diisi."}), 400
+
+    new_assessment = BasicAssessment(
+        nama_unit_kerja=data['nama_unit_kerja'],
+        nama_perusahaan=data['nama_perusahaan'],
+        user_id=current_user_id
+    )
+    db.session.add(new_assessment)
+    db.session.flush()
+
+    # Proses data konteks jika ada
+    contexts_data = data.get('contexts', [])
+    for context_item in contexts_data:
+        new_context = OrganizationalContext(
+            external_context=context_item.get('external'),
+            internal_context=context_item.get('internal'),
+            user_id=current_user_id
+        )
+        db.session.add(new_context)
+        # Flush untuk mendapatkan ID sebelum di-commit
+        db.session.flush()
+        new_assessment.contexts.append(new_context)
+
+    # Proses data identifikasi risiko jika ada
+    risks_data = data.get('risks', [])
+    frontend_to_db_risk_id_map = {} 
+    
+    for index, risk_item in enumerate(risks_data):
+        try:
+            tanggal_obj = datetime.strptime(risk_item.get('tanggal_identifikasi'), '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            tanggal_obj = datetime.utcnow().date()
+            
+        new_risk = BasicRiskIdentification(
+            kode_risiko=risk_item.get('kode_risiko'),
+            kategori_risiko=risk_item.get('kategori_risiko'),
+            unit_kerja=risk_item.get('unit_kerja'),
+            sasaran=risk_item.get('sasaran'),
+            tanggal_identifikasi=tanggal_obj,
+            deskripsi_risiko=risk_item.get('deskripsi_risiko'),
+            akar_penyebab=risk_item.get('akar_penyebab'),
+            indikator_risiko=risk_item.get('indikator_risiko'),
+            internal_control=risk_item.get('internal_control'),
+            deskripsi_dampak=risk_item.get('deskripsi_dampak'),
+            assessment_id=new_assessment.id
+        )
+        db.session.add(new_risk)
+        db.session.flush()
+        frontend_to_db_risk_id_map[index] = new_risk.id
+
+    analyses_data = data.get('analyses', [])
+    for analysis_item in analyses_data:
+        frontend_risk_id = analysis_item.get('risk_identification_id')
+        db_risk_id = frontend_to_db_risk_id_map.get(frontend_risk_id)
+
+        if db_risk_id:
+            new_analysis = BasicRiskAnalysis(
+                risk_identification_id=db_risk_id,
+                probabilitas=analysis_item.get('probabilitas'),
+                dampak=analysis_item.get('dampak'),
+                probabilitas_kualitatif=analysis_item.get('probabilitas_kualitatif'),
+                dampak_finansial=analysis_item.get('dampak_finansial'),
+                assessment_id=new_assessment.id
+            )
+            db.session.add(new_analysis)
+
+    db.session.commit()
+
+    return jsonify({"msg": "Asesmen Dasar berhasil dibuat.", "id": new_assessment.id}), 201
+
+
+@api_bp.route('/basic-assessments', methods=['GET'])
+@jwt_required()
+def get_all_basic_assessments():
+    """Mengambil semua Asesmen Dasar milik pengguna."""
+    current_user_id = get_jwt_identity()
+    assessments = BasicAssessment.query.filter_by(user_id=current_user_id).order_by(BasicAssessment.created_at.desc()).all()
+    
+    assessment_list = [{
+        "id": a.id,
+        "nama_unit_kerja": a.nama_unit_kerja,
+        "nama_perusahaan": a.nama_perusahaan,
+        "created_at": a.created_at.isoformat()
+    } for a in assessments]
+        
+    return jsonify(assessment_list)
+
+@api_bp.route('/basic-assessments/<int:assessment_id>', methods=['GET'])
+@jwt_required()
+def get_basic_assessment_detail(assessment_id):
+    """Mengambil detail lengkap dari satu Asesmen Dasar."""
+    current_user_id = get_jwt_identity()
+    assessment = BasicAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    risks_list = [{
+        "id": r.id, # Sertakan ID asli dari database
+        "kode_risiko": r.kode_risiko,
+        "kategori_risiko": r.kategori_risiko,
+        "unit_kerja": r.unit_kerja,
+        "sasaran": r.sasaran,
+        "tanggal_identifikasi": r.tanggal_identifikasi.isoformat(),
+        "deskripsi_risiko": r.deskripsi_risiko,
+        "akar_penyebab": r.akar_penyebab,
+        "indikator_risiko": r.indikator_risiko,
+        "internal_control": r.internal_control,
+        "deskripsi_dampak": r.deskripsi_dampak
+    } for r in assessment.risks]
+
+    # 2. Buat pemetaan dari ID risiko ke index-nya di dalam list
+    risk_id_to_index_map = {risk['id']: index for index, risk in enumerate(risks_list)}
+    
+    return jsonify({
+        "id": assessment.id,
+        "nama_unit_kerja": assessment.nama_unit_kerja,
+        "nama_perusahaan": assessment.nama_perusahaan,
+        "contexts": [{
+            "external": ctx.external_context,
+            "internal": ctx.internal_context
+        } for ctx in assessment.contexts],
+        "risks": risks_list,
+        "analyses": [{
+            "risk_identification_id": risk_id_to_index_map.get(a.risk_identification_id),
+            "probabilitas": a.probabilitas,
+            "dampak": a.dampak,
+            "probabilitas_kualitatif": a.probabilitas_kualitatif,
+            "dampak_finansial": a.dampak_finansial
+        } for a in assessment.risk_analyses if a.risk_identification_id in risk_id_to_index_map]
+    }), 200
+    
+@api_bp.route('/basic-assessments/<int:assessment_id>', methods=['PUT'])
+@jwt_required()
+def update_basic_assessment(assessment_id):
+    """Memperbarui Asesmen Dasar yang ada."""
+    current_user_id = get_jwt_identity()
+    assessment = BasicAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    data = request.get_json()
+
+    assessment.nama_unit_kerja = data.get('nama_unit_kerja', assessment.nama_unit_kerja)
+    assessment.nama_perusahaan = data.get('nama_perusahaan', assessment.nama_perusahaan)
+
+    # Strategi "Delete-and-Recreate" untuk data terkait
+    assessment.contexts.clear()
+    BasicRiskAnalysis.query.filter_by(assessment_id=assessment.id).delete()
+    BasicRiskIdentification.query.filter_by(assessment_id=assessment.id).delete()
+    db.session.flush()
+
+    # Tambahkan kembali data yang diperbarui (Logika ini sama persis dengan POST)
+    contexts_data = data.get('contexts', [])
+    for context_item in contexts_data:
+        new_context = OrganizationalContext(
+            external_context=context_item.get('external'),
+            internal_context=context_item.get('internal'),
+            user_id=current_user_id
+        )
+        db.session.add(new_context)
+        db.session.flush()
+        assessment.contexts.append(new_context)
+    
+    risks_data = data.get('risks', [])
+    frontend_to_db_risk_id_map = {}
+    for index, risk_item in enumerate(risks_data):
+        try:
+            tanggal_obj = datetime.strptime(risk_item.get('tanggal_identifikasi'), '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            tanggal_obj = datetime.utcnow().date()
+            
+        new_risk = BasicRiskIdentification(
+            assessment_id=assessment.id,
+            kode_risiko=risk_item.get('kode_risiko'),
+            kategori_risiko=risk_item.get('kategori_risiko'),
+            unit_kerja=risk_item.get('unit_kerja'),
+            sasaran=risk_item.get('sasaran'),
+            tanggal_identifikasi=tanggal_obj,
+            deskripsi_risiko=risk_item.get('deskripsi_risiko'),
+            akar_penyebab=risk_item.get('akar_penyebab'),
+            indikator_risiko=risk_item.get('indikator_risiko'),
+            internal_control=risk_item.get('internal_control'),
+            deskripsi_dampak=risk_item.get('deskripsi_dampak')
+        )
+        db.session.add(new_risk)
+        db.session.flush()
+        frontend_to_db_risk_id_map[index] = new_risk.id
+
+    analyses_data = data.get('analyses', [])
+    for analysis_item in analyses_data:
+        frontend_risk_id_index = analysis_item.get('risk_identification_id')
+        db_risk_id = frontend_to_db_risk_id_map.get(frontend_risk_id_index)
+
+        if db_risk_id:
+            new_analysis = BasicRiskAnalysis(
+                assessment_id=assessment.id,
+                risk_identification_id=db_risk_id,
+                probabilitas=analysis_item.get('probabilitas'),
+                dampak=analysis_item.get('dampak'),
+                probabilitas_kualitatif=analysis_item.get('probabilitas_kualitatif'),
+                dampak_finansial=analysis_item.get('dampak_finansial')
+            )
+            db.session.add(new_analysis)
+
+    db.session.commit()
+    return jsonify({"msg": "Asesmen Dasar berhasil diperbarui."}), 200
