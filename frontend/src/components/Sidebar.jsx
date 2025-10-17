@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const menuItems = [
   { title: "Dashboard", path: "/dashboard", icon: <FiGrid /> },
   {
+    key: "riskLevel",
     title: "Risk Management Level",
     icon: <FiLayers />,
     children: [
@@ -35,8 +36,15 @@ const menuItems = [
       { title: "Utama", path: "/risk-management/utama", icon: <FiArrowUpCircle /> },
     ],
   },
-  { title: "Risk Assessment", path: "/assessments", icon: <FiCheckSquare /> },
-  { title: "Risk Register", path: "/risk-register", icon: <FiList /> },
+  {
+    key: "riskAI",
+    title: "Risk Management AI",
+    icon: <FiAlertTriangle />,
+    children: [
+      { title: "Risk Assessment", path: "/assessments", icon: <FiCheckSquare /> },
+      { title: "Risk Register", path: "/risk-register", icon: <FiList /> },
+    ],
+  },
   { title: "Modul RSCA", path: "/rsca", icon: <FiBriefcase /> },
   { title: "Modul BPR", path: "/bpr", icon: <FiBarChart2 /> },
   { title: "Modul BIA", path: "/bia", icon: <FiAlertTriangle /> },
