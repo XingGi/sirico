@@ -166,4 +166,15 @@ from flask import send_from_directory
 @master_data_bp.route('/uploads/<filename>')
 def uploaded_file(filename):
     """Menyajikan file yang sudah di-upload."""
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+    # Membuat path absolut yang lebih aman
+    upload_folder_path = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'])
+    try:
+        # Pastikan file ada sebelum mengirim
+        file_path = os.path.join(upload_folder_path, filename)
+        if not os.path.exists(file_path):
+             return jsonify({"msg": "File tidak ditemukan."}), 404
+        return send_from_directory(upload_folder_path, filename)
+    except Exception as e:
+        # Log error jika terjadi masalah saat mengirim file
+        current_app.logger.error(f"Error serving file {filename}: {e}")
+        return jsonify({"msg": "Gagal menyajikan file."}), 500

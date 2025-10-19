@@ -466,3 +466,25 @@ class RiskMapScore(db.Model):
     likelihood_level = db.Column(db.Integer, nullable=False) # Nilai 1-5
     impact_level = db.Column(db.Integer, nullable=False)     # Nilai 1-5
     score = db.Column(db.Integer, nullable=False)            # Skor kustom dari pengguna
+    
+# Fitur Madya Assessment
+class MadyaAssessment(db.Model):
+    """Model induk untuk Asesmen tingkat Madya."""
+    __tablename__ = 'madya_assessments'
+    id = db.Column(db.Integer, primary_key=True)
+    # Tambahkan field lain yang mungkin dibutuhkan nanti (misal: nama asesmen, tanggal)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Relasi ke entri struktur organisasi
+    structure_image_filename = db.Column(db.String(300), nullable=True) # Nama file gambar struktur
+    structure_entries = db.relationship('OrganizationalStructureEntry', backref='assessment', lazy=True, cascade="all, delete-orphan")
+
+class OrganizationalStructureEntry(db.Model):
+    """Model untuk satu baris entri struktur organisasi."""
+    __tablename__ = 'organizational_structure_entries'
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, db.ForeignKey('madya_assessments.id'), nullable=False)
+    direktorat = db.Column(db.String(200), nullable=True)
+    divisi = db.Column(db.String(200), nullable=True)
+    unit_kerja = db.Column(db.String(200), nullable=True)

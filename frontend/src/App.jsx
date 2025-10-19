@@ -23,6 +23,8 @@ import TemplateListPage from "./features/risk-management/templates/TemplateListP
 import TemplateEditorPage from "./features/risk-management/templates/TemplateEditorPage";
 import MasterDataPage from "./features/admin/MasterDataPage";
 import RegulationPage from "./features/admin/RegulationPage";
+import MadyaAssessmentListPage from "./features/risk-management/madya/MadyaAssessmentListPage";
+import MadyaAssessmentFormPage from "./features/risk-management/madya/MadyaAssessmentFormPage";
 
 function App() {
   return (
@@ -49,6 +51,8 @@ function App() {
             <Route path="/risk-management/templates" element={<TemplateListPage />} />
             <Route path="/risk-management/templates/new" element={<TemplateEditorPage />} />
             <Route path="/risk-management/templates/edit/:templateId" element={<TemplateEditorPage />} />
+            <Route path="/risk-management/madya" element={<MadyaAssessmentListPage />} />
+            <Route path="/risk-management/madya/form/:assessmentId" element={<MadyaAssessmentFormPage />} />
 
             {/* Modul Lain */}
             <Route path="/rsca" element={<RSCAPage />} />

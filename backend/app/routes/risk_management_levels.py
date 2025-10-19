@@ -1,13 +1,15 @@
 # backend/app/routes/risk_management_levels.py
+import os
 from flask import request, jsonify, Blueprint, send_file, current_app
 from app.models import (
     db, BasicAssessment, OrganizationalContext, 
-    BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore
+    BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from io import BytesIO
 import openpyxl
+from werkzeug.utils import secure_filename
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
 # Membuat Blueprint untuk Risk Management Levels
@@ -491,3 +493,176 @@ def update_risk_map_template(template_id):
 
     db.session.commit()
     return jsonify({"msg": "Template berhasil diperbarui."})
+
+# Endpoint Assessment Madya
+@risk_management_levels_bp.route('/madya-assessments', methods=['POST'])
+@jwt_required()
+def create_madya_assessment():
+    """Membuat record Madya Assessment baru (awalan)."""
+    current_user_id = get_jwt_identity()
+    # Untuk saat ini, kita hanya buat record dasarnya
+    new_assessment = MadyaAssessment(user_id=current_user_id)
+    db.session.add(new_assessment)
+    db.session.commit()
+    # Kembalikan ID agar frontend bisa lanjut ke step berikutnya
+    return jsonify({"msg": "Madya Assessment initiated.", "id": new_assessment.id}), 201
+
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-entries', methods=['POST'])
+@jwt_required()
+def add_structure_entry(assessment_id):
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    # --- PERUBAHAN: Ambil data dari JSON, bukan form-data ---
+    data = request.get_json()
+    if not data:
+         return jsonify({"msg": "Request body harus JSON."}), 400
+
+    direktorat = data.get('direktorat')
+    divisi = data.get('divisi')
+    unit_kerja = data.get('unit_kerja')
+
+    new_entry = OrganizationalStructureEntry(
+        assessment_id=assessment.id,
+        direktorat=direktorat,
+        divisi=divisi,
+        unit_kerja=unit_kerja
+    )
+    db.session.add(new_entry)
+    db.session.commit()
+
+    # Kembalikan data yang baru dibuat agar bisa ditampilkan di tabel frontend
+    return jsonify({
+        "msg": "Entri struktur berhasil ditambahkan.", 
+        "entry": {
+            "id": new_entry.id,
+            "direktorat": new_entry.direktorat,
+            "divisi": new_entry.divisi,
+            "unit_kerja": new_entry.unit_kerja
+        }
+    }), 201
+    
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-image', methods=['POST'])
+@jwt_required()
+def upload_structure_image(assessment_id):
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    if 'struktur_organisasi_image' not in request.files:
+        return jsonify({"msg": "Tidak ada file gambar yang dikirim."}), 400
+
+    file = request.files['struktur_organisasi_image']
+    if file.filename == '':
+        return jsonify({"msg": "Nama file tidak boleh kosong."}), 400
+        
+    if file:
+        MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024 # 1MB
+        MAX_FILE_SIZE_MB_FOR_MSG = 1
+        if file.content_length > MAX_FILE_SIZE_BYTES:
+             return jsonify({"msg": f"Ukuran file melebihi {MAX_FILE_SIZE_MB_FOR_MSG}MB."}), 413
+
+        filename = secure_filename(f"struktur_{assessment_id}_{datetime.now().timestamp()}_{file.filename}")
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        
+        # Hapus gambar lama jika ada
+        if assessment.structure_image_filename:
+             try:
+                 os.remove(os.path.join(upload_folder, assessment.structure_image_filename))
+             except OSError:
+                 pass # Abaikan jika file tidak ditemukan
+
+        file.save(os.path.join(upload_folder, filename))
+        assessment.structure_image_filename = filename
+        db.session.commit()
+        
+        image_url_relative = f"api/uploads/{filename}"
+
+        return jsonify({
+            "msg": "Gambar struktur organisasi berhasil diupload.",
+            "filename": filename,
+            "image_url": image_url_relative # Konsisten pakai 'image_url'
+        }), 200
+    
+    return jsonify({"msg": "Upload gagal."}), 400
+
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>', methods=['GET'])
+@jwt_required()
+def get_madya_assessment_detail(assessment_id):
+    """Mengambil detail Madya Assessment, termasuk entri struktur."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    structure_entries = [
+        {
+            "id": entry.id, 
+            "direktorat": entry.direktorat, 
+            "divisi": entry.divisi, 
+            "unit_kerja": entry.unit_kerja} 
+        for entry in assessment.structure_entries
+    ]
+    
+    image_url_relative = f"api/uploads/{assessment.structure_image_filename}" if assessment.structure_image_filename else None
+
+    return jsonify({
+        "id": assessment.id,
+        "created_at": assessment.created_at.isoformat(),
+        "structure_image_url": image_url_relative, 
+        "structure_entries": structure_entries,
+    })
+    
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-image', methods=['DELETE'])
+@jwt_required()
+def delete_structure_image(assessment_id):
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    if not assessment.structure_image_filename:
+        return jsonify({"msg": "Tidak ada gambar untuk dihapus."}), 404
+
+    # Hapus file fisik
+    try:
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        file_path = os.path.join(upload_folder, assessment.structure_image_filename)
+        if os.path.exists(file_path):
+             os.remove(file_path)
+        else:
+             print(f"Peringatan: File gambar tidak ditemukan saat mencoba menghapus: {file_path}")
+    except OSError as e:
+        print(f"Error saat menghapus file fisik: {e.strerror}")
+        # Kita lanjutkan saja untuk menghapus referensi di DB
+
+    # Hapus referensi di database
+    assessment.structure_image_filename = None
+    db.session.commit()
+
+    return jsonify({"msg": "Gambar struktur organisasi berhasil dihapus."}), 200
+
+@risk_management_levels_bp.route('/structure-entries/<int:entry_id>', methods=['PUT', 'DELETE'])
+@jwt_required()
+def manage_structure_entry(entry_id):
+    current_user_id = get_jwt_identity()
+    entry = OrganizationalStructureEntry.query.get_or_404(entry_id)
+
+    # Otorisasi: Pastikan entry ini milik asesmen user
+    assessment = MadyaAssessment.query.get_or_404(entry.assessment_id)
+    if str(assessment.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+
+    if request.method == 'PUT':
+        data = request.get_json()
+        entry.direktorat = data.get('direktorat', entry.direktorat)
+        entry.divisi = data.get('divisi', entry.divisi)
+        entry.unit_kerja = data.get('unit_kerja', entry.unit_kerja)
+        db.session.commit()
+        # Kembalikan data yang sudah diupdate
+        return jsonify({
+            "msg": "Entri berhasil diperbarui.",
+            "entry": { "id": entry.id, "direktorat": entry.direktorat, "divisi": entry.divisi, "unit_kerja": entry.unit_kerja }
+        })
+
+    if request.method == 'DELETE':
+        db.session.delete(entry)
+        db.session.commit()
+        return jsonify({"msg": "Entri berhasil dihapus."})
