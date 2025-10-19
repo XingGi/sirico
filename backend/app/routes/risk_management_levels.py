@@ -2,7 +2,7 @@
 from flask import request, jsonify, Blueprint, send_file, current_app
 from app.models import (
     db, BasicAssessment, OrganizationalContext, 
-    BasicRiskIdentification, BasicRiskAnalysis
+    BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
@@ -386,3 +386,108 @@ def export_basic_assessment_to_excel(assessment_id):
         download_name=f"Asesmen_Dasar_{assessment.nama_unit_kerja}.xlsx",
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+    
+# Peta Risiko
+@risk_management_levels_bp.route('/risk-maps', methods=['POST'])
+@jwt_required()
+def create_risk_map_template():
+    data = request.get_json()
+    current_user_id = get_jwt_identity()
+    if not data or not data.get('name'):
+        return jsonify({"msg": "Nama template wajib diisi."}), 400
+
+    new_template = RiskMapTemplate(name=data['name'], description=data.get('description'), user_id=current_user_id)
+    db.session.add(new_template)
+    db.session.flush()
+
+    for label_data in data.get('likelihood_labels', []):
+        db.session.add(RiskMapLikelihoodLabel(template_id=new_template.id, **label_data))
+    for label_data in data.get('impact_labels', []):
+        db.session.add(RiskMapImpactLabel(template_id=new_template.id, **label_data))
+    for definition_data in data.get('level_definitions', []):
+        db.session.add(RiskMapLevelDefinition(template_id=new_template.id, **definition_data))
+    
+    # --- PERUBAHAN: Simpan data skor kustom ---
+    for score_data in data.get('scores', []):
+        db.session.add(RiskMapScore(template_id=new_template.id, **score_data))
+
+    db.session.commit()
+    return jsonify({"msg": "Template berhasil dibuat.", "id": new_template.id}), 201
+
+
+@risk_management_levels_bp.route('/risk-maps', methods=['GET'])
+@jwt_required()
+def get_risk_map_templates():
+    """Mengambil daftar template (default + milik pengguna)."""
+    current_user_id = get_jwt_identity()
+    
+    # Ambil template default (user_id is None) ATAU yang dimiliki user
+    templates = RiskMapTemplate.query.filter(
+        (RiskMapTemplate.user_id == current_user_id) | (RiskMapTemplate.is_default == True)
+    ).order_by(RiskMapTemplate.is_default.desc(), RiskMapTemplate.name).all()
+
+    result = [
+        {"id": t.id, "name": t.name, "description": t.description, "is_default": t.is_default}
+        for t in templates
+    ]
+    return jsonify(result)
+
+
+@risk_management_levels_bp.route('/risk-maps/<int:template_id>', methods=['GET'])
+@jwt_required()
+def get_risk_map_template_detail(template_id):
+    """Mengambil detail lengkap satu template."""
+    template = RiskMapTemplate.query.get_or_404(template_id)
+    # (Tambahkan otorisasi jika perlu di masa depan)
+    scores = RiskMapScore.query.filter_by(template_id=template.id).all()
+
+    return jsonify({
+        "id": template.id,
+        "name": template.name,
+        "description": template.description,
+        "is_default": template.is_default,
+        "likelihood_labels": [{"level": l.level, "label": l.label} for l in template.likelihood_labels],
+        "impact_labels": [{"level": i.level, "label": i.label} for i in template.impact_labels],
+        "level_definitions": [{
+            "level_name": d.level_name, "color_hex": d.color_hex,
+            "min_score": d.min_score, "max_score": d.max_score
+        } for d in template.level_definitions],
+        "scores": [{
+            "likelihood_level": s.likelihood_level, "impact_level": s.impact_level, "score": s.score
+        } for s in scores]
+    })
+
+@risk_management_levels_bp.route('/risk-maps/<int:template_id>', methods=['PUT'])
+@jwt_required()
+def update_risk_map_template(template_id):
+    template = RiskMapTemplate.query.get_or_404(template_id)
+    current_user_id = get_jwt_identity()
+
+    # Otorisasi: Pastikan user tidak mengedit template default atau milik user lain
+    if template.is_default or str(template.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+
+    data = request.get_json()
+    
+    # Update data induk
+    template.name = data.get('name', template.name)
+    template.description = data.get('description', template.description)
+
+    # Hapus dan buat ulang data anak (strategi sederhana dan efektif)
+    RiskMapLikelihoodLabel.query.filter_by(template_id=template.id).delete()
+    RiskMapImpactLabel.query.filter_by(template_id=template.id).delete()
+    RiskMapLevelDefinition.query.filter_by(template_id=template.id).delete()
+    RiskMapScore.query.filter_by(template_id=template.id).delete()
+    
+    # Buat ulang seperti di endpoint POST
+    for label_data in data.get('likelihood_labels', []):
+        db.session.add(RiskMapLikelihoodLabel(template_id=template.id, **label_data))
+    for label_data in data.get('impact_labels', []):
+        db.session.add(RiskMapImpactLabel(template_id=template.id, **label_data))
+    for definition_data in data.get('level_definitions', []):
+        db.session.add(RiskMapLevelDefinition(template_id=template.id, **definition_data))
+    for score_data in data.get('scores', []):
+        db.session.add(RiskMapScore(template_id=template.id, **score_data))
+
+    db.session.commit()
+    return jsonify({"msg": "Template berhasil diperbarui."})

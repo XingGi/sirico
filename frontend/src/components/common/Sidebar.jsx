@@ -19,6 +19,7 @@ import {
   FiArrowDownCircle,
   FiArrowRightCircle,
   FiArrowUpCircle,
+  FiMap,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,6 +35,7 @@ const menuItems = [
       { title: "Dasar", path: "/risk-management/dasar", icon: <FiArrowDownCircle /> },
       { title: "Madya", path: "/risk-management/madya", icon: <FiArrowRightCircle /> },
       { title: "Utama", path: "/risk-management/utama", icon: <FiArrowUpCircle /> },
+      { title: "Template Peta Risiko", path: "/risk-management/templates", icon: <FiMap /> },
     ],
   },
   {

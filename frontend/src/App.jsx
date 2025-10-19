@@ -19,6 +19,8 @@ import BPRPage from "./features/bpr/BPRPage";
 import BIAPage from "./features/bia/BIAPage";
 import BasicAssessmentListPage from "./features/risk-management/basic/BasicAssessmentListPage";
 import BasicAssessmentFormPage from "./features/risk-management/basic/BasicAssessmentFormPage";
+import TemplateListPage from "./features/risk-management/templates/TemplateListPage";
+import TemplateEditorPage from "./features/risk-management/templates/TemplateEditorPage";
 import MasterDataPage from "./features/admin/MasterDataPage";
 import RegulationPage from "./features/admin/RegulationPage";
 
@@ -44,6 +46,9 @@ function App() {
             <Route path="/risk-management/dasar" element={<BasicAssessmentListPage />} />
             <Route path="/risk-management/dasar/new" element={<BasicAssessmentFormPage />} />
             <Route path="/risk-management/dasar/edit/:assessmentId" element={<BasicAssessmentFormPage />} />
+            <Route path="/risk-management/templates" element={<TemplateListPage />} />
+            <Route path="/risk-management/templates/new" element={<TemplateEditorPage />} />
+            <Route path="/risk-management/templates/edit/:templateId" element={<TemplateEditorPage />} />
 
             {/* Modul Lain */}
             <Route path="/rsca" element={<RSCAPage />} />

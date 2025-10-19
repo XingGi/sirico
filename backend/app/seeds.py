@@ -1,6 +1,6 @@
 # backend/app/seeds.py
 
-from .models import User, MasterData
+from .models import User, MasterData, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore
 from . import db, bcrypt
 
 def seed_admin():
@@ -124,3 +124,77 @@ def seed_master_data():
                 
     db.session.commit()
     print("Master data seeding complete.")
+    
+# Peta Risiko
+def seed_default_risk_map():
+    """Membuat template peta risiko default jika belum ada."""
+    if RiskMapTemplate.query.filter_by(is_default=True).first():
+        print("Default risk map template already exists.")
+        return
+
+    print("Creating default risk map template...")
+    
+    # 1. Buat Template Induk
+    default_template = RiskMapTemplate(
+        name="Default SIRICO Matrix 5x5",
+        description="Template peta risiko standar berdasarkan matriks 5x5 umum.",
+        is_default=True,
+        user_id=None # Milik sistem, bukan user spesifik
+    )
+    db.session.add(default_template)
+    db.session.flush()
+
+    # 2. Definisikan Label Probabilitas & Dampak
+    likelihoods = {
+        5: "Hampir Pasti Terjadi", 4: "Sangat Mungkin Terjadi", 3: "Bisa Terjadi",
+        2: "Jarang Terjadi", 1: "Sangat Jarang Terjadi"
+    }
+    impacts = {
+        1: "Sangat Rendah", 2: "Rendah", 3: "Moderat", 4: "Tinggi", 5: "Sangat Tinggi"
+    }
+
+    for level, label in likelihoods.items():
+        db.session.add(RiskMapLikelihoodLabel(template_id=default_template.id, level=level, label=label))
+    
+    for level, label in impacts.items():
+        db.session.add(RiskMapImpactLabel(template_id=default_template.id, level=level, label=label))
+
+    # 3. Definisikan Level Risiko (Skor, Nama, Warna)
+    definitions = [
+        {"name": "Rendah", "color": "#00B050", "min": 1, "max": 4},      # Hijau
+        {"name": "Moderat", "color": "#FFFF00", "min": 5, "max": 9},    # Kuning
+        {"name": "Tinggi", "color": "#FFC000", "min": 10, "max": 16},   # Oranye
+        {"name": "Sangat Tinggi", "color": "#FF0000", "min": 17, "max": 25} # Merah
+    ]
+    
+    # Penyesuaian berdasarkan gambar (ada 2 level hijau)
+    definitions_from_image = [
+        {"level_name": "Sangat Rendah", "color_hex": "#00B050", "min_score": 1, "max_score": 2}, # Hijau Tua
+        {"level_name": "Rendah", "color_hex": "#92D050", "min_score": 3, "max_score": 6},       # Hijau Muda
+        {"level_name": "Moderat", "color_hex": "#FFFF00", "min_score": 7, "max_score": 12},      # Kuning
+        {"level_name": "Tinggi", "color_hex": "#FFC000", "min_score": 13, "max_score": 19},     # Oranye
+        {"level_name": "Sangat Tinggi", "color_hex": "#FF0000", "min_score": 20, "max_score": 25} # Merah
+    ]
+
+    for d in definitions_from_image:
+        db.session.add(RiskMapLevelDefinition(
+            template_id=default_template.id,
+            level_name=d['level_name'],
+            color_hex=d['color_hex'],
+            min_score=d['min_score'],
+            max_score=d['max_score']
+        ))
+    
+    for likelihood_level in range(1, 6):
+        for impact_level in range(1, 6):
+            score_value = likelihood_level * impact_level
+            new_score = RiskMapScore(
+                template_id=default_template.id,
+                likelihood_level=likelihood_level,
+                impact_level=impact_level,
+                score=score_value
+            )
+            db.session.add(new_score)
+
+    db.session.commit()
+    print("Default risk map template created.")

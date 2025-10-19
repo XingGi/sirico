@@ -415,3 +415,54 @@ class BasicAssessment(db.Model):
 
     def __repr__(self):
         return f'<BasicAssessment {self.nama_unit_kerja}>'
+    
+# Template Peta Risiko
+class RiskMapTemplate(db.Model):
+    """Model untuk menyimpan template peta risiko."""
+    __tablename__ = 'risk_map_templates'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    is_default = db.Column(db.Boolean, default=False, nullable=False)
+    # Jika user_id null, berarti ini template default. Jika tidak, ini milik user.
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    
+    # Relasi ke label dan definisi level
+    likelihood_labels = db.relationship('RiskMapLikelihoodLabel', backref='template', lazy=True, cascade="all, delete-orphan")
+    impact_labels = db.relationship('RiskMapImpactLabel', backref='template', lazy=True, cascade="all, delete-orphan")
+    level_definitions = db.relationship('RiskMapLevelDefinition', backref='template', lazy=True, cascade="all, delete-orphan")
+
+class RiskMapLikelihoodLabel(db.Model):
+    """Menyimpan label untuk sumbu probabilitas (Y-axis)."""
+    __tablename__ = 'risk_map_likelihood_labels'
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('risk_map_templates.id'), nullable=False)
+    level = db.Column(db.Integer, nullable=False) # Nilai 1 sampai 5
+    label = db.Column(db.String(100), nullable=False)
+
+class RiskMapImpactLabel(db.Model):
+    """Menyimpan label untuk sumbu dampak (X-axis)."""
+    __tablename__ = 'risk_map_impact_labels'
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('risk_map_templates.id'), nullable=False)
+    level = db.Column(db.Integer, nullable=False) # Nilai 1 sampai 5
+    label = db.Column(db.String(100), nullable=False)
+
+class RiskMapLevelDefinition(db.Model):
+    """Menyimpan definisi setiap level risiko (warna, nama, rentang skor)."""
+    __tablename__ = 'risk_map_level_definitions'
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('risk_map_templates.id'), nullable=False)
+    level_name = db.Column(db.String(100), nullable=False) # Contoh: "Tinggi", "Moderat"
+    color_hex = db.Column(db.String(7), nullable=False)   # Contoh: "#FF0000"
+    min_score = db.Column(db.Integer, nullable=False)
+    max_score = db.Column(db.Integer, nullable=False)
+    
+class RiskMapScore(db.Model):
+    """Menyimpan nilai skor kustom untuk setiap sel dalam matriks."""
+    __tablename__ = 'risk_map_scores'
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('risk_map_templates.id'), nullable=False)
+    likelihood_level = db.Column(db.Integer, nullable=False) # Nilai 1-5
+    impact_level = db.Column(db.Integer, nullable=False)     # Nilai 1-5
+    score = db.Column(db.Integer, nullable=False)            # Skor kustom dari pengguna
