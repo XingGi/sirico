@@ -488,3 +488,22 @@ class OrganizationalStructureEntry(db.Model):
     direktorat = db.Column(db.String(200), nullable=True)
     divisi = db.Column(db.String(200), nullable=True)
     unit_kerja = db.Column(db.String(200), nullable=True)
+    
+class SasaranOrganisasiKPI(db.Model):
+    """Model untuk menyimpan Sasaran Organisasi/KPI per Asesmen Madya."""
+    __tablename__ = 'sasaran_organisasi_kpi'
+
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, db.ForeignKey('madya_assessments.id'), nullable=False)
+    sasaran_kpi = db.Column(db.Text, nullable=False) # Kolom untuk teks Sasaran/KPI
+
+    # Kolom untuk Risk Appetite (awalnya null, diisi/diedit nanti)
+    target_level = db.Column(db.String(50), nullable=True) # Misal: 'R', 'L', 'M', 'H', 'E'
+    inherent_risk_score = db.Column(db.Integer, nullable=True)
+    residual_risk_score = db.Column(db.Integer, nullable=True)
+
+    # Relasi balik ke MadyaAssessment
+    assessment = db.relationship('MadyaAssessment', backref=db.backref('sasaran_kpi_entries', lazy=True, cascade="all, delete-orphan"))
+
+    def __repr__(self):
+        return f'<SasaranOrganisasiKPI {self.id} for Assessment {self.assessment_id}>'

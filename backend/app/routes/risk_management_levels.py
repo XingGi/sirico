@@ -3,7 +3,8 @@ import os
 from flask import request, jsonify, Blueprint, send_file, current_app
 from app.models import (
     db, BasicAssessment, OrganizationalContext, 
-    BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry
+    BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, 
+    RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry, SasaranOrganisasiKPI
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
@@ -666,3 +667,75 @@ def manage_structure_entry(entry_id):
         db.session.delete(entry)
         db.session.commit()
         return jsonify({"msg": "Entri berhasil dihapus."})
+    
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/sasaran-kpi', methods=['POST'])
+@jwt_required()
+def add_sasaran_kpi(assessment_id):
+    """Menambahkan entri Sasaran Organisasi/KPI baru ke Asesmen Madya."""
+    current_user_id = get_jwt_identity()
+    # Pastikan asesmen ada dan milik user
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+
+    data = request.get_json()
+    sasaran_text = data.get('sasaran_kpi')
+
+    if not sasaran_text:
+        return jsonify({"msg": "Teks 'sasaran_kpi' wajib diisi."}), 400
+
+    new_sasaran = SasaranOrganisasiKPI(
+        assessment_id=assessment.id,
+        sasaran_kpi=sasaran_text
+        # target_level, inherent_risk_score, residual_risk_score akan null by default
+    )
+    db.session.add(new_sasaran)
+    db.session.commit()
+
+    # Kembalikan data yang baru dibuat
+    return jsonify({
+        "msg": "Sasaran Organisasi/KPI berhasil ditambahkan.",
+        "entry": {
+            "id": new_sasaran.id,
+            "assessment_id": new_sasaran.assessment_id,
+            "sasaran_kpi": new_sasaran.sasaran_kpi,
+            "target_level": new_sasaran.target_level,
+            "inherent_risk_score": new_sasaran.inherent_risk_score,
+            "residual_risk_score": new_sasaran.residual_risk_score
+        }
+    }), 201
+
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/sasaran-kpi', methods=['GET'])
+@jwt_required()
+def get_sasaran_kpi_list(assessment_id):
+    """Mengambil semua entri Sasaran Organisasi/KPI untuk Asesmen Madya."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+
+    # Ambil semua entri sasaran terkait, urutkan berdasarkan ID (atau kriteria lain jika perlu)
+    sasaran_entries = SasaranOrganisasiKPI.query.filter_by(assessment_id=assessment.id).order_by(SasaranOrganisasiKPI.id).all()
+
+    result = [{
+        "id": entry.id,
+        "assessment_id": entry.assessment_id,
+        "sasaran_kpi": entry.sasaran_kpi,
+        "target_level": entry.target_level,
+        "inherent_risk_score": entry.inherent_risk_score,
+        "residual_risk_score": entry.residual_risk_score
+    } for entry in sasaran_entries]
+
+    return jsonify(result)
+
+@risk_management_levels_bp.route('/sasaran-kpi/<int:sasaran_id>', methods=['DELETE'])
+@jwt_required()
+def delete_sasaran_kpi(sasaran_id):
+    """Menghapus satu entri Sasaran Organisasi/KPI."""
+    current_user_id = get_jwt_identity()
+    sasaran_entry = SasaranOrganisasiKPI.query.get_or_404(sasaran_id)
+
+    # Otorisasi: Pastikan entri ini milik asesmen user yang sedang login
+    assessment = MadyaAssessment.query.get_or_404(sasaran_entry.assessment_id)
+    if str(assessment.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+
+    db.session.delete(sasaran_entry)
+    db.session.commit()
+    return jsonify({"msg": "Entri Sasaran Organisasi/KPI berhasil dihapus."})
