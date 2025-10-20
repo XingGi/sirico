@@ -5,6 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../../../api/api";
 import StrukturOrganisasiCard from "./components/StrukturOrganisasiCard";
 import MadyaCriteriaReference from "./components/MadyaCriteriaReference";
+import SasaranKPIAppetiteCard from "./components/SasaranKPIAppetiteCard";
 
 function MadyaAssessmentFormPage() {
   const { assessmentId: idParam } = useParams(); // 'new' atau ID angka
@@ -12,6 +13,7 @@ function MadyaAssessmentFormPage() {
   const [assessmentId, setAssessmentId] = useState(null);
   const [assessmentData, setAssessmentData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sasaranKPIEntries, setSasaranKPIEntries] = useState([]);
 
   useEffect(() => {
     const initializeAssessment = async () => {
@@ -38,8 +40,13 @@ function MadyaAssessmentFormPage() {
     const fetchData = async (id) => {
       setIsLoading(true);
       try {
-        const response = await apiClient.get(`/madya-assessments/${id}`);
-        setAssessmentData(response.data);
+        // --- Modifikasi: Fetch data sasaran KPI juga ---
+        const [assessmentRes, sasaranRes] = await Promise.all([
+          apiClient.get(`/madya-assessments/${id}`),
+          apiClient.get(`/madya-assessments/${id}/sasaran-kpi`), // <-- Panggil API GET sasaran
+        ]);
+        setAssessmentData(assessmentRes.data);
+        setSasaranKPIEntries(sasaranRes.data); // <-- Simpan data sasaran ke state baru
       } catch (error) {
         console.error("Gagal memuat data asesmen madya:", error);
         alert("Gagal memuat data asesmen.");
@@ -54,7 +61,20 @@ function MadyaAssessmentFormPage() {
 
   const refreshData = () => {
     if (assessmentId) {
-      fetchData(assessmentId);
+      // Kita bisa buat fungsi fetch terpisah atau panggil ulang fetchData
+      const fetchDataAgain = async (id) => {
+        setIsLoading(true); // Tampilkan loading lagi saat refresh
+        try {
+          const [assessmentRes, sasaranRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`), apiClient.get(`/madya-assessments/${id}/sasaran-kpi`)]);
+          setAssessmentData(assessmentRes.data);
+          setSasaranKPIEntries(sasaranRes.data);
+        } catch (error) {
+          console.error("Gagal refresh data:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchDataAgain(assessmentId);
     }
   };
 
@@ -93,7 +113,13 @@ function MadyaAssessmentFormPage() {
         </Accordion>
       </Card>
 
-      {/* Card 3, 4, dst. akan ditambahkan di sini nanti */}
+      <SasaranKPIAppetiteCard
+        assessmentId={assessmentId}
+        initialData={sasaranKPIEntries} // <-- Pass data dari state
+        onDataChange={refreshData} // <-- Pass fungsi refresh
+      />
+
+      {/* Card 4, dst. akan ditambahkan di sini nanti */}
 
       <div className="flex justify-end gap-2 mt-6">
         <Button variant="secondary" onClick={() => navigate("/risk-management/madya")}>

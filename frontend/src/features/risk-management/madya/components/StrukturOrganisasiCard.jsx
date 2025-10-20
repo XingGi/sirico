@@ -113,7 +113,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
   return (
     <>
       <Card>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 ml-4">
           <div>
             <Title as="h3">1. Struktur Organisasi</Title>
             <Text>Definisikan struktur organisasi dan upload gambar (opsional).</Text>
