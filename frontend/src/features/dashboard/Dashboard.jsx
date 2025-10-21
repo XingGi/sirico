@@ -73,7 +73,7 @@ function Dashboard() {
         </Grid>
 
         {/* BARIS KEDUA: Recent Assessments dan Quick Actions */}
-        <Grid numItemsL={2} numItemsLg={3} className="gap-6 mt-6">
+        <Grid numItemsMd={2} numItemsLg={3} className="gap-6 mt-6">
           <Col numColSpanMd={2} numColSpanLg={2}>
             <AssessmentListWidget />
           </Col>

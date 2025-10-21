@@ -14,8 +14,9 @@ function TemplateListPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(null);
 
-  useEffect(() => {
+  const fetchTemplates = () => {
     setIsLoading(true);
     apiClient
       .get("/risk-maps")
@@ -24,6 +25,10 @@ function TemplateListPage() {
       })
       .catch((error) => console.error("Gagal memuat template:", error))
       .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchTemplates();
   }, []);
 
   const handleViewClick = (templateId) => {
@@ -41,6 +46,27 @@ function TemplateListPage() {
       .finally(() => {
         setIsDetailLoading(false);
       });
+  };
+
+  const handleDeleteTemplate = async (templateId, templateName) => {
+    // Tampilkan konfirmasi
+    if (window.confirm(`Apakah Anda yakin ingin menghapus template "${templateName}"? Template ini tidak bisa dikembalikan.`)) {
+      setIsDeleting(templateId); // Set ID template yang sedang dihapus untuk loading
+      try {
+        // Panggil API DELETE
+        await apiClient.delete(`/risk-maps/${templateId}`);
+        alert(`Template "${templateName}" berhasil dihapus.`);
+        // Hapus template dari state lokal agar UI update
+        setTemplates((prevTemplates) => prevTemplates.filter((t) => t.id !== templateId));
+        // Alternatif: panggil fetchTemplates() lagi untuk data terbaru dari server
+        // fetchTemplates();
+      } catch (error) {
+        console.error(`Gagal menghapus template ${templateId}:`, error);
+        alert(`Gagal menghapus template: ${error.response?.data?.msg || "Terjadi kesalahan."}`);
+      } finally {
+        setIsDeleting(null); // Reset state loading hapus
+      }
+    }
   };
 
   return (
@@ -83,7 +109,7 @@ function TemplateListPage() {
                     <Button icon={FiEdit} variant="light" disabled={template.is_default} onClick={() => navigate(`/risk-management/templates/edit/${template.id}`)}>
                       Edit
                     </Button>
-                    <Button icon={FiTrash2} variant="light" color="red" disabled={template.is_default}>
+                    <Button icon={FiTrash2} variant="light" color="red" disabled={template.is_default || isDeleting === template.id} loading={isDeleting === template.id} onClick={() => handleDeleteTemplate(template.id, template.name)}>
                       Hapus
                     </Button>
                   </div>

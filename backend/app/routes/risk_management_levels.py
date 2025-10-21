@@ -4,7 +4,7 @@ from flask import request, jsonify, Blueprint, send_file, current_app
 from app.models import (
     db, BasicAssessment, OrganizationalContext, 
     BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, 
-    RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry, SasaranOrganisasiKPI
+    RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry, SasaranOrganisasiKPI, RiskInputMadya
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
@@ -495,18 +495,82 @@ def update_risk_map_template(template_id):
     db.session.commit()
     return jsonify({"msg": "Template berhasil diperbarui."})
 
+@risk_management_levels_bp.route('/risk-maps/<int:template_id>', methods=['DELETE'])
+@jwt_required()
+def delete_risk_map_template(template_id):
+    template = RiskMapTemplate.query.get_or_404(template_id)
+    current_user_id = get_jwt_identity()
+
+    if template.is_default or str(template.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak. Anda tidak dapat menghapus template default atau milik pengguna lain."}), 403
+    
+    if template.madya_assessments: # Cek apakah list asesmen yang menggunakan template ini tidak kosong
+        assessment_ids = [a.id for a in template.madya_assessments]
+        return jsonify({
+            "msg": f"Template tidak dapat dihapus karena sedang digunakan oleh Asesmen Madya ID: {', '.join(map(str, assessment_ids))}"
+        }), 400
+        
+    try:
+        db.session.delete(template)
+        db.session.commit()
+        return jsonify({"msg": "Template berhasil dihapus."}), 200 # OK
+    except Exception as e:
+        db.session.rollback() # Batalkan jika ada error
+        print(f"Error deleting template {template_id}: {e}")
+        return jsonify({"msg": "Gagal menghapus template. Terjadi kesalahan internal."}), 500
+
 # Endpoint Assessment Madya
 @risk_management_levels_bp.route('/madya-assessments', methods=['POST'])
 @jwt_required()
 def create_madya_assessment():
     """Membuat record Madya Assessment baru (awalan)."""
     current_user_id = get_jwt_identity()
+    data = request.get_json() or {}
+    
+    selected_template_id = data.get('risk_map_template_id')
+    if not selected_template_id:
+        # Contoh: Coba cari template default (misal yg is_default=True atau ID=1)
+        default_template = RiskMapTemplate.query.filter_by(is_default=True).first()
+        if default_template:
+            selected_template_id = default_template.id
+        else:
+            # Fallback jika tidak ada default, bisa set ke null atau template pertama
+            first_template = RiskMapTemplate.query.order_by(RiskMapTemplate.id).first()
+            if first_template:
+                selected_template_id = first_template.id
     # Untuk saat ini, kita hanya buat record dasarnya
-    new_assessment = MadyaAssessment(user_id=current_user_id)
+    new_assessment = MadyaAssessment(
+        user_id=current_user_id,
+        risk_map_template_id=selected_template_id
+    )
     db.session.add(new_assessment)
     db.session.commit()
     # Kembalikan ID agar frontend bisa lanjut ke step berikutnya
-    return jsonify({"msg": "Madya Assessment initiated.", "id": new_assessment.id}), 201
+    return jsonify({"id": new_assessment.id, "message": "Asesmen Madya baru berhasil dibuat."}), 201
+
+@risk_management_levels_bp.route('/madya-assessments', methods=['GET'])
+@jwt_required()
+def get_madya_assessments_list():
+    """Mengambil daftar semua Asesmen Madya milik pengguna."""
+    current_user_id = get_jwt_identity()
+
+    # Query asesmen milik user saat ini, urutkan berdasarkan tanggal terbaru
+    assessments = MadyaAssessment.query.filter_by(user_id=current_user_id)\
+                                     .order_by(MadyaAssessment.created_at.desc())\
+                                     .all()
+
+    # Format data yang akan dikirim ke frontend
+    assessment_list = []
+    for assessment in assessments:
+        assessment_list.append({
+            "id": assessment.id,
+            "created_at": assessment.created_at.isoformat(),
+            # Tambahkan field lain jika perlu untuk ditampilkan di list,
+            # contoh: nama template jika sudah join
+            # "template_name": assessment.risk_map_template.name if assessment.risk_map_template else "N/A"
+        })
+
+    return jsonify(assessment_list), 200
 
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-entries', methods=['POST'])
 @jwt_required()
@@ -600,7 +664,8 @@ def get_madya_assessment_detail(assessment_id):
             "id": entry.id, 
             "direktorat": entry.direktorat, 
             "divisi": entry.divisi, 
-            "unit_kerja": entry.unit_kerja} 
+            "unit_kerja": entry.unit_kerja
+        }
         for entry in assessment.structure_entries
     ]
     
@@ -609,6 +674,9 @@ def get_madya_assessment_detail(assessment_id):
     return jsonify({
         "id": assessment.id,
         "created_at": assessment.created_at.isoformat(),
+        "user_id": assessment.user_id,
+        "risk_map_template_id": assessment.risk_map_template_id,
+        "structure_image_filename": assessment.structure_image_filename,
         "structure_image_url": image_url_relative, 
         "structure_entries": structure_entries,
     })
@@ -639,6 +707,29 @@ def delete_structure_image(assessment_id):
     db.session.commit()
 
     return jsonify({"msg": "Gambar struktur organisasi berhasil dihapus."}), 200
+
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/template', methods=['PUT'])
+@jwt_required()
+def update_madya_assessment_template(assessment_id):
+    """Mengupdate template peta risiko yang digunakan untuk Asesmen Madya."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+
+    data = request.get_json()
+    new_template_id = data.get('risk_map_template_id')
+
+    if new_template_id is None:
+        return jsonify({"msg": "'risk_map_template_id' wajib diisi."}), 400
+
+    # Validasi apakah template ID valid (opsional tapi bagus)
+    template_exists = RiskMapTemplate.query.get(new_template_id)
+    if not template_exists:
+        return jsonify({"msg": f"Template dengan ID {new_template_id} tidak ditemukan."}), 404
+
+    assessment.risk_map_template_id = new_template_id
+    db.session.commit()
+
+    return jsonify({"msg": "Template peta risiko berhasil diperbarui."})
 
 @risk_management_levels_bp.route('/structure-entries/<int:entry_id>', methods=['PUT', 'DELETE'])
 @jwt_required()
@@ -739,3 +830,235 @@ def delete_sasaran_kpi(sasaran_id):
     db.session.delete(sasaran_entry)
     db.session.commit()
     return jsonify({"msg": "Entri Sasaran Organisasi/KPI berhasil dihapus."})
+
+# Risk Input
+def parse_date_or_none(date_str):
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return None # Return None if format is invalid or input is not string
+
+# Helper function to safely convert float or return None
+def parse_float_or_none(value):
+    if value in [None, '']:
+        return None
+    try:
+        # Hapus pemisah ribuan jika ada (misal dari input frontend)
+        cleaned_value = str(value).replace('.', '').replace(',', '.')
+        return float(cleaned_value)
+    except (ValueError, TypeError):
+        return None
+
+# Helper function to safely convert int or return None
+def parse_int_or_none(value):
+    if value in [None, '']:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+# Helper function to calculate scores and net values
+def calculate_risk_values(data):
+    inherent_p = parse_int_or_none(data.get('inherent_probabilitas'))
+    inherent_i = parse_int_or_none(data.get('inherent_dampak'))
+    inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif'))
+    inherent_dampak_finansial = parse_float_or_none(data.get('inherent_dampak_finansial'))
+
+    residual_p = parse_int_or_none(data.get('residual_probabilitas'))
+    residual_i = parse_int_or_none(data.get('residual_dampak'))
+    residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif'))
+    residual_dampak_finansial = parse_float_or_none(data.get('residual_dampak_finansial'))
+
+    calculated = {}
+    if inherent_p is not None and inherent_i is not None:
+        calculated['inherent_skor'] = inherent_p * inherent_i
+        if inherent_prob_kualitatif is not None and inherent_dampak_finansial is not None:
+            calculated['inherent_nilai_bersih'] = inherent_dampak_finansial * (inherent_prob_kualitatif / 100.0)
+
+    if residual_p is not None and residual_i is not None:
+        calculated['residual_skor'] = residual_p * residual_i
+        if residual_prob_kualitatif is not None and residual_dampak_finansial is not None:
+            calculated['residual_nilai_bersih'] = residual_dampak_finansial * (residual_prob_kualitatif / 100.0)
+
+    return calculated
+
+
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/risk-inputs', methods=['POST'])
+@jwt_required()
+def add_risk_input(assessment_id):
+    """Menambahkan entri Risk Input baru ke Asesmen Madya."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+    data = request.get_json()
+
+    if not data or not data.get('deskripsi_risiko') or not data.get('kategori_risiko'):
+        return jsonify({"msg": "Deskripsi Risiko dan Kategori Risiko wajib diisi."}), 400
+
+    kategori = data.get('kategori_risiko')
+    kategori_lainnya = data.get('kategori_risiko_lainnya') if kategori == 'Lainnya' else None
+
+    calculated_values = calculate_risk_values(data)
+
+    new_risk_input = RiskInputMadya(
+        assessment_id=assessment_id,
+        sasaran_id=parse_int_or_none(data.get('sasaran_id')), # Ambil dari form nanti
+        kode_risiko=data.get('kode_risiko'),
+        status_risiko=data.get('status_risiko', 'Risiko Aktif'),
+        peluang_ancaman=data.get('peluang_ancaman', 'Ancaman'),
+        kategori_risiko=kategori,
+        kategori_risiko_lainnya=kategori_lainnya,
+        unit_kerja=data.get('unit_kerja'),
+        tanggal_identifikasi=parse_date_or_none(data.get('tanggal_identifikasi')) or datetime.utcnow().date(),
+        deskripsi_risiko=data.get('deskripsi_risiko'),
+        akar_penyebab=data.get('akar_penyebab'),
+        indikator_risiko=data.get('indikator_risiko'),
+        internal_control=data.get('internal_control'),
+        deskripsi_dampak=data.get('deskripsi_dampak'),
+        inherent_probabilitas=parse_int_or_none(data.get('inherent_probabilitas')),
+        inherent_dampak=parse_int_or_none(data.get('inherent_dampak')),
+        inherent_skor=calculated_values.get('inherent_skor'),
+        inherent_prob_kualitatif=parse_float_or_none(data.get('inherent_prob_kualitatif')),
+        inherent_dampak_finansial=parse_float_or_none(data.get('inherent_dampak_finansial')),
+        inherent_nilai_bersih=calculated_values.get('inherent_nilai_bersih'),
+        pemilik_risiko=data.get('pemilik_risiko'),
+        jabatan_pemilik=data.get('jabatan_pemilik'),
+        kontak_pemilik_hp=data.get('kontak_pemilik_hp'),
+        kontak_pemilik_email=data.get('kontak_pemilik_email'),
+        strategi=data.get('strategi'),
+        rencana_penanganan=data.get('rencana_penanganan'),
+        biaya_penanganan=parse_float_or_none(data.get('biaya_penanganan')),
+        penanganan_dilakukan=data.get('penanganan_dilakukan'),
+        status_penanganan=data.get('status_penanganan'),
+        jadwal_mulai_penanganan=parse_date_or_none(data.get('jadwal_mulai_penanganan')),
+        jadwal_selesai_penanganan=parse_date_or_none(data.get('jadwal_selesai_penanganan')),
+        pic_penanganan=data.get('pic_penanganan'),
+        residual_probabilitas=parse_int_or_none(data.get('residual_probabilitas')),
+        residual_dampak=parse_int_or_none(data.get('residual_dampak')),
+        residual_skor=calculated_values.get('residual_skor'),
+        residual_prob_kualitatif=parse_float_or_none(data.get('residual_prob_kualitatif')),
+        residual_dampak_finansial=parse_float_or_none(data.get('residual_dampak_finansial')),
+        residual_nilai_bersih=calculated_values.get('residual_nilai_bersih'),
+        tanggal_review=parse_date_or_none(data.get('tanggal_review')),
+    )
+
+    db.session.add(new_risk_input)
+    db.session.commit()
+
+    # Kembalikan data lengkap setelah disimpan
+    return jsonify({
+        "msg": "Risk Input berhasil ditambahkan.",
+        "entry": {f.name: getattr(new_risk_input, f.name) for f in new_risk_input.__table__.columns}
+        # Kita format tanggal jadi string agar aman di JSON
+        # Update: Langsung ambil semua kolom agar mudah
+    }), 201
+
+
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/risk-inputs', methods=['GET'])
+@jwt_required()
+def get_risk_inputs(assessment_id):
+    """Mengambil semua entri Risk Input untuk Asesmen Madya."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+
+    risk_entries = RiskInputMadya.query.filter_by(assessment_id=assessment.id).order_by(RiskInputMadya.id).all()
+
+    result = []
+    for entry in risk_entries:
+        entry_dict = {c.name: getattr(entry, c.name) for c in entry.__table__.columns}
+        # Format tanggal menjadi string ISO
+        for date_field in ['tanggal_identifikasi', 'jadwal_mulai_penanganan', 'jadwal_selesai_penanganan', 'tanggal_review']:
+            if entry_dict.get(date_field):
+                entry_dict[date_field] = entry_dict[date_field].isoformat()
+        result.append(entry_dict)
+
+    return jsonify(result)
+
+@risk_management_levels_bp.route('/risk-inputs/<int:risk_input_id>', methods=['PUT'])
+@jwt_required()
+def update_risk_input(risk_input_id):
+    """Memperbarui satu entri Risk Input."""
+    current_user_id = get_jwt_identity()
+    risk_input = RiskInputMadya.query.get_or_404(risk_input_id)
+
+    assessment = MadyaAssessment.query.get_or_404(risk_input.assessment_id)
+    if str(assessment.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Data tidak boleh kosong."}), 400
+
+    calculated_values = calculate_risk_values(data)
+
+    # Update fields based on request data
+    risk_input.sasaran_id = parse_int_or_none(data.get('sasaran_id', risk_input.sasaran_id)) # Update jika ada
+    risk_input.kode_risiko = data.get('kode_risiko', risk_input.kode_risiko)
+    risk_input.status_risiko = data.get('status_risiko', risk_input.status_risiko)
+    risk_input.peluang_ancaman = data.get('peluang_ancaman', risk_input.peluang_ancaman)
+    risk_input.kategori_risiko = data.get('kategori_risiko', risk_input.kategori_risiko)
+    risk_input.kategori_risiko_lainnya = data.get('kategori_risiko_lainnya') if risk_input.kategori_risiko == 'Lainnya' else None
+    risk_input.unit_kerja = data.get('unit_kerja', risk_input.unit_kerja)
+    risk_input.tanggal_identifikasi = parse_date_or_none(data.get('tanggal_identifikasi')) or risk_input.tanggal_identifikasi
+    risk_input.deskripsi_risiko = data.get('deskripsi_risiko', risk_input.deskripsi_risiko)
+    risk_input.akar_penyebab = data.get('akar_penyebab', risk_input.akar_penyebab)
+    risk_input.indikator_risiko = data.get('indikator_risiko', risk_input.indikator_risiko)
+    risk_input.internal_control = data.get('internal_control', risk_input.internal_control)
+    risk_input.deskripsi_dampak = data.get('deskripsi_dampak', risk_input.deskripsi_dampak)
+
+    risk_input.inherent_probabilitas = parse_int_or_none(data.get('inherent_probabilitas', risk_input.inherent_probabilitas))
+    risk_input.inherent_dampak = parse_int_or_none(data.get('inherent_dampak', risk_input.inherent_dampak))
+    risk_input.inherent_skor = calculated_values.get('inherent_skor', risk_input.inherent_skor)
+    risk_input.inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif', risk_input.inherent_prob_kualitatif))
+    risk_input.inherent_dampak_finansial = parse_float_or_none(data.get('inherent_dampak_finansial', risk_input.inherent_dampak_finansial))
+    risk_input.inherent_nilai_bersih = calculated_values.get('inherent_nilai_bersih', risk_input.inherent_nilai_bersih)
+
+    risk_input.pemilik_risiko = data.get('pemilik_risiko', risk_input.pemilik_risiko)
+    risk_input.jabatan_pemilik = data.get('jabatan_pemilik', risk_input.jabatan_pemilik)
+    risk_input.kontak_pemilik_hp = data.get('kontak_pemilik_hp', risk_input.kontak_pemilik_hp)
+    risk_input.kontak_pemilik_email = data.get('kontak_pemilik_email', risk_input.kontak_pemilik_email)
+
+    risk_input.strategi = data.get('strategi', risk_input.strategi)
+    risk_input.rencana_penanganan = data.get('rencana_penanganan', risk_input.rencana_penanganan)
+    risk_input.biaya_penanganan = parse_float_or_none(data.get('biaya_penanganan', risk_input.biaya_penanganan))
+    risk_input.penanganan_dilakukan = data.get('penanganan_dilakukan', risk_input.penanganan_dilakukan)
+    risk_input.status_penanganan = data.get('status_penanganan', risk_input.status_penanganan)
+    risk_input.jadwal_mulai_penanganan = parse_date_or_none(data.get('jadwal_mulai_penanganan')) or risk_input.jadwal_mulai_penanganan
+    risk_input.jadwal_selesai_penanganan = parse_date_or_none(data.get('jadwal_selesai_penanganan')) or risk_input.jadwal_selesai_penanganan
+    risk_input.pic_penanganan = data.get('pic_penanganan', risk_input.pic_penanganan)
+
+    risk_input.residual_probabilitas = parse_int_or_none(data.get('residual_probabilitas', risk_input.residual_probabilitas))
+    risk_input.residual_dampak = parse_int_or_none(data.get('residual_dampak', risk_input.residual_dampak))
+    risk_input.residual_skor = calculated_values.get('residual_skor', risk_input.residual_skor)
+    risk_input.residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif', risk_input.residual_prob_kualitatif))
+    risk_input.residual_dampak_finansial = parse_float_or_none(data.get('residual_dampak_finansial', risk_input.residual_dampak_finansial))
+    risk_input.residual_nilai_bersih = calculated_values.get('residual_nilai_bersih', risk_input.residual_nilai_bersih)
+    risk_input.tanggal_review = parse_date_or_none(data.get('tanggal_review')) or risk_input.tanggal_review
+
+    db.session.commit()
+
+    # Kembalikan data yang sudah diupdate
+    updated_entry_dict = {c.name: getattr(risk_input, c.name) for c in risk_input.__table__.columns}
+    for date_field in ['tanggal_identifikasi', 'jadwal_mulai_penanganan', 'jadwal_selesai_penanganan', 'tanggal_review']:
+        if updated_entry_dict.get(date_field):
+            updated_entry_dict[date_field] = updated_entry_dict[date_field].isoformat()
+
+    return jsonify({"msg": "Risk Input berhasil diperbarui.", "entry": updated_entry_dict})
+
+
+@risk_management_levels_bp.route('/risk-inputs/<int:risk_input_id>', methods=['DELETE'])
+@jwt_required()
+def delete_risk_input(risk_input_id):
+    """Menghapus satu entri Risk Input."""
+    current_user_id = get_jwt_identity()
+    risk_input = RiskInputMadya.query.get_or_404(risk_input_id)
+
+    assessment = MadyaAssessment.query.get_or_404(risk_input.assessment_id)
+    if str(assessment.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+
+    db.session.delete(risk_input)
+    db.session.commit()
+    return jsonify({"msg": "Risk Input berhasil dihapus."})

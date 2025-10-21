@@ -431,6 +431,8 @@ class RiskMapTemplate(db.Model):
     likelihood_labels = db.relationship('RiskMapLikelihoodLabel', backref='template', lazy=True, cascade="all, delete-orphan")
     impact_labels = db.relationship('RiskMapImpactLabel', backref='template', lazy=True, cascade="all, delete-orphan")
     level_definitions = db.relationship('RiskMapLevelDefinition', backref='template', lazy=True, cascade="all, delete-orphan")
+    scores = db.relationship('RiskMapScore', backref='template', lazy=True, cascade="all, delete-orphan")
+    madya_assessments = db.relationship('MadyaAssessment', lazy=True)
 
 class RiskMapLikelihoodLabel(db.Model):
     """Menyimpan label untuk sumbu probabilitas (Y-axis)."""
@@ -476,6 +478,9 @@ class MadyaAssessment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
+    risk_map_template_id = db.Column(db.Integer, db.ForeignKey('risk_map_templates.id'), nullable=True)
+    risk_map_template = db.relationship('RiskMapTemplate')
+    
     # Relasi ke entri struktur organisasi
     structure_image_filename = db.Column(db.String(300), nullable=True) # Nama file gambar struktur
     structure_entries = db.relationship('OrganizationalStructureEntry', backref='assessment', lazy=True, cascade="all, delete-orphan")
@@ -507,3 +512,65 @@ class SasaranOrganisasiKPI(db.Model):
 
     def __repr__(self):
         return f'<SasaranOrganisasiKPI {self.id} for Assessment {self.assessment_id}>'
+    
+class RiskInputMadya(db.Model):
+    """Model untuk menyimpan detail Risk Input per baris pada Asesmen Madya."""
+    __tablename__ = 'risk_input_madya'
+
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, db.ForeignKey('madya_assessments.id'), nullable=False)
+    sasaran_id = db.Column(db.Integer, db.ForeignKey('sasaran_organisasi_kpi.id'), nullable=True) # Bisa null jika risiko tidak terkait langsung ke KPI
+
+    # --- Identifikasi Risiko ---
+    kode_risiko = db.Column(db.String(50), nullable=True)
+    status_risiko = db.Column(db.String(50), default='Risiko Aktif') # Default 'Risiko Aktif'
+    peluang_ancaman = db.Column(db.String(50), default='Ancaman')   # Default 'Ancaman'
+    kategori_risiko = db.Column(db.String(100))
+    kategori_risiko_lainnya = db.Column(db.String(200), nullable=True) # Untuk input 'Lainnya'
+    unit_kerja = db.Column(db.String(200)) # Dari dropdown Card 1
+    tanggal_identifikasi = db.Column(db.Date, default=datetime.utcnow)
+    deskripsi_risiko = db.Column(db.Text)
+    akar_penyebab = db.Column(db.Text, nullable=True)
+    indikator_risiko = db.Column(db.Text, nullable=True)
+    internal_control = db.Column(db.Text, nullable=True)
+    deskripsi_dampak = db.Column(db.Text, nullable=True)
+
+    # --- Analisis Risiko Inheren ---
+    inherent_probabilitas = db.Column(db.Integer)
+    inherent_dampak = db.Column(db.Integer)
+    inherent_skor = db.Column(db.Integer, nullable=True) # Bisa dihitung, tapi disimpan agar mudah query
+    inherent_prob_kualitatif = db.Column(db.Float, nullable=True) # Persentase
+    inherent_dampak_finansial = db.Column(db.Float, nullable=True) # Rupiah
+    inherent_nilai_bersih = db.Column(db.Float, nullable=True) # Hasil perhitungan
+
+    # --- Pemilik Risiko ---
+    pemilik_risiko = db.Column(db.String(150), nullable=True)
+    jabatan_pemilik = db.Column(db.String(150), nullable=True)
+    kontak_pemilik_hp = db.Column(db.String(50), nullable=True)
+    kontak_pemilik_email = db.Column(db.String(120), nullable=True)
+
+    # --- Evaluasi & Penanganan Risiko ---
+    strategi = db.Column(db.String(100), nullable=True)
+    rencana_penanganan = db.Column(db.Text, nullable=True)
+    biaya_penanganan = db.Column(db.Float, nullable=True)
+    penanganan_dilakukan = db.Column(db.Text, nullable=True) # Catatan penanganan yg sudah dilakukan
+    status_penanganan = db.Column(db.String(50), nullable=True) # Misal: Open, In Progress, Done
+    jadwal_mulai_penanganan = db.Column(db.Date, nullable=True)
+    jadwal_selesai_penanganan = db.Column(db.Date, nullable=True)
+    pic_penanganan = db.Column(db.String(150), nullable=True)
+
+    # --- Analisis Risiko Residual ---
+    residual_probabilitas = db.Column(db.Integer, nullable=True)
+    residual_dampak = db.Column(db.Integer, nullable=True)
+    residual_skor = db.Column(db.Integer, nullable=True)
+    residual_prob_kualitatif = db.Column(db.Float, nullable=True)
+    residual_dampak_finansial = db.Column(db.Float, nullable=True)
+    residual_nilai_bersih = db.Column(db.Float, nullable=True)
+    tanggal_review = db.Column(db.Date, nullable=True)
+
+    # --- Relasi ---
+    assessment = db.relationship('MadyaAssessment', backref=db.backref('risk_inputs', lazy=True, cascade="all, delete-orphan"))
+    sasaran_organisasi = db.relationship('SasaranOrganisasiKPI', backref=db.backref('risk_inputs', lazy=True)) # Relasi ke Sasaran/KPI
+
+    def __repr__(self):
+        return f'<RiskInputMadya {self.id} for Assessment {self.assessment_id}>'

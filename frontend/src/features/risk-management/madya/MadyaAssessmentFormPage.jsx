@@ -1,104 +1,186 @@
 // frontend/src/features/risk-management/madya/MadyaAssessmentFormPage.jsx
-import React, { useState, useEffect } from "react";
-import { Title, Text, Card, Button, Accordion, AccordionHeader, AccordionBody } from "@tremor/react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Title, Text, Card, Button, Accordion, AccordionHeader, AccordionBody } from "@tremor/react"; // Hapus Select, SelectItem
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../../../api/api";
 import StrukturOrganisasiCard from "./components/StrukturOrganisasiCard";
 import MadyaCriteriaReference from "./components/MadyaCriteriaReference";
 import SasaranKPIAppetiteCard from "./components/SasaranKPIAppetiteCard";
+import RiskInputCard from "./components/RiskInputCard";
 
 function MadyaAssessmentFormPage() {
-  const { assessmentId: idParam } = useParams(); // 'new' atau ID angka
+  const { assessmentId: idParam } = useParams(); // ID dari URL (seharusnya selalu angka setelah alur baru)
   const navigate = useNavigate();
   const [assessmentId, setAssessmentId] = useState(null);
   const [assessmentData, setAssessmentData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Loading utama halaman
   const [sasaranKPIEntries, setSasaranKPIEntries] = useState([]);
+  const [currentStructureEntries, setCurrentStructureEntries] = useState([]);
+  // State untuk menyimpan detail template terpilih (bukan daftar lagi)
+  const [selectedTemplateData, setSelectedTemplateData] = useState(null);
+  const [isTemplateDetailLoading, setIsTemplateDetailLoading] = useState(false); // Loading detail template
 
+  // Fungsi untuk fetch detail template berdasarkan ID
+  const fetchTemplateDetails = useCallback(async (templateId) => {
+    if (!templateId) {
+      setSelectedTemplateData(null);
+      return;
+    }
+    console.log(`Fetching details for template ID: ${templateId}`);
+    setIsTemplateDetailLoading(true);
+    try {
+      const response = await apiClient.get(`/risk-maps/${templateId}`);
+      setSelectedTemplateData(response.data);
+      console.log("Template details fetched:", response.data);
+    } catch (error) {
+      console.error(`Gagal memuat detail template ${templateId}:`, error);
+      setSelectedTemplateData(null);
+      alert(`Gagal memuat detail template (ID: ${templateId}). Perhitungan skor mungkin tidak akurat.`);
+    } finally {
+      setIsTemplateDetailLoading(false);
+    }
+  }, []); // Dependency kosong
+
+  // useEffect utama untuk load data asesmen dan detail template terkait
   useEffect(() => {
-    const initializeAssessment = async () => {
-      if (idParam === "new") {
-        try {
-          const response = await apiClient.post("/madya-assessments");
-          const newId = response.data.id;
-          setAssessmentId(newId);
-          // Ganti URL tanpa reload halaman
-          navigate(`/risk-management/madya/form/${newId}`, { replace: true });
-          // Fetch data awal (kosong)
-          fetchData(newId);
-        } catch (error) {
-          console.error("Gagal memulai asesmen madya baru:", error);
-          alert("Gagal memulai asesmen baru.");
-          navigate("/risk-management/madya");
-        }
-      } else {
-        setAssessmentId(parseInt(idParam));
-        fetchData(parseInt(idParam));
+    const loadAssessmentData = async () => {
+      setIsLoading(true); // Loading utama ON
+      const parsedId = parseInt(idParam, 10);
+
+      // Validasi ID dari URL
+      if (isNaN(parsedId)) {
+        console.error("ID Asesmen tidak valid di URL:", idParam);
+        alert("ID Asesmen tidak valid.");
+        navigate("/risk-management/madya"); // Kembali ke daftar jika ID salah
+        setIsLoading(false);
+        return;
       }
+
+      setAssessmentId(parsedId); // Set ID asesmen
+      await fetchData(parsedId); // Panggil fetchData untuk load data
     };
 
     const fetchData = async (id) => {
-      setIsLoading(true);
+      // setIsLoading(true); // Loading sudah di set di loadAssessmentData
       try {
-        // --- Modifikasi: Fetch data sasaran KPI juga ---
-        const [assessmentRes, sasaranRes] = await Promise.all([
-          apiClient.get(`/madya-assessments/${id}`),
-          apiClient.get(`/madya-assessments/${id}/sasaran-kpi`), // <-- Panggil API GET sasaran
-        ]);
+        // Ambil data asesmen & sasaran secara bersamaan
+        const [assessmentRes, sasaranRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`), apiClient.get(`/madya-assessments/${id}/sasaran-kpi`)]);
+
+        // Set state data asesmen, sasaran, dan struktur
         setAssessmentData(assessmentRes.data);
-        setSasaranKPIEntries(sasaranRes.data); // <-- Simpan data sasaran ke state baru
+        setSasaranKPIEntries(sasaranRes.data || []); // Pastikan array
+        setCurrentStructureEntries(assessmentRes.data.structure_entries || []); // Pastikan array
+
+        // Dapatkan ID template dari data asesmen yang baru di-fetch
+        const templateIdFromAssessment = assessmentRes.data.risk_map_template_id;
+
+        // Jika ada ID template, fetch detailnya
+        if (templateIdFromAssessment) {
+          await fetchTemplateDetails(templateIdFromAssessment);
+        } else {
+          // Kasus aneh jika asesmen tidak punya template (seharusnya tidak terjadi)
+          console.warn(`Asesmen ID ${id} tidak memiliki template peta risiko terkait.`);
+          setSelectedTemplateData(null); // Pastikan data template kosong
+          alert("Peringatan: Asesmen ini tidak terhubung dengan template peta risiko. Fungsi skor mungkin tidak bekerja.");
+        }
       } catch (error) {
         console.error("Gagal memuat data asesmen madya:", error);
-        alert("Gagal memuat data asesmen.");
-        // Handle error (e.g., redirect)
+        alert("Gagal memuat data asesmen. Silakan coba lagi.");
+        // Reset state jika fetch gagal
+        setAssessmentData(null);
+        setSasaranKPIEntries([]);
+        setCurrentStructureEntries([]);
+        setSelectedTemplateData(null);
+        // Pertimbangkan navigasi kembali jika fetch gagal total
+        // navigate("/risk-management/madya");
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Loading utama OFF
       }
     };
 
-    initializeAssessment();
-  }, [idParam, navigate]);
+    loadAssessmentData(); // Panggil fungsi utama saat komponen mount/idParam berubah
+  }, [idParam, navigate, fetchTemplateDetails]); // Dependencies useEffect
 
-  const refreshData = () => {
+  // Handler untuk update state struktur dari child
+  const handleStructureEntriesChange = (newEntries) => {
+    setCurrentStructureEntries(newEntries);
+  };
+
+  // Fungsi refresh khusus untuk data Sasaran/KPI
+  const refreshSasaranKPI = () => {
     if (assessmentId) {
-      // Kita bisa buat fungsi fetch terpisah atau panggil ulang fetchData
-      const fetchDataAgain = async (id) => {
-        setIsLoading(true); // Tampilkan loading lagi saat refresh
-        try {
-          const [assessmentRes, sasaranRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`), apiClient.get(`/madya-assessments/${id}/sasaran-kpi`)]);
-          setAssessmentData(assessmentRes.data);
-          setSasaranKPIEntries(sasaranRes.data);
-        } catch (error) {
-          console.error("Gagal refresh data:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchDataAgain(assessmentId);
+      fetchSasaranKPI(assessmentId);
     }
   };
 
-  if (isLoading || !assessmentData) {
+  // Fungsi fetch khusus Sasaran/KPI
+  const fetchSasaranKPI = async (id) => {
+    try {
+      const sasaranRes = await apiClient.get(`/madya-assessments/${id}/sasaran-kpi`);
+      setSasaranKPIEntries(sasaranRes.data || []); // Pastikan array
+      console.log("Sasaran KPI data refreshed:", sasaranRes.data);
+    } catch (error) {
+      console.error("Gagal refresh data Sasaran KPI:", error);
+    }
+  };
+
+  // Kondisi loading gabungan
+  const isPageLoading = isLoading || isTemplateDetailLoading;
+
+  // Tampilan Loading
+  if (isPageLoading) {
     return (
-      <div className="p-10">
-        <Text>Memuat asesmen madya...</Text>
+      <div className="p-10 text-center">
+        <Text>Memuat asesmen madya dan data template...</Text>
+        {/* Opsional: Tambahkan spinner */}
       </div>
     );
   }
 
+  // Tampilan Error jika data asesmen gagal dimuat
+  if (!assessmentData) {
+    return (
+      <div className="p-10 text-center">
+        <Text className="text-red-600">Gagal memuat data asesmen.</Text>
+        <Text>Silakan coba lagi atau kembali ke daftar asesmen.</Text>
+        <Button onClick={() => navigate("/risk-management/madya")} className="mt-4">
+          Kembali
+        </Button>
+      </div>
+    );
+  }
+
+  // Render Form Utama
   return (
     <div className="p-6 sm:p-10 space-y-6">
-      <Title>Form Asesmen Madya</Title>
-      <Text>Lengkapi detail asesmen risiko tingkat madya.</Text>
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+        {" "}
+        {/* Dibuat flex-col di layar kecil */}
+        <div>
+          <Title>Formulir Asesmen Risiko Madya {assessmentId ? `(#${assessmentId})` : ""}</Title>
+          <Text>Lengkapi detail asesmen risiko tingkat madya.</Text>
+        </div>
+        {/* Tampilkan Nama Template yang Digunakan */}
+        <Card className="p-3 w-full sm:max-w-xs shrink-0" decoration="left" decorationColor="blue">
+          <Text className="text-xs font-medium text-gray-600">Template Digunakan:</Text>
+          <Text className="font-semibold text-tremor-content-strong">
+            {selectedTemplateData ? selectedTemplateData.name : "Memuat..."}
+            {selectedTemplateData?.is_default ? " (Default)" : ""}
+          </Text>
+        </Card>
+      </div>
+
+      {/* Hapus Card Pemilihan Template */}
 
       {/* Card 1: Struktur Organisasi */}
       <StrukturOrganisasiCard
         assessmentId={assessmentId}
-        initialData={assessmentData.structure_entries || []}
-        initialImageUrl={assessmentData.structure_image_url}
-        onDataChange={refreshData} // Fungsi untuk memuat ulang data setelah perubahan
+        initialData={currentStructureEntries} // Gunakan state lokal
+        initialImageUrl={assessmentData?.structure_image_url}
+        onDataChange={handleStructureEntriesChange} // Kirim handler update state lokal
       />
 
+      {/* Card 2: Kriteria Risiko */}
       <Card>
         <Accordion>
           <AccordionHeader>
@@ -113,19 +195,38 @@ function MadyaAssessmentFormPage() {
         </Accordion>
       </Card>
 
-      <SasaranKPIAppetiteCard
-        assessmentId={assessmentId}
-        initialData={sasaranKPIEntries} // <-- Pass data dari state
-        onDataChange={refreshData} // <-- Pass fungsi refresh
-      />
+      {/* Card 3: Sasaran/KPI */}
+      {assessmentId && (
+        <SasaranKPIAppetiteCard
+          assessmentId={assessmentId}
+          initialData={sasaranKPIEntries || []} // Pastikan array
+          onDataChange={refreshSasaranKPI} // Panggil refresh khusus sasaran
+        />
+      )}
 
-      {/* Card 4, dst. akan ditambahkan di sini nanti */}
+      {/* Card 4: Risk Input */}
+      {assessmentId && (
+        <RiskInputCard
+          assessmentId={assessmentId}
+          structureEntries={currentStructureEntries} // Kirim state lokal struktur
+          sasaranKPIEntries={sasaranKPIEntries || []} // Kirim state lokal sasaran
+          templateScores={selectedTemplateData?.scores || []} // Kirim scores dari detail template
+        />
+      )}
 
+      {/* Tombol Aksi Bawah */}
       <div className="flex justify-end gap-2 mt-6">
         <Button variant="secondary" onClick={() => navigate("/risk-management/madya")}>
-          Kembali
+          Kembali (Keluar)
         </Button>
-        <Button onClick={() => navigate("/risk-management/madya")}>Simpan & Lanjutkan (Nanti)</Button>
+        <Button
+          onClick={() => {
+            console.log("Tombol 'Simpan & Lanjutkan' diklik, user tetap di halaman.");
+            alert("Progress per bagian tersimpan otomatis. Anda tetap di halaman ini.");
+          }}
+        >
+          Simpan & Lanjutkan (Nanti)
+        </Button>
       </div>
     </div>
   );

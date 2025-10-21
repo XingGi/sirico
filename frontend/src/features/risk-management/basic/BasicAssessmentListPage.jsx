@@ -1,9 +1,9 @@
 // frontend/src/pages/risk_management/BasicAssessmentListPage.jsx
 
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Card, Title, Text, Button, Dialog, DialogPanel, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell } from "@tremor/react";
-import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle, FiDownload, FiMaximize, FiMinimize } from "react-icons/fi";
+import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle, FiDownload, FiMaximize, FiMinimize, FiGrid, FiList, FiLoader } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import BasicAssessmentView from "./components/BasicAssessmentView";
 
@@ -11,6 +11,26 @@ const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return "Rp 0";
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 };
+
+const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message }) => (
+  <Dialog open={isOpen} onClose={onClose} static={true}>
+    <DialogPanel>
+      <div className="text-center">
+        <FiAlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <Title>{title}</Title>
+        <Text className="mt-2">{message}</Text>
+      </div>
+      <div className="mt-6 flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose}>
+          Batal
+        </Button>
+        <Button color="red" onClick={onConfirm}>
+          Hapus
+        </Button>
+      </div>
+    </DialogPanel>
+  </Dialog>
+);
 
 function BasicAssessmentListPage() {
   const [assessments, setAssessments] = useState([]);
@@ -22,10 +42,11 @@ function BasicAssessmentListPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [isViewLoading, setIsViewLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingId, setIsExportingId] = useState(null);
 
   const [isViewFullscreen, setIsViewFullscreen] = useState(false);
   const viewContentRef = useRef(null);
+  const [viewMode, setViewMode] = useState("list");
 
   useEffect(() => {
     setIsLoading(true);
@@ -69,13 +90,12 @@ function BasicAssessmentListPage() {
   };
 
   const handleExportClick = async (assessmentId, assessmentName) => {
-    setIsExporting(true);
+    setIsExportingId(assessmentId);
     try {
       const response = await apiClient.get(`/basic-assessments/${assessmentId}/export`, {
         responseType: "blob", // Penting: memberitahu axios untuk menerima file
       });
 
-      // Buat URL sementara dari file blob yang diterima
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -90,7 +110,7 @@ function BasicAssessmentListPage() {
       console.error("Gagal mengekspor file:", error);
       alert("Gagal mengekspor file Excel.");
     } finally {
-      setIsExporting(false);
+      setIsExportingId(null);
     }
   };
 
@@ -102,45 +122,83 @@ function BasicAssessmentListPage() {
             <Title>Asesmen Dasar</Title>
             <Text>Daftar semua asesmen tingkat dasar yang telah dibuat.</Text>
           </div>
-          <Button icon={FiPlus} onClick={() => navigate("/risk-management/dasar/new")}>
-            New Assessment
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button icon={viewMode === "list" ? FiGrid : FiList} variant="light" onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} aria-label={viewMode === "list" ? "Switch to grid view" : "Switch to list view"} />
+            <Button icon={FiPlus} onClick={() => navigate("/risk-management/dasar/new")}>
+              New Assessment
+            </Button>
+          </div>
         </div>
 
-        <div className="mt-6">
+        <div className={`mt-6 ${viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}`}>
           {isLoading ? (
-            <Text>Memuat data...</Text>
+            <div className="col-span-full flex justify-center items-center p-10">
+              <FiLoader className="animate-spin h-6 w-6 mr-3 text-tremor-content-emphasis" />
+              <Text>Memuat data...</Text>
+            </div>
           ) : assessments.length > 0 ? (
-            <div className="space-y-4">
-              {assessments.map((assessment) => (
-                <Card key={assessment.id} className="p-4 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-center">
+            assessments.map((assessment) => (
+              <Card key={assessment.id} className="p-0 overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col">
+                <div className="p-4 flex-grow group">
+                  <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-bold text-tremor-content-strong">{assessment.nama_unit_kerja}</p>
-                      <div className="flex items-center gap-4 mt-2 text-tremor-content">
+                      <Link to={`/risk-management/dasar/edit/${assessment.id}`} className="block mb-2 group">
+                        <p className="font-bold text-tremor-content-strong group-hover:text-blue-600">{assessment.nama_unit_kerja}</p>
+                      </Link>
+                      <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-tremor-content">
                         <span className="flex items-center gap-1.5 text-xs">
-                          <FiHome className="w-4 h-4" />
+                          <FiHome className="w-4 h-4 flex-shrink-0" />
                           {assessment.nama_perusahaan}
                         </span>
                         <span className="flex items-center gap-1.5 text-xs">
-                          <FiCalendar className="w-4 h-4" />
-                          {new Date(assessment.created_at).toLocaleDateString()}
+                          <FiCalendar className="w-4 h-4 flex-shrink-0" />
+                          {new Date(assessment.created_at).toLocaleDateString("id-ID")}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="secondary" icon={FiEye} onClick={() => handleViewClick(assessment.id)}>
+                    <div className="flex items-center gap-1 transition-opacity duration-300 flex-shrink-0">
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        icon={FiEye}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewClick(assessment.id);
+                        }}
+                      >
                         View
                       </Button>
-                      <Button variant="light" icon={FiEdit2} color="blue" onClick={() => navigate(`/risk-management/dasar/edit/${assessment.id}`)} />
+                      <Button
+                        variant="light"
+                        size="xs"
+                        icon={FiEdit2}
+                        color="blue"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/risk-management/dasar/edit/${assessment.id}`);
+                        }}
+                      />
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
+                </div>
+                <div className="border-t p-2 flex justify-end">
+                  <Button
+                    size="xs"
+                    variant="light"
+                    icon={FiDownload}
+                    loading={isExportingId === assessment.id} // Gunakan ID
+                    onClick={() => handleExportClick(assessment.id, assessment.nama_unit_kerja)}
+                  >
+                    Export
+                  </Button>
+                </div>
+              </Card>
+            ))
           ) : (
-            <Card className="text-center p-8">
-              <Text>Belum ada asesmen dasar.</Text>
+            <Card className="col-span-full text-center p-8 border-dashed border-gray-300">
+              <FiPlus className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+              <Text className="font-medium">Belum ada asesmen dasar.</Text>
+              <Text>Klik tombol "New Assessment" untuk memulai.</Text>
             </Card>
           )}
         </div>
@@ -218,7 +276,7 @@ function BasicAssessmentListPage() {
                     <Text>{selectedAssessment.nama_perusahaan}</Text>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button icon={FiDownload} onClick={() => handleExportClick(selectedAssessment.id, selectedAssessment.nama_unit_kerja)} loading={isExporting}>
+                    <Button icon={FiDownload} onClick={() => handleExportClick(selectedAssessment.id, selectedAssessment.nama_unit_kerja)} loading={isExportingId}>
                       Export to Excel
                     </Button>
                     <Button variant="light" icon={isViewFullscreen ? FiMinimize : FiMaximize} onClick={toggleViewFullscreen} />

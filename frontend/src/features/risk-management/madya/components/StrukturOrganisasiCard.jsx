@@ -12,25 +12,26 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, onDataChange }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [entries, setEntries] = useState(initialData);
+  // const [entries, setEntries] = useState(initialData);
+  const entries = initialData;
   const [imageUrl, setImageUrl] = useState(initialImageUrl); // State untuk URL gambar
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const API_BASE_URL_FOR_IMAGE = apiClient.defaults.baseURL;
-
   const [editingEntry, setEditingEntry] = useState(null);
 
   const handleSaveEntry = (savedEntry, isUpdate) => {
+    let updatedEntries;
     if (isUpdate) {
-      // Update item yang ada di state
-      setEntries((prev) => prev.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry)));
+      updatedEntries = entries.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry));
     } else {
-      // Tambah item baru ke state
-      setEntries((prev) => [...prev, savedEntry]);
+      updatedEntries = [...entries, savedEntry];
     }
-    setEditingEntry(null); // Reset editing state
+    onDataChange(updatedEntries); // Panggil handler dari parent dengan data baru
+    setEditingEntry(null);
+    // setIsModalOpen(false); // Modal ditutup di dalam handleSaveSuccess
   };
 
   const handleEditEntry = (entry) => {
@@ -43,7 +44,8 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
     if (window.confirm("Anda yakin ingin menghapus data struktur ini?")) {
       try {
         await apiClient.delete(`/structure-entries/${entryId}`);
-        setEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+        const updatedEntries = entries.filter((entry) => entry.id !== entryId);
+        onDataChange(updatedEntries); // Panggil handler dari parent dengan data baru
         alert("Data berhasil dihapus.");
       } catch (error) {
         alert("Gagal menghapus data: " + (error.response?.data?.msg || "Error"));
@@ -51,10 +53,9 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
     }
   };
 
-  const handleAddEntry = (newEntry) => {
-    setEntries((prev) => [...prev, newEntry]);
-    // onDataChange(); // Tidak perlu refresh hanya untuk menambah data tabel
-  };
+  // const handleAddEntry = (newEntry) => {
+  //   setEntries((prev) => [...prev, newEntry]);
+  // };
 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
@@ -176,7 +177,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
         onClose={() => {
           setIsModalOpen(false);
           setEditingEntry(null);
-        }} // Reset editing state saat tutup
+        }}
         assessmentId={assessmentId}
         onSaveSuccess={handleSaveEntry}
         initialData={editingEntry} // Kirim data yang mau diedit
