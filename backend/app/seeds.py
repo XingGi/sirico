@@ -125,76 +125,143 @@ def seed_master_data():
     db.session.commit()
     print("Master data seeding complete.")
     
+def _create_default_template(name, description, level_definitions_data, matrix_scores_data):
+    """Membuat satu template peta risiko default if it doesn't exist."""
+    if RiskMapTemplate.query.filter_by(name=name, is_default=True).first():
+        print(f"Default template '{name}' already exists.")
+        return False # Indicate that it was not created
+
+    print(f"Creating default template: {name}...")
+    try:
+        # 1. Buat Template Induk
+        template = RiskMapTemplate(
+            name=name,
+            description=description,
+            is_default=True,
+            user_id=None # Milik sistem
+        )
+        db.session.add(template)
+        # Flush diperlukan untuk mendapatkan template.id sebelum menambahkan children
+        db.session.flush()
+
+        # 2. Definisikan Label Probabilitas & Dampak (Standar 1-5)
+        likelihoods = {
+            5: "Hampir Pasti Terjadi", 4: "Sangat Mungkin Terjadi", 3: "Bisa Terjadi",
+            2: "Jarang Terjadi", 1: "Sangat Jarang Terjadi"
+        }
+        impacts = {
+            1: "Sangat Rendah", 2: "Rendah", 3: "Moderat", 4: "Tinggi", 5: "Sangat Tinggi"
+        }
+
+        for level, label in likelihoods.items():
+            db.session.add(RiskMapLikelihoodLabel(template_id=template.id, level=level, label=label))
+
+        for level, label in impacts.items():
+            db.session.add(RiskMapImpactLabel(template_id=template.id, level=level, label=label))
+
+        # 3. Definisikan Level Risiko (Skor, Nama, Warna) berdasarkan data input
+        for definition in level_definitions_data:
+            db.session.add(RiskMapLevelDefinition(
+                template_id=template.id,
+                level_name=definition['level_name'],
+                color_hex=definition['color_hex'],
+                min_score=definition['min_score'],
+                max_score=definition['max_score']
+            ))
+
+        # 4. Definisikan Skor Matriks berdasarkan data input
+        if isinstance(matrix_scores_data, list) and len(matrix_scores_data) == 5:
+            for l_idx, row in enumerate(matrix_scores_data):
+                 likelihood_level = 5 - l_idx
+                 if len(row) == 5:
+                     for i_idx, score_value in enumerate(row):
+                         impact_level = i_idx + 1
+                         if score_value is not None:
+                             db.session.add(RiskMapScore(
+                                 template_id=template.id,
+                                 likelihood_level=likelihood_level,
+                                 impact_level=impact_level,
+                                 score=score_value
+                             ))
+                 else:
+                      print(f"  Warning: Invalid row length for likelihood {likelihood_level} in matrix_scores_data for '{name}'")
+        elif isinstance(matrix_scores_data, dict):
+             for (likelihood_level, impact_level), score_value in matrix_scores_data.items():
+                 if score_value is not None:
+                     db.session.add(RiskMapScore(
+                         template_id=template.id,
+                         likelihood_level=likelihood_level,
+                         impact_level=impact_level,
+                         score=score_value
+                     ))
+        else:
+            print(f"  Error: Invalid format for matrix_scores_data for '{name}'. Expected list of lists (5x5) or dict.")
+            raise ValueError("Invalid matrix score data format") # Stop the process if format is wrong
+
+        # Commit only after all parts of the template are added
+        # db.session.commit() # Moved commit outside this helper
+        print(f"Default template '{name}' prepared for commit.")
+        return True # Indicate successful preparation
+    except Exception as e:
+        # db.session.rollback() # Rollback is handled outside
+        print(f"Error creating template '{name}': {e}")
+        return False # Indicate failure
+    
 # Peta Risiko
 def seed_default_risk_map():
     """Membuat template peta risiko default jika belum ada."""
-    if RiskMapTemplate.query.filter_by(is_default=True).first():
-        print("Default risk map template already exists.")
-        return
+    print("Starting risk map seeding process...")
+    created_count = 0
 
-    print("Creating default risk map template...")
-    
-    # 1. Buat Template Induk
-    default_template = RiskMapTemplate(
-        name="Default SIRICO Matrix 5x5",
-        description="Template peta risiko standar berdasarkan matriks 5x5 umum.",
-        is_default=True,
-        user_id=None # Milik sistem, bukan user spesifik
-    )
-    db.session.add(default_template)
-    db.session.flush()
-
-    # 2. Definisikan Label Probabilitas & Dampak
-    likelihoods = {
-        5: "Hampir Pasti Terjadi", 4: "Sangat Mungkin Terjadi", 3: "Bisa Terjadi",
-        2: "Jarang Terjadi", 1: "Sangat Jarang Terjadi"
-    }
-    impacts = {
-        1: "Sangat Rendah", 2: "Rendah", 3: "Moderat", 4: "Tinggi", 5: "Sangat Tinggi"
-    }
-
-    for level, label in likelihoods.items():
-        db.session.add(RiskMapLikelihoodLabel(template_id=default_template.id, level=level, label=label))
-    
-    for level, label in impacts.items():
-        db.session.add(RiskMapImpactLabel(template_id=default_template.id, level=level, label=label))
-
-    # 3. Definisikan Level Risiko (Skor, Nama, Warna)
-    definitions = [
-        {"name": "Rendah", "color": "#00B050", "min": 1, "max": 4},      # Hijau
-        {"name": "Moderat", "color": "#FFFF00", "min": 5, "max": 9},    # Kuning
-        {"name": "Tinggi", "color": "#FFC000", "min": 10, "max": 16},   # Oranye
-        {"name": "Sangat Tinggi", "color": "#FF0000", "min": 17, "max": 25} # Merah
-    ]
-    
-    # Penyesuaian berdasarkan gambar (ada 2 level hijau)
-    definitions_from_image = [
+    # --- Data untuk Default SIRICO Matrix 5x5 ---
+    sirico_name = "Default SIRICO Matrix 5x5"
+    sirico_desc = "Template peta risiko standar berdasarkan matriks 5x5 umum (skor = P x I)."
+    sirico_levels = [
         {"level_name": "Sangat Rendah", "color_hex": "#00B050", "min_score": 1, "max_score": 2}, # Hijau Tua
         {"level_name": "Rendah", "color_hex": "#92D050", "min_score": 3, "max_score": 6},       # Hijau Muda
         {"level_name": "Moderat", "color_hex": "#FFFF00", "min_score": 7, "max_score": 12},      # Kuning
         {"level_name": "Tinggi", "color_hex": "#FFC000", "min_score": 13, "max_score": 19},     # Oranye
         {"level_name": "Sangat Tinggi", "color_hex": "#FF0000", "min_score": 20, "max_score": 25} # Merah
     ]
+    sirico_scores = {}
+    for l in range(1, 6):
+        for i in range(1, 6):
+            sirico_scores[(l, i)] = l * i
 
-    for d in definitions_from_image:
-        db.session.add(RiskMapLevelDefinition(
-            template_id=default_template.id,
-            level_name=d['level_name'],
-            color_hex=d['color_hex'],
-            min_score=d['min_score'],
-            max_score=d['max_score']
-        ))
-    
-    for likelihood_level in range(1, 6):
-        for impact_level in range(1, 6):
-            score_value = likelihood_level * impact_level
-            new_score = RiskMapScore(
-                template_id=default_template.id,
-                likelihood_level=likelihood_level,
-                impact_level=impact_level,
-                score=score_value
-            )
-            db.session.add(new_score)
+    if _create_default_template(sirico_name, sirico_desc, sirico_levels, sirico_scores):
+        created_count += 1
 
-    db.session.commit()
-    print("Default risk map template created.")
+    # --- Data untuk Default BUMN ---
+    bumn_name = "Default BUMN"
+    bumn_desc = "Template peta risiko standar untuk BUMN berdasarkan matriks 5x5 dengan rentang dan skor spesifik."
+    bumn_levels = [
+        {"level_name": "Low", "color_hex": "#00B050", "min_score": 1, "max_score": 5},          # Hijau
+        {"level_name": "Low to Moderate", "color_hex": "#92D050", "min_score": 6, "max_score": 11}, # Hijau Muda/Lime
+        {"level_name": "Moderate", "color_hex": "#FFFF00", "min_score": 12, "max_score": 15},     # Kuning
+        {"level_name": "Moderate to High", "color_hex": "#FFC000", "min_score": 16, "max_score": 19},# Oranye
+        {"level_name": "High", "color_hex": "#FF0000", "min_score": 20, "max_score": 25}        # Merah
+    ]
+    bumn_scores_matrix = [
+        # Impact:  1  2   3   4   5
+        [ 7, 12, 17, 22, 25], # Likelihood 5
+        [ 4,  9, 14, 19, 24], # Likelihood 4
+        [ 3,  8, 13, 18, 23], # Likelihood 3
+        [ 2,  6, 11, 16, 21], # Likelihood 2
+        [ 1,  5, 10, 15, 20], # Likelihood 1
+    ]
+
+    if _create_default_template(bumn_name, bumn_desc, bumn_levels, bumn_scores_matrix):
+        created_count += 1
+
+    # Commit changes only if at least one template was successfully created/prepared
+    if created_count > 0:
+        try:
+            db.session.commit()
+            print(f"Successfully committed {created_count} new default template(s).")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error committing default templates: {e}")
+    else:
+        print("No new default templates needed committing.")
+
+    print("Risk map seeding process finished.")
