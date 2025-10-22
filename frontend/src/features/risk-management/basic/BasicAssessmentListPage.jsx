@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Card, Title, Text, Button, Dialog, DialogPanel, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell } from "@tremor/react";
-import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle, FiDownload, FiMaximize, FiMinimize, FiGrid, FiList, FiLoader } from "react-icons/fi";
+import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle, FiDownload, FiMaximize, FiMinimize, FiGrid, FiList, FiLoader, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import BasicAssessmentView from "./components/BasicAssessmentView";
 
@@ -47,14 +47,24 @@ function BasicAssessmentListPage() {
   const [isViewFullscreen, setIsViewFullscreen] = useState(false);
   const viewContentRef = useRef(null);
   const [viewMode, setViewMode] = useState("list");
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    isOpen: false,
+    assessmentId: null,
+    assessmentName: "",
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    setIsLoading(true);
+  const fetchAssessments = () => {
+    setIsLoading(true); // Set loading ON setiap kali fetch
     apiClient
       .get("/basic-assessments")
       .then((response) => setAssessments(response.data))
       .catch((error) => console.error("Gagal memuat asesmen dasar:", error))
       .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchAssessments(); // Panggil fungsi fetch
 
     const handleFullscreenChange = () => {
       setIsViewFullscreen(!!document.fullscreenElement);
@@ -111,6 +121,37 @@ function BasicAssessmentListPage() {
       alert("Gagal mengekspor file Excel.");
     } finally {
       setIsExportingId(null);
+    }
+  };
+
+  const openDeleteConfirm = (assessmentId, assessmentName) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      assessmentId: assessmentId,
+      assessmentName: assessmentName,
+    });
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirmation({ isOpen: false, assessmentId: null, assessmentName: "" });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmation.assessmentId) return;
+
+    setIsDeleting(true); // Mulai loading hapus
+    try {
+      // Panggil API DELETE
+      await apiClient.delete(`/basic-assessments/${deleteConfirmation.assessmentId}`);
+      alert(`Asesmen "${deleteConfirmation.assessmentName}" berhasil dihapus.`);
+      closeDeleteConfirm(); // Tutup dialog
+      fetchAssessments(); // Muat ulang daftar setelah berhasil hapus
+    } catch (error) {
+      console.error("Gagal menghapus asesmen:", error);
+      alert("Gagal menghapus asesmen: " + (error.response?.data?.msg || "Terjadi kesalahan."));
+      // Dialog tetap terbuka jika gagal, agar user tahu ada masalah
+    } finally {
+      setIsDeleting(false); // Hentikan loading hapus
     }
   };
 
@@ -176,6 +217,16 @@ function BasicAssessmentListPage() {
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/risk-management/dasar/edit/${assessment.id}`);
+                        }}
+                      />
+                      <Button
+                        variant="light"
+                        size="xs"
+                        icon={FiTrash2} // Gunakan ikon trash
+                        color="red"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Cegah klik menyebar ke Link
+                          openDeleteConfirm(assessment.id, assessment.nama_unit_kerja); // Buka dialog konfirmasi
                         }}
                       />
                     </div>
@@ -296,6 +347,16 @@ function BasicAssessmentListPage() {
           )}
         </DialogPanel>
       </Dialog>
+
+      <ConfirmationDialog
+        isOpen={deleteConfirmation.isOpen}
+        onClose={closeDeleteConfirm}
+        onConfirm={handleDeleteConfirm} // Pastikan ini memanggil fungsi yang benar
+        title="Konfirmasi Penghapusan"
+        message={`Apakah Anda yakin ingin menghapus asesmen "${deleteConfirmation.assessmentName}"? Tindakan ini tidak dapat dibatalkan.`}
+        // Tambahkan prop loading jika komponen ConfirmationDialog mendukungnya
+        // isLoading={isDeleting} // Uncomment jika komponennya dimodifikasi
+      />
     </>
   );
 }

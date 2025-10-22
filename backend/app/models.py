@@ -432,7 +432,7 @@ class RiskMapTemplate(db.Model):
     impact_labels = db.relationship('RiskMapImpactLabel', backref='template', lazy=True, cascade="all, delete-orphan")
     level_definitions = db.relationship('RiskMapLevelDefinition', backref='template', lazy=True, cascade="all, delete-orphan")
     scores = db.relationship('RiskMapScore', backref='template', lazy=True, cascade="all, delete-orphan")
-    madya_assessments = db.relationship('MadyaAssessment', lazy=True)
+    madya_assessments = db.relationship('MadyaAssessment', back_populates='risk_map_template', lazy=True)
 
 class RiskMapLikelihoodLabel(db.Model):
     """Menyimpan label untuk sumbu probabilitas (Y-axis)."""
@@ -479,11 +479,12 @@ class MadyaAssessment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
     risk_map_template_id = db.Column(db.Integer, db.ForeignKey('risk_map_templates.id'), nullable=True)
-    risk_map_template = db.relationship('RiskMapTemplate')
+    risk_map_template = db.relationship('RiskMapTemplate', back_populates='madya_assessments')
     
-    # Relasi ke entri struktur organisasi
     structure_image_filename = db.Column(db.String(300), nullable=True) # Nama file gambar struktur
     structure_entries = db.relationship('OrganizationalStructureEntry', backref='assessment', lazy=True, cascade="all, delete-orphan")
+    sasaran_kpi_entries = db.relationship('SasaranOrganisasiKPI', back_populates='assessment', lazy=True, cascade="all, delete-orphan")
+    risk_inputs = db.relationship('RiskInputMadya', back_populates='assessment', lazy=True, cascade="all, delete-orphan")
 
 class OrganizationalStructureEntry(db.Model):
     """Model untuk satu baris entri struktur organisasi."""
@@ -508,7 +509,8 @@ class SasaranOrganisasiKPI(db.Model):
     residual_risk_score = db.Column(db.Integer, nullable=True)
 
     # Relasi balik ke MadyaAssessment
-    assessment = db.relationship('MadyaAssessment', backref=db.backref('sasaran_kpi_entries', lazy=True, cascade="all, delete-orphan"))
+    assessment = db.relationship('MadyaAssessment', back_populates='sasaran_kpi_entries')
+    risk_inputs = db.relationship('RiskInputMadya', back_populates='sasaran_organisasi', lazy=True)
 
     def __repr__(self):
         return f'<SasaranOrganisasiKPI {self.id} for Assessment {self.assessment_id}>'
@@ -569,8 +571,8 @@ class RiskInputMadya(db.Model):
     tanggal_review = db.Column(db.Date, nullable=True)
 
     # --- Relasi ---
-    assessment = db.relationship('MadyaAssessment', backref=db.backref('risk_inputs', lazy=True, cascade="all, delete-orphan"))
-    sasaran_organisasi = db.relationship('SasaranOrganisasiKPI', backref=db.backref('risk_inputs', lazy=True)) # Relasi ke Sasaran/KPI
+    assessment = db.relationship('MadyaAssessment', back_populates='risk_inputs')
+    sasaran_organisasi = db.relationship('SasaranOrganisasiKPI', back_populates='risk_inputs') # Relasi ke Sasaran/KPI
 
     def __repr__(self):
         return f'<RiskInputMadya {self.id} for Assessment {self.assessment_id}>'

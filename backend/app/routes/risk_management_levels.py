@@ -4,7 +4,7 @@ from flask import request, jsonify, Blueprint, send_file, current_app
 from app.models import (
     db, BasicAssessment, OrganizationalContext, 
     BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, 
-    RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry, SasaranOrganisasiKPI, RiskInputMadya
+    RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry, SasaranOrganisasiKPI, RiskInputMadya, basic_assessment_contexts
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
@@ -225,6 +225,29 @@ def update_basic_assessment(assessment_id):
 
     db.session.commit()
     return jsonify({"msg": "Asesmen Dasar berhasil diperbarui."}), 200
+
+@risk_management_levels_bp.route('/basic-assessments/<int:assessment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_basic_assessment(assessment_id):
+    """Menghapus Asesmen Dasar beserta data terkaitnya."""
+    current_user_id = get_jwt_identity()
+    assessment = BasicAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    try:
+        # Jika relasi 'contexts' di model BasicAssessment menggunakan cascade="all, delete",
+        # menghapus assessment akan otomatis menangani tabel asosiasi.
+        # Jika tidak, uncomment baris di bawah ini untuk menghapus relasi many-to-many secara manual:
+        # assessment.contexts.clear() # Hapus asosiasi ke OrganizationalContext
+
+        # Hapus assessment utama. Relasi one-to-many (risks, risk_analyses)
+        # akan terhapus otomatis jika cascade="all, delete-orphan" ada di model.
+        db.session.delete(assessment)
+        db.session.commit()
+        return jsonify({"msg": "Asesmen Dasar berhasil dihapus."}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting basic assessment {assessment_id}: {e}") # Log error di server
+        return jsonify({"msg": "Gagal menghapus asesmen. Terjadi kesalahan internal."}), 500
 
 @risk_management_levels_bp.route('/basic-assessments/<int:assessment_id>/export', methods=['GET'])
 @jwt_required()
@@ -680,6 +703,38 @@ def get_madya_assessment_detail(assessment_id):
         "structure_image_url": image_url_relative, 
         "structure_entries": structure_entries,
     })
+    
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_madya_assessment(assessment_id):
+    """Menghapus Asesmen Madya beserta data terkaitnya."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    try:
+        # Hapus file gambar struktur organisasi jika ada
+        if assessment.structure_image_filename:
+            try:
+                upload_folder = current_app.config['UPLOAD_FOLDER']
+                file_path = os.path.join(upload_folder, assessment.structure_image_filename)
+                if os.path.exists(file_path):
+                     os.remove(file_path)
+                else:
+                     print(f"Peringatan: File gambar tidak ditemukan saat mencoba menghapus: {file_path}")
+            except OSError as e:
+                print(f"Error saat menghapus file fisik gambar: {e.strerror}")
+                # Lanjutkan proses penghapusan data DB meskipun file gagal dihapus
+
+        # Hapus assessment utama. Relasi one-to-many seperti structure_entries,
+        # sasaran_kpi_entries, dan risk_inputs akan terhapus otomatis JIKA
+        # cascade="all, delete-orphan" sudah diatur pada relasi di model MadyaAssessment.
+        db.session.delete(assessment)
+        db.session.commit()
+        return jsonify({"msg": "Asesmen Madya berhasil dihapus."}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting madya assessment {assessment_id}: {e}") # Log error di server
+        return jsonify({"msg": "Gagal menghapus asesmen madya. Terjadi kesalahan internal."}), 500
     
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-image', methods=['DELETE'])
 @jwt_required()
