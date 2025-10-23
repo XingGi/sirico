@@ -12,6 +12,7 @@ from io import BytesIO
 import openpyxl
 from werkzeug.utils import secure_filename
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+import decimal
 
 # Membuat Blueprint untuk Risk Management Levels
 risk_management_levels_bp = Blueprint('risk_management_levels_bp', __name__)
@@ -723,11 +724,7 @@ def delete_madya_assessment(assessment_id):
                      print(f"Peringatan: File gambar tidak ditemukan saat mencoba menghapus: {file_path}")
             except OSError as e:
                 print(f"Error saat menghapus file fisik gambar: {e.strerror}")
-                # Lanjutkan proses penghapusan data DB meskipun file gagal dihapus
 
-        # Hapus assessment utama. Relasi one-to-many seperti structure_entries,
-        # sasaran_kpi_entries, dan risk_inputs akan terhapus otomatis JIKA
-        # cascade="all, delete-orphan" sudah diatur pada relasi di model MadyaAssessment.
         db.session.delete(assessment)
         db.session.commit()
         return jsonify({"msg": "Asesmen Madya berhasil dihapus."}), 200
@@ -940,6 +937,41 @@ def calculate_risk_values(data):
 
     return calculated
 
+# --- Helper function to format entry for JSON response ---
+def format_risk_input_entry(entry):
+    """Mengubah objek RiskInputMadya menjadi dictionary yang JSON-friendly."""
+    if not entry:
+        return None
+    entry_dict = {c.name: getattr(entry, c.name) for c in entry.__table__.columns}
+
+    for date_field in ['tanggal_identifikasi', 'jadwal_mulai_penanganan', 'jadwal_selesai_penanganan', 'tanggal_review']:
+        date_value = getattr(entry, date_field)
+        entry_dict[date_field] = date_value.isoformat() if date_value else None
+
+    # Pastikan field angka adalah float/int atau null (termasuk konversi dari Decimal jika ada)
+    for num_field in [
+        'inherent_probabilitas', 'inherent_dampak', 'inherent_skor',
+        'inherent_prob_kualitatif', 'inherent_dampak_finansial', 'inherent_nilai_bersih',
+        'biaya_penanganan',
+        'residual_probabilitas', 'residual_dampak', 'residual_skor',
+        'residual_prob_kualitatif', 'residual_dampak_finansial', 'residual_nilai_bersih',
+        'sasaran_id'
+    ]:
+        value = getattr(entry, num_field)
+        if isinstance(value, decimal.Decimal):
+             entry_dict[num_field] = float(value)
+        elif value is not None:
+             try:
+                 if '.' in str(value): 
+                     entry_dict[num_field] = float(value)
+                 else:
+                     entry_dict[num_field] = int(value)
+             except (ValueError, TypeError):
+                 entry_dict[num_field] = None
+        else:
+            entry_dict[num_field] = None
+
+    return entry_dict
 
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/risk-inputs', methods=['POST'])
 @jwt_required()
@@ -1001,13 +1033,12 @@ def add_risk_input(assessment_id):
 
     db.session.add(new_risk_input)
     db.session.commit()
+    db.session.refresh(new_risk_input)
 
     # Kembalikan data lengkap setelah disimpan
     return jsonify({
         "msg": "Risk Input berhasil ditambahkan.",
-        "entry": {f.name: getattr(new_risk_input, f.name) for f in new_risk_input.__table__.columns}
-        # Kita format tanggal jadi string agar aman di JSON
-        # Update: Langsung ambil semua kolom agar mudah
+        "entry": format_risk_input_entry(new_risk_input)
     }), 201
 
 
@@ -1020,14 +1051,13 @@ def get_risk_inputs(assessment_id):
 
     risk_entries = RiskInputMadya.query.filter_by(assessment_id=assessment.id).order_by(RiskInputMadya.id).all()
 
-    result = []
-    for entry in risk_entries:
-        entry_dict = {c.name: getattr(entry, c.name) for c in entry.__table__.columns}
-        # Format tanggal menjadi string ISO
-        for date_field in ['tanggal_identifikasi', 'jadwal_mulai_penanganan', 'jadwal_selesai_penanganan', 'tanggal_review']:
-            if entry_dict.get(date_field):
-                entry_dict[date_field] = entry_dict[date_field].isoformat()
-        result.append(entry_dict)
+    result = [format_risk_input_entry(entry) for entry in risk_entries]
+    # for entry in risk_entries:
+    #     entry_dict = {c.name: getattr(entry, c.name) for c in entry.__table__.columns}
+    #     for date_field in ['tanggal_identifikasi', 'jadwal_mulai_penanganan', 'jadwal_selesai_penanganan', 'tanggal_review']:
+    #         if entry_dict.get(date_field):
+    #             entry_dict[date_field] = entry_dict[date_field].isoformat()
+    #     result.append(entry_dict)
 
     return jsonify(result)
 
@@ -1093,14 +1123,15 @@ def update_risk_input(risk_input_id):
     risk_input.tanggal_review = parse_date_or_none(data.get('tanggal_review')) or risk_input.tanggal_review
 
     db.session.commit()
+    db.session.refresh(risk_input)
 
     # Kembalikan data yang sudah diupdate
-    updated_entry_dict = {c.name: getattr(risk_input, c.name) for c in risk_input.__table__.columns}
-    for date_field in ['tanggal_identifikasi', 'jadwal_mulai_penanganan', 'jadwal_selesai_penanganan', 'tanggal_review']:
-        if updated_entry_dict.get(date_field):
-            updated_entry_dict[date_field] = updated_entry_dict[date_field].isoformat()
+    # updated_entry_dict = {c.name: getattr(risk_input, c.name) for c in risk_input.__table__.columns}
+    # for date_field in ['tanggal_identifikasi', 'jadwal_mulai_penanganan', 'jadwal_selesai_penanganan', 'tanggal_review']:
+    #     if updated_entry_dict.get(date_field):
+    #         updated_entry_dict[date_field] = updated_entry_dict[date_field].isoformat()
 
-    return jsonify({"msg": "Risk Input berhasil diperbarui.", "entry": updated_entry_dict})
+    return jsonify({"msg": "Risk Input berhasil diperbarui.", "entry": format_risk_input_entry(risk_input)})
 
 
 @risk_management_levels_bp.route('/risk-inputs/<int:risk_input_id>', methods=['DELETE'])

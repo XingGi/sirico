@@ -160,12 +160,25 @@ function RiskInputFormModal({
     return (prob / 100.0) * dampak;
   }, [formData.inherent_prob_kualitatif, formData.inherent_dampak_finansial]);
 
+  const calculatedDampakFinansialResidual = useMemo(() => {
+    const dampakInheren = parseRupiah(formData.inherent_dampak_finansial);
+    const probResidualKualitatif = parseFloatSafely(formData.residual_prob_kualitatif);
+
+    if (dampakInheren === null || probResidualKualitatif === null) {
+      return null;
+    }
+    return dampakInheren * (probResidualKualitatif / 100.0);
+  }, [formData.inherent_dampak_finansial, formData.residual_prob_kualitatif]);
+
   const calculatedResidualNilaiBersih = useMemo(() => {
-    const prob = parseFloatSafely(formData.residual_prob_kualitatif);
-    const dampak = parseRupiah(formData.residual_dampak_finansial);
-    if (prob === null || dampak === null) return null;
-    return (prob / 100.0) * dampak;
-  }, [formData.residual_prob_kualitatif, formData.residual_dampak_finansial]);
+    const dampakResidual = calculatedDampakFinansialResidual;
+    const probResidualKualitatif = parseFloatSafely(formData.residual_prob_kualitatif);
+
+    if (dampakResidual === null || probResidualKualitatif === null) {
+      return null;
+    }
+    return dampakResidual * (probResidualKualitatif / 100.0);
+  }, [calculatedDampakFinansialResidual, formData.residual_prob_kualitatif]);
 
   // Handler generik untuk input & select
   const handleChange = (name, value) => {
@@ -465,11 +478,10 @@ function RiskInputFormModal({
               </div>
               {renderNumberField("Probabilitas Kualitatif (%)", "inherent_prob_kualitatif", false, { icon: FiInfo, placeholder: "0 - 100", min: 0, max: 100 })}
               {renderRupiahField("Dampak Finansial (Rp)", "inherent_dampak_finansial", { placeholder: "1.000.000" })}
-              {renderField(
-                "Nilai Bersih Risiko Inheren",
-                "inherent_nilai_bersih_display",
-                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedInherenNilaiBersih)} disabled placeholder="Hasil % x Rp" />
-              )}
+              <div>
+                <label className="text-sm font-medium text-tremor-content">Nilai Bersih Risiko Inheren</label>
+                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedInherenNilaiBersih)} disabled placeholder="Hasil % x Rp" className="mt-1" />
+              </div>
             </Grid>
           </Card>
 
@@ -528,12 +540,14 @@ function RiskInputFormModal({
                 />
               </div>
               {renderNumberField("Probabilitas Kualitatif (%)", "residual_prob_kualitatif", false, { icon: FiInfo, placeholder: "0 - 100", min: 0, max: 100 })}
-              {renderRupiahField("Dampak Finansial (Rp)", "residual_dampak_finansial", { placeholder: "200.000" })}
-              {renderField(
-                "Nilai Bersih Risiko Residual",
-                "residual_nilai_bersih_display",
-                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedResidualNilaiBersih)} disabled placeholder="Hasil % x Rp" />
-              )}
+              <div>
+                <label className="text-sm font-medium text-tremor-content">Dampak Finansial (Rp)</label>
+                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedDampakFinansialResidual)} disabled placeholder="Hasil Hitung Otomatis" className="mt-1" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-tremor-content">Nilai Bersih Risiko Residual</label>
+                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedResidualNilaiBersih)} disabled placeholder="Hasil % x Rp" className="mt-1" />
+              </div>
               {renderField("Tanggal Review", "tanggal_review", <TextInput type="date" />)}
             </Grid>
           </Card>

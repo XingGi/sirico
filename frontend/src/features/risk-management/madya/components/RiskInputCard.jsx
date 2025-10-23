@@ -232,11 +232,11 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_probabilitas ?? "-"}</TableCell>
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_dampak ?? "-"}</TableCell>
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{residualStyle.text}</TableCell>
-                      <TableCell>
-                        <Button.Group>
-                          <Button size="xs" variant="light" icon={FiEdit2} color="blue" onClick={() => handleOpenEditModal(item)} />
-                          <Button size="xs" variant="light" icon={FiTrash2} color="red" onClick={() => handleDeleteRiskInput(item.id)} loading={isLoading} />
-                        </Button.Group>
+                      <TableCell className="flex gap-1">
+                        {/* <Button.Group> */}
+                        <Button size="xs" variant="light" icon={FiEdit2} color="blue" onClick={() => handleOpenEditModal(item)} />
+                        <Button size="xs" variant="light" icon={FiTrash2} color="red" onClick={() => handleDeleteRiskInput(item.id)} loading={isLoading} />
+                        {/* </Button.Group> */}
                       </TableCell>
                     </TableRow>
                   );
