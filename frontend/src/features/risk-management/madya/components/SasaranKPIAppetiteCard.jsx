@@ -1,6 +1,6 @@
 // frontend/src/features/risk-management/madya/components/SasaranKPIAppetiteCard.jsx
-import React, { useState } from "react";
-import { Card, Title, Text, Button, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Textarea, Dialog, DialogPanel } from "@tremor/react";
+import React, { useState, useEffect } from "react";
+import { Card, Title, Text, Button, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Textarea, Dialog, DialogPanel, Select, SelectItem } from "@tremor/react";
 import { FiPlus, FiTrash2, FiSave, FiX } from "react-icons/fi";
 import apiClient from "../../../../api/api";
 
@@ -9,7 +9,7 @@ function SasaranFormModal({ isOpen, onClose, onSave, initialText = "" }) {
   const [sasaranText, setSasaranText] = useState(initialText);
 
   // Reset text saat modal dibuka
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setSasaranText(initialText);
     }
@@ -46,6 +46,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
   const [sasaranEntries, setSasaranEntries] = useState(initialData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [updatingTargetId, setUpdatingTargetId] = useState(null);
 
   // Fungsi untuk menambah Sasaran/KPI baru via API
   const handleAddSasaran = async (sasaranText) => {
@@ -81,6 +82,24 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
     }
   };
 
+  const handleTargetLevelChange = async (sasaranId, newTargetLevel) => {
+    setUpdatingTargetId(sasaranId); // Set loading untuk baris ini
+    try {
+      const response = await apiClient.put(`/sasaran-kpi/${sasaranId}/target`, {
+        target_level: newTargetLevel,
+      });
+      // Update state lokal secara optimis atau berdasarkan response
+      setSasaranEntries((prev) => prev.map((entry) => (entry.id === sasaranId ? { ...entry, target_level: response.data.entry.target_level } : entry)));
+      // Panggil onDataChange jika perlu refresh data lain yang bergantung
+      if (onDataChange) onDataChange();
+    } catch (error) {
+      alert("Gagal mengupdate Target Level: " + (error.response?.data?.msg || "Error"));
+      // Rollback state jika perlu (jika update optimis gagal)
+    } finally {
+      setUpdatingTargetId(null); // Hentikan loading untuk baris ini
+    }
+  };
+
   // Mapping level Risk Appetite (sesuai gambar)
   const riskLevelMap = {
     R: { text: "R", color: "bg-green-500 text-white" },
@@ -96,7 +115,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
     if (score >= 20) return "bg-red-600 text-white"; // E
     if (score >= 16) return "bg-orange-500 text-white"; // H
     if (score >= 12) return "bg-yellow-400 text-black"; // M
-    if (score >= 6) return "bg-yellow-400 text-black"; // L
+    if (score >= 6) return "bg-lime-400 text-black"; // L
     if (score >= 1) return "bg-green-500 text-white"; // R (Low / 1-5, asumsikan sama dengan target R)
     return "bg-gray-200 text-gray-500";
   };
@@ -136,7 +155,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
           <TableBody>
             {sasaranEntries && sasaranEntries.length > 0 ? (
               sasaranEntries.map((item, index) => {
-                const targetStyle = riskLevelMap[item.target_level] || { text: "-", color: "bg-gray-200 text-gray-500" };
+                // const targetStyle = riskLevelMap[item.target_level] || { text: "-", color: "bg-gray-200 text-gray-500" };
                 const inherentStyle = getCellColor(item.inherent_risk_score);
                 const residualStyle = getCellColor(item.residual_risk_score);
 
@@ -144,18 +163,25 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
                   <TableRow key={item.id}>
                     <TableCell className="text-center">{index + 1}</TableCell>
                     <TableCell className="whitespace-normal">{item.sasaran_kpi}</TableCell>
-                    <TableCell className={`text-center font-semibold ${targetStyle.color}`}>
-                      {/* Tampilkan target level jika ada, jika tidak strip */}
-                      {item.target_level || "-"}
+                    <TableCell className="text-center">
+                      <Select
+                        value={item.target_level || ""} // Pastikan value adalah string, atau string kosong jika null/undefined
+                        onValueChange={(value) => handleTargetLevelChange(item.id, value)}
+                        disabled={updatingTargetId === item.id} // Disable saat loading
+                        className="w-20 mx-auto" // Atur lebar dan posisi
+                      >
+                        <SelectItem value="" className="italic text-gray-400">
+                          - Pilih -
+                        </SelectItem>
+                        {riskLegend.map((level) => (
+                          <SelectItem key={level.code} value={level.code} className={level.colorClass}>
+                            {level.code}
+                          </SelectItem>
+                        ))}
+                      </Select>
                     </TableCell>
-                    <TableCell className={`text-center font-semibold ${inherentStyle}`}>
-                      {/* Tampilkan skor jika ada, jika tidak #N/A */}
-                      {item.inherent_risk_score !== null ? item.inherent_risk_score : "#N/A"}
-                    </TableCell>
-                    <TableCell className={`text-center font-semibold ${residualStyle}`}>
-                      {/* Tampilkan skor jika ada, jika tidak #N/A */}
-                      {item.residual_risk_score !== null ? item.residual_risk_score : "#N/A"}
-                    </TableCell>
+                    <TableCell className={`text-center font-semibold ${inherentStyle}`}>{item.inherent_risk_score !== null ? item.inherent_risk_score : "#N/A"}</TableCell>
+                    <TableCell className={`text-center font-semibold ${residualStyle}`}>{item.residual_risk_score !== null ? item.residual_risk_score : "#N/A"}</TableCell>
                     <TableCell className="text-right">
                       <Button icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteSasaran(item.id)} loading={isLoading} />
                     </TableCell>

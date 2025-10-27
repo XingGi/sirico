@@ -63,30 +63,26 @@ function MadyaAssessmentFormPage() {
     const fetchData = async (id) => {
       // setIsLoading(true); // Loading sudah di set di loadAssessmentData
       try {
-        // Ambil data asesmen & sasaran secara bersamaan
-        const [assessmentRes, sasaranRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`), apiClient.get(`/madya-assessments/${id}/sasaran-kpi`)]);
+        const [assessmentRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`)]);
 
-        // Set state data asesmen, sasaran, dan struktur
         setAssessmentData(assessmentRes.data);
-        setSasaranKPIEntries(sasaranRes.data || []); // Pastikan array
+        // setSasaranKPIEntries(sasaranRes.data || []);
         setCurrentStructureEntries(assessmentRes.data.structure_entries || []); // Pastikan array
+
+        await fetchSasaranKPI(id);
 
         // Dapatkan ID template dari data asesmen yang baru di-fetch
         const templateIdFromAssessment = assessmentRes.data.risk_map_template_id;
-
-        // Jika ada ID template, fetch detailnya
         if (templateIdFromAssessment) {
           await fetchTemplateDetails(templateIdFromAssessment);
         } else {
-          // Kasus aneh jika asesmen tidak punya template (seharusnya tidak terjadi)
           console.warn(`Asesmen ID ${id} tidak memiliki template peta risiko terkait.`);
-          setSelectedTemplateData(null); // Pastikan data template kosong
+          setSelectedTemplateData(null);
           alert("Peringatan: Asesmen ini tidak terhubung dengan template peta risiko. Fungsi skor mungkin tidak bekerja.");
         }
       } catch (error) {
         console.error("Gagal memuat data asesmen madya:", error);
         alert("Gagal memuat data asesmen. Silakan coba lagi.");
-        // Reset state jika fetch gagal
         setAssessmentData(null);
         setSasaranKPIEntries([]);
         setCurrentStructureEntries([]);
@@ -106,13 +102,6 @@ function MadyaAssessmentFormPage() {
     setCurrentStructureEntries(newEntries);
   };
 
-  // Fungsi refresh khusus untuk data Sasaran/KPI
-  const refreshSasaranKPI = () => {
-    if (assessmentId) {
-      fetchSasaranKPI(assessmentId);
-    }
-  };
-
   // Fungsi fetch khusus Sasaran/KPI
   const fetchSasaranKPI = async (id) => {
     try {
@@ -121,6 +110,12 @@ function MadyaAssessmentFormPage() {
       console.log("Sasaran KPI data refreshed:", sasaranRes.data);
     } catch (error) {
       console.error("Gagal refresh data Sasaran KPI:", error);
+    }
+  };
+
+  const refreshSasaranKPI = () => {
+    if (assessmentId) {
+      fetchSasaranKPI(assessmentId);
     }
   };
 
@@ -211,6 +206,7 @@ function MadyaAssessmentFormPage() {
           structureEntries={currentStructureEntries} // Kirim state lokal struktur
           sasaranKPIEntries={sasaranKPIEntries || []} // Kirim state lokal sasaran
           templateScores={selectedTemplateData?.scores || []} // Kirim scores dari detail template
+          onRiskInputSaveSuccess={refreshSasaranKPI}
         />
       )}
 

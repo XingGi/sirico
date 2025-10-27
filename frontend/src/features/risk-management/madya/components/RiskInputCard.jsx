@@ -15,7 +15,7 @@ const getRiskLevelStyle = (score) => {
   return { text: "#N/A", colorClass: "bg-gray-200 text-gray-500" };
 };
 
-function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [] }) {
+function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [], onRiskInputSaveSuccess }) {
   console.log("RiskInputCard rendered/updated. Received structureEntries:", structureEntries);
   console.log("RiskInputCard received templateScores:", templateScores);
   const [organisasi, setOrganisasi] = useState(""); // Akan diisi nama PT nanti
@@ -85,12 +85,17 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
   };
 
   const handleSaveRiskInput = (savedEntry, isUpdate) => {
+    console.log("Data diterima di RiskInputCard handleSaveRiskInput:", savedEntry);
     if (isUpdate) {
       setRiskInputEntries((prev) => prev.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry)));
     } else {
       setRiskInputEntries((prev) => [...prev, savedEntry]);
     }
     setIsModalOpen(false); // Tutup modal otomatis
+
+    if (onRiskInputSaveSuccess) {
+      onRiskInputSaveSuccess(); // Panggil callback refresh dari parent
+    }
   };
 
   const handleDeleteRiskInput = async (riskInputId) => {

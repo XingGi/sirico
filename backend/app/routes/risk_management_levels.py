@@ -1,5 +1,8 @@
 # backend/app/routes/risk_management_levels.py
 import os
+import decimal
+import openpyxl
+from sqlalchemy import func
 from flask import request, jsonify, Blueprint, send_file, current_app
 from app.models import (
     db, BasicAssessment, OrganizationalContext, 
@@ -9,10 +12,8 @@ from app.models import (
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from io import BytesIO
-import openpyxl
 from werkzeug.utils import secure_filename
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-import decimal
 
 # Membuat Blueprint untuk Risk Management Levels
 risk_management_levels_bp = Blueprint('risk_management_levels_bp', __name__)
@@ -867,6 +868,39 @@ def get_sasaran_kpi_list(assessment_id):
 
     return jsonify(result)
 
+@risk_management_levels_bp.route('/sasaran-kpi/<int:sasaran_id>/target', methods=['PUT'])
+@jwt_required()
+def update_sasaran_target_level(sasaran_id):
+    """Memperbarui target level (Risk Appetite) untuk satu Sasaran/KPI."""
+    current_user_id = get_jwt_identity()
+    sasaran_entry = SasaranOrganisasiKPI.query.get_or_404(sasaran_id)
+
+    # Otorisasi: Pastikan entri ini milik asesmen user
+    assessment = MadyaAssessment.query.get_or_404(sasaran_entry.assessment_id)
+    if str(assessment.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+
+    data = request.get_json()
+    new_target = data.get('target_level')
+
+    # Validasi sederhana (opsional, bisa lebih ketat)
+    allowed_targets = ['R', 'L', 'M', 'H', 'E', None, '']
+    if new_target not in allowed_targets:
+        return jsonify({"msg": "Nilai target_level tidak valid."}), 400
+
+    sasaran_entry.target_level = new_target if new_target else None # Simpan None jika string kosong
+    db.session.commit()
+
+    # Kembalikan data yang sudah diupdate
+    return jsonify({
+        "msg": "Target level berhasil diperbarui.",
+        "entry": {
+            "id": sasaran_entry.id,
+            "target_level": sasaran_entry.target_level
+            # Sertakan field lain jika perlu di-update di frontend
+        }
+    })
+
 @risk_management_levels_bp.route('/sasaran-kpi/<int:sasaran_id>', methods=['DELETE'])
 @jwt_required()
 def delete_sasaran_kpi(sasaran_id):
@@ -913,7 +947,7 @@ def parse_int_or_none(value):
         return None
 
 # Helper function to calculate scores and net values
-def calculate_risk_values(data):
+def calculate_risk_values(data, template_id):
     inherent_p = parse_int_or_none(data.get('inherent_probabilitas'))
     inherent_i = parse_int_or_none(data.get('inherent_dampak'))
     inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif'))
@@ -923,17 +957,46 @@ def calculate_risk_values(data):
     residual_i = parse_int_or_none(data.get('residual_dampak'))
     residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif'))
     residual_dampak_finansial = parse_float_or_none(data.get('residual_dampak_finansial'))
+    
+    calculated = {
+        'inherent_skor': None,
+        'inherent_nilai_bersih': None,
+        'residual_skor': None,
+        'residual_nilai_bersih': None
+    }
+    
+    def get_score_from_template(p, i):
+        if p is not None and i is not None and template_id is not None:
+            score_entry = RiskMapScore.query.filter_by(
+                template_id=template_id,
+                likelihood_level=p,
+                impact_level=i
+            ).first()
+            return score_entry.score if score_entry else None
+        # Fallback jika template tidak ada atau P/I null (seharusnya tidak terjadi jika P/I valid 1-5)
+        # Anda bisa memutuskan mau return None atau p * i sebagai fallback
+        elif p is not None and i is not None:
+             print(f"PERINGATAN: Tidak ada template_id ({template_id}) atau skor tidak ditemukan untuk P={p}, I={i}. Menggunakan P*I.")
+             return p * i
+        return None
 
-    calculated = {}
-    if inherent_p is not None and inherent_i is not None:
-        calculated['inherent_skor'] = inherent_p * inherent_i
-        if inherent_prob_kualitatif is not None and inherent_dampak_finansial is not None:
-            calculated['inherent_nilai_bersih'] = inherent_dampak_finansial * (inherent_prob_kualitatif / 100.0)
+    # Hitung Skor Inheren berdasarkan template
+    calculated['inherent_skor'] = get_score_from_template(inherent_p, inherent_i)
+    
+    if inherent_prob_kualitatif is not None and inherent_dampak_finansial is not None:
+        calculated['inherent_nilai_bersih'] = inherent_dampak_finansial * (inherent_prob_kualitatif / 100.0)
 
-    if residual_p is not None and residual_i is not None:
-        calculated['residual_skor'] = residual_p * residual_i
-        if residual_prob_kualitatif is not None and residual_dampak_finansial is not None:
-            calculated['residual_nilai_bersih'] = residual_dampak_finansial * (residual_prob_kualitatif / 100.0)
+    # Hitung Skor Residual berdasarkan template
+    calculated['residual_skor'] = get_score_from_template(residual_p, residual_i)
+
+    # Hitung Nilai Bersih Residual (logika ini tidak berubah)
+    if residual_prob_kualitatif is not None and residual_dampak_finansial is not None:
+        # Asumsi dampak finansial residual sama dengan inheren jika tidak diisi terpisah
+        # Atau Anda bisa menambahkan field residual_dampak_finansial di form/model
+        # Untuk sekarang, kita pakai inheren_dampak_finansial jika residual_dampak_finansial null
+        dampak_fin_res = residual_dampak_finansial if residual_dampak_finansial is not None else inherent_dampak_finansial
+        if dampak_fin_res is not None:
+             calculated['residual_nilai_bersih'] = dampak_fin_res * (residual_prob_kualitatif / 100.0)
 
     return calculated
 
@@ -973,6 +1036,34 @@ def format_risk_input_entry(entry):
 
     return entry_dict
 
+def update_sasaran_kpi_scores(sasaran_id):
+    """Menghitung dan memperbarui skor inheren & residual tertinggi untuk Sasaran/KPI."""
+    if not sasaran_id:
+        return
+
+    sasaran_entry = SasaranOrganisasiKPI.query.get(sasaran_id)
+    if not sasaran_entry:
+        return
+
+    # Cari skor inheren tertinggi dari semua risk input yang terkait
+    max_inherent_score = db.session.query(func.max(RiskInputMadya.inherent_skor))\
+        .filter(RiskInputMadya.sasaran_id == sasaran_id)\
+        .scalar()
+
+    # Cari skor residual tertinggi dari semua risk input yang terkait
+    # Pastikan hanya menghitung jika residual_skor tidak null
+    max_residual_score = db.session.query(func.max(RiskInputMadya.residual_skor))\
+        .filter(RiskInputMadya.sasaran_id == sasaran_id, RiskInputMadya.residual_skor.isnot(None))\
+        .scalar()
+
+    sasaran_entry.inherent_risk_score = max_inherent_score
+    # Set residual score ke null jika tidak ada risk input dengan residual score
+    sasaran_entry.residual_risk_score = max_residual_score if max_residual_score is not None else None
+
+    # Tidak perlu db.session.add() karena objek sudah ada
+    # db.session.commit() akan dipanggil di fungsi utama (add/update risk input)
+    print(f"Updated scores for SasaranKPI ID {sasaran_id}: Inherent={max_inherent_score}, Residual={max_residual_score}")
+
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/risk-inputs', methods=['POST'])
 @jwt_required()
 def add_risk_input(assessment_id):
@@ -987,7 +1078,7 @@ def add_risk_input(assessment_id):
     kategori = data.get('kategori_risiko')
     kategori_lainnya = data.get('kategori_risiko_lainnya') if kategori == 'Lainnya' else None
 
-    calculated_values = calculate_risk_values(data)
+    calculated_values = calculate_risk_values(data, assessment.risk_map_template_id)
 
     new_risk_input = RiskInputMadya(
         assessment_id=assessment_id,
@@ -1034,6 +1125,9 @@ def add_risk_input(assessment_id):
     db.session.add(new_risk_input)
     db.session.commit()
     db.session.refresh(new_risk_input)
+    
+    update_sasaran_kpi_scores(new_risk_input.sasaran_id)
+    db.session.commit()
 
     # Kembalikan data lengkap setelah disimpan
     return jsonify({
@@ -1076,7 +1170,7 @@ def update_risk_input(risk_input_id):
     if not data:
         return jsonify({"msg": "Data tidak boleh kosong."}), 400
 
-    calculated_values = calculate_risk_values(data)
+    calculated_values = calculate_risk_values(data, assessment.risk_map_template_id)
 
     # Update fields based on request data
     risk_input.sasaran_id = parse_int_or_none(data.get('sasaran_id', risk_input.sasaran_id)) # Update jika ada
@@ -1124,6 +1218,9 @@ def update_risk_input(risk_input_id):
 
     db.session.commit()
     db.session.refresh(risk_input)
+    
+    update_sasaran_kpi_scores(risk_input.sasaran_id)
+    db.session.commit()
 
     # Kembalikan data yang sudah diupdate
     # updated_entry_dict = {c.name: getattr(risk_input, c.name) for c in risk_input.__table__.columns}
