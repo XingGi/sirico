@@ -552,6 +552,10 @@ def create_madya_assessment():
     current_user_id = get_jwt_identity()
     data = request.get_json() or {}
     
+    assessment_name = data.get('nama_asesmen')
+    if not assessment_name:
+        return jsonify({"msg": "'nama_asesmen' wajib diisi."}), 400
+    
     selected_template_id = data.get('risk_map_template_id')
     if not selected_template_id:
         # Contoh: Coba cari template default (misal yg is_default=True atau ID=1)
@@ -565,6 +569,7 @@ def create_madya_assessment():
                 selected_template_id = first_template.id
     # Untuk saat ini, kita hanya buat record dasarnya
     new_assessment = MadyaAssessment(
+        nama_asesmen=assessment_name,
         user_id=current_user_id,
         risk_map_template_id=selected_template_id
     )
@@ -589,6 +594,7 @@ def get_madya_assessments_list():
     for assessment in assessments:
         assessment_list.append({
             "id": assessment.id,
+            "nama_asesmen": assessment.nama_asesmen,
             "created_at": assessment.created_at.isoformat(),
             # Tambahkan field lain jika perlu untuk ditampilkan di list,
             # contoh: nama template jika sudah join
@@ -698,6 +704,7 @@ def get_madya_assessment_detail(assessment_id):
 
     return jsonify({
         "id": assessment.id,
+        "nama_asesmen": assessment.nama_asesmen,
         "created_at": assessment.created_at.isoformat(),
         "user_id": assessment.user_id,
         "risk_map_template_id": assessment.risk_map_template_id,

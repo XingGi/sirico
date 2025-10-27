@@ -1,6 +1,6 @@
 // frontend/src/features/risk-management/madya/MadyaAssessmentListPage.jsx
 import React, { useState, useEffect } from "react";
-import { Title, Text, Button, Dialog, DialogPanel, Grid, Card, Badge } from "@tremor/react";
+import { Title, Text, Button, Dialog, DialogPanel, Grid, Card, Badge, TextInput } from "@tremor/react";
 import { FiPlus, FiEye, FiCheckCircle, FiLoader, FiShield, FiX, FiGrid, FiList, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import { useNavigate, Link } from "react-router-dom";
 import apiClient from "../../../api/api";
@@ -31,6 +31,7 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
   const [templates, setTemplates] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [assessmentName, setAssessmentName] = useState("");
 
   // State untuk modal preview (di dalam modal select)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -42,6 +43,7 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
     if (isOpen) {
       setIsLoadingList(true);
       setTemplates([]);
+      setAssessmentName("");
       apiClient
         .get("/risk-maps")
         .then((response) => setTemplates(response.data))
@@ -51,17 +53,17 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
   }, [isOpen]);
 
   const handleSelect = async (templateId) => {
+    if (!assessmentName.trim()) {
+      alert("Nama asesmen tidak boleh kosong.");
+      return;
+    }
     setIsCreating(true);
-    // Panggil onSelect dan tunggu selesai sebelum potensial mematikan loading
     try {
-      await onSelect(templateId);
-      // Loading akan dimatikan oleh parent jika sukses navigasi atau error
+      await onSelect(templateId, assessmentName);
     } catch (error) {
-      // Error sudah dihandle di parent, cukup matikan loading di sini jika perlu
       console.error("Error during selection propagation:", error);
       setIsCreating(false); // Matikan loading jika ada error di onSelect
     }
-    // Jangan matikan loading di sini jika onSelect melakukan navigasi
   };
 
   // Fungsi untuk membuka modal preview
@@ -78,12 +80,25 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
       .finally(() => setIsDetailLoading(false));
   };
 
+  const canProceed = assessmentName.trim() !== "" && !isCreating;
+
   return (
     <>
       <Dialog open={isOpen} onClose={() => !isCreating && onClose()} static={true}>
-        {" "}
-        {/* Jangan tutup jika sedang creating */}
         <DialogPanel className="max-w-5xl">
+          <div className="flex justify-between items-center">
+            <Title>Mulai Asesmen Madya Baru</Title> {/* Judul diubah */}
+            <Button icon={FiX} variant="light" onClick={onClose} disabled={isCreating} />
+          </div>
+          <Text className="mt-2">Beri nama asesmen dan pilih template peta risiko yang akan digunakan.</Text>
+
+          <div className="mt-6">
+            <label htmlFor="assessmentNameInput" className="text-sm font-medium text-gray-700">
+              Nama Asesmen *
+            </label>
+            <TextInput id="assessmentNameInput" value={assessmentName} onChange={(e) => setAssessmentName(e.target.value)} placeholder="Contoh: Asesmen Risiko IT Kuartal 4 2025" required className="mt-1" disabled={isCreating} />
+          </div>
+
           <div className="flex justify-between items-center">
             <Title>Pilih Template Peta Risiko</Title>
             <Button icon={FiX} variant="light" onClick={onClose} disabled={isCreating} />
@@ -130,7 +145,7 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
                       <Button icon={FiEye} variant="secondary" size="xs" onClick={() => handleViewClick(template.id)} disabled={isCreating}>
                         Preview
                       </Button>
-                      <Button icon={FiCheckCircle} size="xs" onClick={() => handleSelect(template.id)} loading={isCreating} disabled={isCreating}>
+                      <Button icon={FiCheckCircle} size="xs" onClick={() => handleSelect(template.id)} loading={isCreating} disabled={!canProceed}>
                         Gunakan
                       </Button>
                     </div>
@@ -197,12 +212,14 @@ function MadyaAssessmentListPage() {
   };
 
   // Handler yang dipanggil oleh modal saat template dipilih
-  const handleTemplateSelected = async (templateId) => {
+  const handleTemplateSelected = async (templateId, name) => {
     setIsCreatingAssessment(true); // Aktifkan loading global
     try {
-      const response = await apiClient.post("/madya-assessments", {
+      const payload = {
         risk_map_template_id: templateId,
-      });
+        nama_asesmen: name,
+      };
+      const response = await apiClient.post("/madya-assessments", payload);
       const newAssessmentId = response.data.id;
       setIsSelectTemplateModalOpen(false); // Tutup modal pemilihan
       navigate(`/risk-management/madya/form/${newAssessmentId}`); // Navigasi ke form
@@ -282,7 +299,7 @@ function MadyaAssessmentListPage() {
                     {" "}
                     {/* items-start agar tombol tidak stretch */}
                     <div>
-                      <p className="font-semibold text-tremor-content-strong group-hover:text-blue-600">Asesmen #{assessment.id}</p>
+                      <p className="font-semibold text-tremor-content-strong group-hover:text-blue-600">{assessment.nama_asesmen || `Asesmen #${assessment.id}`}</p>
                       <Text className="text-sm text-tremor-content mt-1">Dibuat pada: {assessment.created_at ? new Date(assessment.created_at).toLocaleDateString("id-ID", { year: "numeric", month: "long", day: "numeric" }) : "-"}</Text>
                       {/* Tambahkan info lain jika perlu */}
                     </div>

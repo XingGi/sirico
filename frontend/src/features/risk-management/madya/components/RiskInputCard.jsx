@@ -15,7 +15,7 @@ const getRiskLevelStyle = (score) => {
   return { text: "#N/A", colorClass: "bg-gray-200 text-gray-500" };
 };
 
-function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [], onRiskInputSaveSuccess, initialFilters, onFilterChange }) {
+function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [], onRiskInputSaveSuccess, initialFilters, onFilterChange, initialRiskInputData = [], isDataLoading = false }) {
   console.log("RiskInputCard rendered/updated. Received structureEntries:", structureEntries);
   console.log("RiskInputCard received templateScores:", templateScores);
   // const [organisasi, setOrganisasi] = useState("");
@@ -26,11 +26,13 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
   const uniqueDivisi = useMemo(() => [...new Set(structureEntries.map((e) => e.divisi).filter(Boolean))], [structureEntries]);
   const uniqueUnitKerja = useMemo(() => [...new Set(structureEntries.map((e) => e.unit_kerja).filter(Boolean))], [structureEntries]);
 
-  const [riskInputEntries, setRiskInputEntries] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // const [riskInputEntries, setRiskInputEntries] = useState([]);
+  // const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRiskData, setEditingRiskData] = useState(null); // Untuk data edit
   const [sasaranOptions, setSasaranOptions] = useState([]);
+  const riskInputEntries = initialRiskInputData;
+  const isLoading = isDataLoading;
 
   console.log("Unique Direktorat:", uniqueDirektorat);
   console.log("Unique Divisi:", uniqueDivisi);
@@ -87,11 +89,11 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
 
   const handleSaveRiskInput = (savedEntry, isUpdate) => {
     console.log("Data diterima di RiskInputCard handleSaveRiskInput:", savedEntry);
-    if (isUpdate) {
-      setRiskInputEntries((prev) => prev.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry)));
-    } else {
-      setRiskInputEntries((prev) => [...prev, savedEntry]);
-    }
+    // if (isUpdate) {
+    //   setRiskInputEntries((prev) => prev.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry)));
+    // } else {
+    //   setRiskInputEntries((prev) => [...prev, savedEntry]);
+    // }
     setIsModalOpen(false); // Tutup modal otomatis
 
     if (onRiskInputSaveSuccess) {
@@ -101,11 +103,14 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
 
   const handleDeleteRiskInput = async (riskInputId) => {
     if (window.confirm("Anda yakin ingin menghapus data risk input ini?")) {
-      setIsLoading(true); // Tampilkan loading saat proses hapus
+      // setIsLoading(true);
       try {
         await apiClient.delete(`/risk-inputs/${riskInputId}`);
-        setRiskInputEntries((prev) => prev.filter((entry) => entry.id !== riskInputId)); // Hapus dari state
+        // setRiskInputEntries((prev) => prev.filter((entry) => entry.id !== riskInputId));
         alert("Data Risk Input berhasil dihapus.");
+        if (onRiskInputSaveSuccess) {
+          onRiskInputSaveSuccess(); // Panggil refresh setelah hapus
+        }
       } catch (error) {
         alert("Gagal menghapus data: " + (error.response?.data?.msg || "Error"));
       } finally {

@@ -8,6 +8,7 @@ import StrukturOrganisasiCard from "./components/StrukturOrganisasiCard";
 import MadyaCriteriaReference from "./components/MadyaCriteriaReference";
 import SasaranKPIAppetiteCard from "./components/SasaranKPIAppetiteCard";
 import RiskInputCard from "./components/RiskInputCard";
+import RiskMapCard from "./components/RiskMapCard";
 
 function MadyaAssessmentFormPage() {
   const { assessmentId: idParam } = useParams(); // ID dari URL (seharusnya selalu angka setelah alur baru)
@@ -18,7 +19,9 @@ function MadyaAssessmentFormPage() {
   const [sasaranKPIEntries, setSasaranKPIEntries] = useState([]);
   const [currentStructureEntries, setCurrentStructureEntries] = useState([]);
   const [selectedTemplateData, setSelectedTemplateData] = useState(null);
-  const [isTemplateDetailLoading, setIsTemplateDetailLoading] = useState(false); // Loading detail template
+  const [isTemplateDetailLoading, setIsTemplateDetailLoading] = useState(false);
+  const [riskInputEntries, setRiskInputEntries] = useState([]);
+  const [isRiskInputLoading, setIsRiskInputLoading] = useState(true);
 
   // Fungsi untuk fetch detail template berdasarkan ID
   const fetchTemplateDetails = useCallback(async (templateId) => {
@@ -86,12 +89,33 @@ function MadyaAssessmentFormPage() {
     });
   }, []);
 
+  const fetchRiskInputs = useCallback(async (id) => {
+    setIsRiskInputLoading(true);
+    try {
+      const riskResponse = await apiClient.get(`/madya-assessments/${id}/risk-inputs`);
+      setRiskInputEntries(riskResponse.data || []);
+      console.log("Risk Input data fetched/refreshed:", riskResponse.data);
+    } catch (error) {
+      console.error("Gagal memuat data Risk Input:", error);
+      setRiskInputEntries([]); // Reset jika error
+    } finally {
+      setIsRiskInputLoading(false);
+    }
+  }, []); // Dependency kosong karena assessmentId didapat dari state
+
+  // Fungsi refresh yang bisa dipanggil dari child RiskInputCard
+  const refreshRiskInputsAndSasaran = () => {
+    if (assessmentId) {
+      fetchRiskInputs(assessmentId); // Refresh Risk Inputs
+      refreshSasaranKPI(); // Refresh Sasaran (karena skor mungkin berubah)
+    }
+  };
+
   useEffect(() => {
     const loadAssessmentData = async () => {
       setIsLoading(true); // Loading utama ON
       const parsedId = parseInt(idParam, 10);
 
-      // Validasi ID dari URL
       if (isNaN(parsedId)) {
         console.error("ID Asesmen tidak valid di URL:", idParam);
         alert("ID Asesmen tidak valid.");
@@ -99,7 +123,6 @@ function MadyaAssessmentFormPage() {
         setIsLoading(false);
         return;
       }
-
       setAssessmentId(parsedId); // Set ID asesmen
       await fetchData(parsedId); // Panggil fetchData untuk load data
     };
@@ -108,11 +131,11 @@ function MadyaAssessmentFormPage() {
       // setIsLoading(true); // Loading sudah di set di loadAssessmentData
       try {
         const [assessmentRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`)]);
-
         setAssessmentData(assessmentRes.data);
         setCurrentStructureEntries(assessmentRes.data.structure_entries || []); // Pastikan array
 
         await fetchSasaranKPI(id);
+        await fetchRiskInputs(id);
 
         setFilters({
           organisasi: assessmentRes.data.filter_organisasi || "",
@@ -145,7 +168,7 @@ function MadyaAssessmentFormPage() {
     };
 
     loadAssessmentData(); // Panggil fungsi utama saat komponen mount/idParam berubah
-  }, [idParam, navigate, fetchTemplateDetails]); // Dependencies useEffect
+  }, [idParam, navigate, fetchTemplateDetails, fetchRiskInputs]); // Dependencies useEffect
 
   // Handler untuk update state struktur dari child
   const handleStructureEntriesChange = (newEntries) => {
@@ -170,7 +193,7 @@ function MadyaAssessmentFormPage() {
   };
 
   // Kondisi loading gabungan
-  const isPageLoading = isLoading || isTemplateDetailLoading;
+  const isPageLoading = isLoading || isTemplateDetailLoading || isRiskInputLoading;
 
   // Tampilan Loading
   if (isPageLoading) {
@@ -202,7 +225,7 @@ function MadyaAssessmentFormPage() {
         {" "}
         {/* Dibuat flex-col di layar kecil */}
         <div>
-          <Title>Formulir Asesmen Risiko Madya {assessmentId ? `(#${assessmentId})` : ""}</Title>
+          <Title>{assessmentData?.nama_asesmen ? `Asesmen: ${assessmentData.nama_asesmen}` : "Memuat Asesmen..."}</Title>
           <Text>Lengkapi detail asesmen risiko tingkat madya.</Text>
         </div>
         {/* Tampilkan Nama Template yang Digunakan */}
@@ -256,11 +279,22 @@ function MadyaAssessmentFormPage() {
           structureEntries={currentStructureEntries} // Kirim state lokal struktur
           sasaranKPIEntries={sasaranKPIEntries || []} // Kirim state lokal sasaran
           templateScores={selectedTemplateData?.scores || []} // Kirim scores dari detail template
-          onRiskInputSaveSuccess={refreshSasaranKPI}
+          onRiskInputSaveSuccess={refreshRiskInputsAndSasaran}
           initialFilters={filters}
           onFilterChange={handleFilterChange}
+          initialRiskInputData={riskInputEntries} // Prop baru untuk data awal tabel
+          isDataLoading={isRiskInputLoading}
         />
       )}
+
+      {/* Card 5: Peta Risiko */}
+      {assessmentId &&
+        !isPageLoading && ( // Tampilkan jika tidak loading dan ID ada
+          <RiskMapCard
+            risks={riskInputEntries} // Gunakan state dari halaman ini
+            templateData={selectedTemplateData}
+          />
+        )}
 
       {/* Tombol Aksi Bawah */}
       <div className="flex justify-end gap-2 mt-6">

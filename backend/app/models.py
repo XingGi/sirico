@@ -474,7 +474,7 @@ class MadyaAssessment(db.Model):
     """Model induk untuk Asesmen tingkat Madya."""
     __tablename__ = 'madya_assessments'
     id = db.Column(db.Integer, primary_key=True)
-    # Tambahkan field lain yang mungkin dibutuhkan nanti (misal: nama asesmen, tanggal)
+    nama_asesmen = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
@@ -492,7 +492,7 @@ class MadyaAssessment(db.Model):
     filter_departemen = db.Column(db.String(200), nullable=True)
     
     def __repr__(self):
-        return f'<MadyaAssessment {self.id}>'
+        return f'<MadyaAssessment {self.id} - {self.nama_asesmen}>'
 
 class OrganizationalStructureEntry(db.Model):
     """Model untuk satu baris entri struktur organisasi."""
