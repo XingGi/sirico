@@ -704,7 +704,45 @@ def get_madya_assessment_detail(assessment_id):
         "structure_image_filename": assessment.structure_image_filename,
         "structure_image_url": image_url_relative, 
         "structure_entries": structure_entries,
+        "filter_organisasi": assessment.filter_organisasi,
+        "filter_direktorat": assessment.filter_direktorat,
+        "filter_divisi": assessment.filter_divisi,
+        "filter_departemen": assessment.filter_departemen,
     })
+    
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/filters', methods=['PUT'])
+@jwt_required()
+def update_madya_assessment_filters(assessment_id):
+    """Mengupdate nilai filter yang tersimpan untuk Asesmen Madya."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Request body tidak boleh kosong."}), 400
+
+    # Update field filter jika ada di data request
+    assessment.filter_organisasi = data.get('filter_organisasi', assessment.filter_organisasi)
+    assessment.filter_direktorat = data.get('filter_direktorat', assessment.filter_direktorat)
+    assessment.filter_divisi = data.get('filter_divisi', assessment.filter_divisi)
+    assessment.filter_departemen = data.get('filter_departemen', assessment.filter_departemen)
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "msg": "Filter berhasil disimpan.",
+            # Opsional: kembalikan nilai yang disimpan
+            "filters": {
+                "organisasi": assessment.filter_organisasi,
+                "direktorat": assessment.filter_direktorat,
+                "divisi": assessment.filter_divisi,
+                "departemen": assessment.filter_departemen,
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving filters for assessment {assessment_id}: {e}")
+        return jsonify({"msg": "Gagal menyimpan filter. Terjadi kesalahan internal."}), 500
     
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>', methods=['DELETE'])
 @jwt_required()

@@ -15,16 +15,17 @@ const getRiskLevelStyle = (score) => {
   return { text: "#N/A", colorClass: "bg-gray-200 text-gray-500" };
 };
 
-function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [], onRiskInputSaveSuccess }) {
+function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [], onRiskInputSaveSuccess, initialFilters, onFilterChange }) {
   console.log("RiskInputCard rendered/updated. Received structureEntries:", structureEntries);
   console.log("RiskInputCard received templateScores:", templateScores);
-  const [organisasi, setOrganisasi] = useState(""); // Akan diisi nama PT nanti
-  const [selectedDirektorat, setSelectedDirektorat] = useState("");
-  const [selectedDivisi, setSelectedDivisi] = useState("");
-  const [selectedDepartemen, setSelectedDepartemen] = useState("");
+  // const [organisasi, setOrganisasi] = useState("");
+  // const [selectedDirektorat, setSelectedDirektorat] = useState("");
+  // const [selectedDivisi, setSelectedDivisi] = useState("");
+  // const [selectedDepartemen, setSelectedDepartemen] = useState("");
   const uniqueDirektorat = useMemo(() => [...new Set(structureEntries.map((e) => e.direktorat).filter(Boolean))], [structureEntries]);
   const uniqueDivisi = useMemo(() => [...new Set(structureEntries.map((e) => e.divisi).filter(Boolean))], [structureEntries]);
   const uniqueUnitKerja = useMemo(() => [...new Set(structureEntries.map((e) => e.unit_kerja).filter(Boolean))], [structureEntries]);
+
   const [riskInputEntries, setRiskInputEntries] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -128,11 +129,21 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 border rounded-lg bg-slate-50">
           <div>
             <label className="text-sm font-medium text-gray-700">Organisasi</label>
-            <TextInput value={organisasi} onChange={(e) => setOrganisasi(e.target.value)} placeholder="Nama Perusahaan..." className="mt-1" />
+            <TextInput
+              value={initialFilters.organisasi || ""} // Gunakan dari props
+              onChange={(e) => onFilterChange("organisasi", e.target.value)} // Panggil handler props
+              placeholder="Nama Perusahaan..."
+              className="mt-1"
+            />
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700">Direktorat</label>
-            <Select value={selectedDirektorat} onValueChange={setSelectedDirektorat} className="mt-1" disabled={uniqueDirektorat.length === 0}>
+            <Select
+              value={initialFilters.direktorat || ""} // Gunakan dari props
+              onValueChange={(value) => onFilterChange("direktorat", value)} // Panggil handler props
+              className="mt-1"
+              disabled={uniqueDirektorat.length === 0}
+            >
               <SelectItem value="">Pilih Direktorat...</SelectItem>
               {uniqueDirektorat.map((dir) => (
                 <SelectItem key={dir} value={dir}>
@@ -143,7 +154,12 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700">Divisi</label>
-            <Select value={selectedDivisi} onValueChange={setSelectedDivisi} className="mt-1" disabled={uniqueDivisi.length === 0}>
+            <Select
+              value={initialFilters.divisi || ""} // Gunakan dari props
+              onValueChange={(value) => onFilterChange("divisi", value)} // Panggil handler props
+              className="mt-1"
+              disabled={uniqueDivisi.length === 0}
+            >
               <SelectItem value="">Pilih Divisi...</SelectItem>
               {uniqueDivisi.map((div) => (
                 <SelectItem key={div} value={div}>
@@ -154,7 +170,12 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700">Departemen</label>
-            <Select value={selectedDepartemen} onValueChange={setSelectedDepartemen} className="mt-1" disabled={uniqueUnitKerja.length === 0}>
+            <Select
+              value={initialFilters.departemen || ""} // Gunakan dari props
+              onValueChange={(value) => onFilterChange("departemen", value)} // Panggil handler props
+              className="mt-1"
+              disabled={uniqueUnitKerja.length === 0}
+            >
               <SelectItem value="">Pilih Unit Kerja...</SelectItem>
               {uniqueUnitKerja.map((unit) => (
                 <SelectItem key={unit} value={unit}>

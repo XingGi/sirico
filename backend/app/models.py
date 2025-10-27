@@ -485,6 +485,14 @@ class MadyaAssessment(db.Model):
     structure_entries = db.relationship('OrganizationalStructureEntry', backref='assessment', lazy=True, cascade="all, delete-orphan")
     sasaran_kpi_entries = db.relationship('SasaranOrganisasiKPI', back_populates='assessment', lazy=True, cascade="all, delete-orphan")
     risk_inputs = db.relationship('RiskInputMadya', back_populates='assessment', lazy=True, cascade="all, delete-orphan")
+    
+    filter_organisasi = db.Column(db.String(200), nullable=True)
+    filter_direktorat = db.Column(db.String(200), nullable=True)
+    filter_divisi = db.Column(db.String(200), nullable=True)
+    filter_departemen = db.Column(db.String(200), nullable=True)
+    
+    def __repr__(self):
+        return f'<MadyaAssessment {self.id}>'
 
 class OrganizationalStructureEntry(db.Model):
     """Model untuk satu baris entri struktur organisasi."""

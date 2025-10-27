@@ -1,6 +1,7 @@
 // frontend/src/features/risk-management/madya/MadyaAssessmentFormPage.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Title, Text, Card, Button, Accordion, AccordionHeader, AccordionBody } from "@tremor/react"; // Hapus Select, SelectItem
+import { debounce } from "lodash";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../../../api/api";
 import StrukturOrganisasiCard from "./components/StrukturOrganisasiCard";
@@ -16,7 +17,6 @@ function MadyaAssessmentFormPage() {
   const [isLoading, setIsLoading] = useState(true); // Loading utama halaman
   const [sasaranKPIEntries, setSasaranKPIEntries] = useState([]);
   const [currentStructureEntries, setCurrentStructureEntries] = useState([]);
-  // State untuk menyimpan detail template terpilih (bukan daftar lagi)
   const [selectedTemplateData, setSelectedTemplateData] = useState(null);
   const [isTemplateDetailLoading, setIsTemplateDetailLoading] = useState(false); // Loading detail template
 
@@ -41,7 +41,51 @@ function MadyaAssessmentFormPage() {
     }
   }, []); // Dependency kosong
 
-  // useEffect utama untuk load data asesmen dan detail template terkait
+  const [filters, setFilters] = useState({
+    organisasi: "",
+    direktorat: "",
+    divisi: "",
+    departemen: "",
+  });
+
+  // Ref untuk menyimpan fungsi debounced save
+  const debouncedSaveFilters = useRef(null);
+
+  // Fungsi untuk menyimpan filter ke backend
+  const saveFilters = useCallback(
+    async (currentFilters) => {
+      if (!assessmentId) return;
+      console.log("Saving filters:", currentFilters);
+      try {
+        await apiClient.put(`/madya-assessments/${assessmentId}/filters`, {
+          filter_organisasi: currentFilters.organisasi,
+          filter_direktorat: currentFilters.direktorat,
+          filter_divisi: currentFilters.divisi,
+          filter_departemen: currentFilters.departemen,
+        });
+        console.log("Filters saved successfully.");
+      } catch (error) {
+        console.error("Gagal menyimpan filter:", error);
+        // Mungkin tampilkan notifikasi error kecil ke user
+      }
+    },
+    [assessmentId]
+  );
+
+  useEffect(() => {
+    debouncedSaveFilters.current = debounce((currentFilters) => saveFilters(currentFilters), 1500); // Simpan setelah 1.5 detik tidak ada perubahan
+  }, [saveFilters]);
+
+  // Handler untuk menerima perubahan filter dari child
+  const handleFilterChange = useCallback((name, value) => {
+    setFilters((prevFilters) => {
+      const newFilters = { ...prevFilters, [name]: value };
+      // Panggil fungsi debounced save
+      debouncedSaveFilters.current(newFilters);
+      return newFilters;
+    });
+  }, []);
+
   useEffect(() => {
     const loadAssessmentData = async () => {
       setIsLoading(true); // Loading utama ON
@@ -66,10 +110,16 @@ function MadyaAssessmentFormPage() {
         const [assessmentRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`)]);
 
         setAssessmentData(assessmentRes.data);
-        // setSasaranKPIEntries(sasaranRes.data || []);
         setCurrentStructureEntries(assessmentRes.data.structure_entries || []); // Pastikan array
 
         await fetchSasaranKPI(id);
+
+        setFilters({
+          organisasi: assessmentRes.data.filter_organisasi || "",
+          direktorat: assessmentRes.data.filter_direktorat || "",
+          divisi: assessmentRes.data.filter_divisi || "",
+          departemen: assessmentRes.data.filter_departemen || "",
+        });
 
         // Dapatkan ID template dari data asesmen yang baru di-fetch
         const templateIdFromAssessment = assessmentRes.data.risk_map_template_id;
@@ -207,6 +257,8 @@ function MadyaAssessmentFormPage() {
           sasaranKPIEntries={sasaranKPIEntries || []} // Kirim state lokal sasaran
           templateScores={selectedTemplateData?.scores || []} // Kirim scores dari detail template
           onRiskInputSaveSuccess={refreshSasaranKPI}
+          initialFilters={filters}
+          onFilterChange={handleFilterChange}
         />
       )}
 
