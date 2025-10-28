@@ -14,6 +14,9 @@ from datetime import datetime
 from io import BytesIO
 from werkzeug.utils import secure_filename
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.drawing.image import Image
+from openpyxl.utils import get_column_letter
+from collections import defaultdict
 
 # Membuat Blueprint untuk Risk Management Levels
 risk_management_levels_bp = Blueprint('risk_management_levels_bp', __name__)
@@ -414,6 +417,319 @@ def export_basic_assessment_to_excel(assessment_id):
         download_name=f"Asesmen_Dasar_{assessment.nama_unit_kerja}.xlsx",
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
+@risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/export', methods=['GET'])
+@jwt_required()
+def export_madya_assessment_to_excel(assessment_id):
+    """Membuat dan mengirim file Excel dari data Asesmen Madya."""
+    current_user_id = get_jwt_identity()
+    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    template = assessment.risk_map_template # Ambil template terkait
+    
+    risk_inputs = assessment.risk_inputs
+
+    wb = openpyxl.Workbook()
+
+    if "Sheet" in wb.sheetnames:
+        wb.remove(wb["Sheet"])
+
+    # --- DEFINISI GAYA (mirip export Dasar) ---
+    bold_font = Font(bold=True)
+    white_bold_font = Font(bold=True, color="FFFFFF")
+    center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left_align_wrap = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    right_align = Alignment(horizontal='right', vertical='center')
+    header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid") # Biru tua
+    subheader_fill = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid") # Biru muda
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    risk_num_font = Font(bold=True, color="000000", size=9) # Hitam, tebal, kecil
+    risk_num_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    score_align = Alignment(horizontal='right', vertical='top')
+
+    # --- Sheet 1: Struktur Organisasi ---
+    ws1 = wb.create_sheet(title="Struktur Organisasi")
+    ws1.append(["Struktur Organisasi - Asesmen:", assessment.nama_asesmen])
+    ws1['A1'].font = bold_font
+    ws1.append([])
+    headers1 = ["No", "Direktorat", "Divisi", "Unit Kerja", "Struktur Organisasi"]
+    ws1.append(headers1)
+    for cell in ws1[3:3]:
+        cell.font = white_bold_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    for i, entry in enumerate(assessment.structure_entries):
+        ws1.append([i + 1, entry.direktorat, entry.divisi, entry.unit_kerja, ""])
+        
+    if assessment.structure_image_filename:
+        try:
+            img_path = os.path.join(current_app.config['UPLOAD_FOLDER'], assessment.structure_image_filename)
+            if os.path.exists(img_path):
+                img = Image(img_path)
+                # Sesuaikan ukuran gambar (opsional, atur sesuai preferensi)
+                img.height = 150 # Contoh tinggi 150 pixel
+                img.width = 200  # Contoh lebar 200 pixel
+                # Tambahkan gambar ke sel E4 (baris data pertama, kolom ke-5)
+                ws1.add_image(img, 'E4')
+                # Atur tinggi baris agar gambar muat (sesuaikan jika perlu)
+                ws1.row_dimensions[4].height = 120 # Contoh tinggi 120 point
+            else:
+                print(f"File gambar tidak ditemukan: {img_path}")
+        except Exception as e:
+            print(f"Gagal menambahkan gambar struktur: {e}")
+
+    # Apply border and alignment to data rows
+    for row in ws1.iter_rows(min_row=4, max_col=5):
+        for cell in row:
+            cell.border = thin_border
+            if cell.column != 5:
+                 cell.alignment = left_align_wrap if cell.column > 1 else center_align
+
+    ws1.column_dimensions['B'].width = 30
+    ws1.column_dimensions['C'].width = 30
+    ws1.column_dimensions['D'].width = 30
+    ws1.column_dimensions['E'].width = 30
+
+
+    # --- Sheet 2: Sasaran & Risk Appetite ---
+    ws2 = wb.create_sheet(title="Sasaran KPI Appetite")
+    ws2.append(["Sasaran Organisasi / KPI & Risk Appetite - Asesmen:", assessment.nama_asesmen])
+    ws2['A1'].font = bold_font
+    ws2.append([])
+    headers2 = ["No", "Sasaran Organisasi / KPI", "Target Appetite", "Skor Risiko Inheren", "Skor Risiko Residual"]
+    ws2.append(headers2)
+    for cell in ws2[3:3]:
+        cell.font = white_bold_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    for i, entry in enumerate(assessment.sasaran_kpi_entries):
+        ws2.append([
+            i + 1,
+            entry.sasaran_kpi,
+            entry.target_level,
+            entry.inherent_risk_score,
+            entry.residual_risk_score
+        ])
+
+    for row in ws2.iter_rows(min_row=4, max_col=5):
+        for cell in row:
+            cell.border = thin_border
+            if cell.column == 2: cell.alignment = left_align_wrap
+            else: cell.alignment = center_align
+
+    ws2.column_dimensions['B'].width = 60
+    ws2.column_dimensions['C'].width = 15
+    ws2.column_dimensions['D'].width = 20
+    ws2.column_dimensions['E'].width = 20
+
+    # --- Sheet 3: Risk Input ---
+    ws3 = wb.create_sheet(title="Risk Input")
+    ws3.page_setup.orientation = ws3.ORIENTATION_LANDSCAPE # Make it wide
+    ws3.append(["Detail Risk Input - Asesmen:", assessment.nama_asesmen])
+    ws3['A1'].font = bold_font
+    ws3.append([])
+    headers3 = [
+        "No", "Kode Risiko", "Status Risiko", "Peluang/ Ancaman", "Kategori Risiko", "Unit/Fungsi Kerja",
+        "Sasaran", "Tanggal Identifikasi Risiko", "Deskripsi atau Kejadian Risiko", "Akar Penyebab",
+        "Indikator Risiko", "Faktor Positif / Internal Control Yang Ada Saat Ini", "Deskripsi Dampak",
+        "Probabilitas (P)", "Dampak (I)", "Skor Risiko Inherent", "Probabilitas Risiko Inherent Kualitatif (%)",
+        "Dampak Finansial Risiko Inherent (Rp)", "Nilai Bersih Risiko Inheren",
+        "Pemilik Risiko", "Jabatan Pemilik Risiko", "No. HP Pemilik Risiko", "E-mail Pemilik Risiko",
+        "Strategi", "Penanganan Risiko (Risk Treatment)", "Biaya Penanganan Risiko (Rp)",
+        "Penanganan Yang Telah Dilakukan", "Status Penanganan", "Jadwal Mulai Penanganan",
+        "Jadwal Selesai Penanganan", "PIC Penanganan",
+        "Probabilitas Risiko Residual (P)", "Dampak Risiko Residual (I)", "Skor Risiko Residual",
+        "Probabilitas Risiko Residual Kualitatif (%)", "Dampak Finansial Risiko Residual (Rp)",
+        "Nilai Bersih Risiko Residual", "Tanggal Review"
+    ]
+    ws3.append(headers3)
+    header_row = ws3[3:3]
+    for cell in header_row:
+        cell.font = white_bold_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    # Buat map sasaran_id ke teks sasaran_kpi untuk lookup
+    sasaran_map = {s.id: s.sasaran_kpi for s in assessment.sasaran_kpi_entries}
+
+    for i, entry in enumerate(assessment.risk_inputs):
+        sasaran_text = sasaran_map.get(entry.sasaran_id, "-")
+        kategori_display = entry.kategori_risiko_lainnya if entry.kategori_risiko == 'Lainnya' else entry.kategori_risiko
+        tgl_identifikasi_str = entry.tanggal_identifikasi.strftime('%d %B %Y') if entry.tanggal_identifikasi else ""
+        tgl_mulai_str = entry.jadwal_mulai_penanganan.strftime('%d %B %Y') if entry.jadwal_mulai_penanganan else ""
+        tgl_selesai_str = entry.jadwal_selesai_penanganan.strftime('%d %B %Y') if entry.jadwal_selesai_penanganan else ""
+        tgl_review_str = entry.tanggal_review.strftime('%d %B %Y') if entry.tanggal_review else ""
+
+        # --- Urutan data disesuaikan dengan headers3 ---
+        ws3.append([
+            i + 1, entry.kode_risiko, entry.status_risiko, entry.peluang_ancaman, kategori_display, entry.unit_kerja, # 1-6
+            sasaran_text, tgl_identifikasi_str, entry.deskripsi_risiko, entry.akar_penyebab, # 7-10
+            entry.indikator_risiko, entry.internal_control, entry.deskripsi_dampak, # 11-13
+            entry.inherent_probabilitas, entry.inherent_dampak, entry.inherent_skor, # 14-16
+            entry.inherent_prob_kualitatif, entry.inherent_dampak_finansial, entry.inherent_nilai_bersih, # 17-19
+            entry.pemilik_risiko, entry.jabatan_pemilik, entry.kontak_pemilik_hp, entry.kontak_pemilik_email, # 20-23
+            entry.strategi, entry.rencana_penanganan, entry.biaya_penanganan, # 24-26
+            entry.penanganan_dilakukan, entry.status_penanganan, tgl_mulai_str, # 27-29
+            tgl_selesai_str, entry.pic_penanganan, # 30-31
+            entry.residual_probabilitas, entry.residual_dampak, entry.residual_skor, # 32-34
+            entry.residual_prob_kualitatif,   # Kolom 35 (AI) - Probabilitas Kualitatif (%)
+            entry.residual_dampak_finansial,  # Kolom 36 (AJ) - Dampak Finansial (Rp)
+            entry.residual_nilai_bersih,      # Kolom 37 (AK) - Nilai Bersih
+            tgl_review_str
+        ])
+        
+        last_row = ws3.max_row
+        ws3.cell(row=last_row, column=17).number_format = '#,##0.0"%"' # Probabilitas Kualitatif Inherent
+        ws3.cell(row=last_row, column=18).number_format = '"Rp"#,##0'   # Dampak Finansial Inherent
+        ws3.cell(row=last_row, column=19).number_format = '"Rp"#,##0'   # Nilai Bersih Inherent
+        ws3.cell(row=last_row, column=26).number_format = '"Rp"#,##0'   # Biaya Penanganan
+        ws3.cell(row=last_row, column=35).number_format = '#,##0.0"%"' # Probabilitas Kualitatif Residual
+        ws3.cell(row=last_row, column=36).number_format = '"Rp"#,##0_);[Red]("-Rp"#,##0)' # AJ - Dampak Fin Residual
+        ws3.cell(row=last_row, column=37).number_format = '"Rp"#,##0_);[Red]("-Rp"#,##0)' # AK - Nilai Bersih Residual
+        
+    center_cols_risk = [
+        1, 8, # No, Tgl Identifikasi
+        14, 15, 16, 17, # P(In), I(In), Skor(In), Prob Kual(In)
+        29, 30, # Tgl Mulai/Selesai Penanganan
+        32, 33, 34, 35, # P(Res), I(Res), Skor(Res), Prob Kual(Res)
+        38 # Tgl Review
+    ]
+    # Kolom mata uang (rata kanan)
+    currency_cols_risk = [18, 19, 26, 36, 37]
+
+    # Apply styles and width to Risk Input sheet
+    for row_idx in range(4, ws3.max_row + 1):
+        ws3.row_dimensions[row_idx].height = 45 # Beri tinggi agar wrap text cukup
+        for col_idx in range(1, len(headers3) + 1):
+            cell = ws3.cell(row=row_idx, column=col_idx)
+            cell.border = thin_border
+            if col_idx in center_cols_risk:
+                cell.alignment = center_align
+            elif col_idx in currency_cols_risk:
+                 cell.alignment = Alignment(horizontal='right', vertical='top') # Rata kanan untuk uang
+            else: # Sisanya rata kiri atas wrap
+                cell.alignment = left_align_wrap
+
+    # Sesuaikan lebar kolom (perlu di-fine-tune lagi mungkin)
+    column_widths = {
+        'A': 5, 'B': 15, 'C': 12, 'D': 15, 'E': 20, 'F': 25, 'G': 30, 'H': 15, 'I': 40, 'J': 30, # 1-10
+        'K': 30, 'L': 30, 'M': 30, 'N': 8, 'O': 8, 'P': 8, 'Q': 12, 'R': 18, 'S': 18, 'T': 20, # 11-20
+        'U': 20, 'V': 15, 'W': 20, 'X': 20, 'Y': 40, 'Z': 18, 'AA': 30, 'AB': 15, 'AC': 15, # 21-29
+        'AD': 15, 'AE': 20, 'AF': 8, 'AG': 8, 'AH': 8, 'AI': 12, 'AJ': 18, 'AK': 18, 'AL': 15 # 30-38
+    }
+    for col_letter, width in column_widths.items():
+         try: ws3.column_dimensions[col_letter].width = width
+         except KeyError: print(f"Peringatan: Kolom {col_letter} tidak ditemukan di sheet Risk Input.")
+        
+    # --- Sheet 4: Peta Risiko ---
+    ws4 = wb.create_sheet(title="Peta Risiko")
+    ws4.append(["Peta Risiko - Asesmen:", assessment.nama_asesmen])
+    ws4['A1'].font = bold_font
+    ws4.append(["Template:", template.name if template else "Tidak ada template"])
+    ws4.append([]) # Baris kosong
+
+    # Persiapan data dari template
+    likelihood_labels = {l.level: l.label for l in (template.likelihood_labels if template else [])}
+    impact_labels = {i.level: i.label for i in (template.impact_labels if template else [])}
+    scores_map = {(s.likelihood_level, s.impact_level): s.score for s in (template.scores if template else [])}
+    levels_map = sorted(
+        [
+            (lvl.min_score, lvl.max_score, lvl.color_hex.replace("#", "FF")) # Ambil warna tanpa #, tambahkan alpha FF
+            for lvl in (template.level_definitions if template else [])
+        ],
+        key=lambda x: x[0] # Urutkan berdasarkan min_score
+    )
+
+    def get_color_for_score(score):
+        if score is None: return "FFFFFFFF" # Putih jika skor null
+        for min_s, max_s, color in levels_map:
+            if min_s <= score <= max_s:
+                return color
+        return "FFFFFFFF" # Default putih jika di luar rentang
+
+    # Persiapan data posisi risk input
+    inherent_positions = defaultdict(list)
+    residual_positions = defaultdict(list)
+    for i, risk in enumerate(risk_inputs):
+        if risk.inherent_probabilitas and risk.inherent_dampak:
+            inherent_positions[(risk.inherent_probabilitas, risk.inherent_dampak)].append(str(i + 1)) # Simpan nomor urut (string)
+        if risk.residual_probabilitas and risk.residual_dampak:
+            residual_positions[(risk.residual_probabilitas, risk.residual_dampak)].append(str(i + 1)) # Simpan nomor urut (string)
+
+    # Fungsi untuk menggambar satu peta
+    def draw_risk_map(start_row, title, positions_data):
+        ws4.merge_cells(start_row=start_row, start_column=2, end_row=start_row, end_column=6)
+        title_cell = ws4.cell(row=start_row, column=2, value=title)
+        title_cell.font = bold_font
+        title_cell.alignment = center_align
+        start_row += 1
+
+        # Header Dampak
+        prob_label_cell = ws4.cell(row=start_row, column=2, value="PROBABILITAS") # Tulis di B<start_row>
+        prob_label_cell.alignment = Alignment(horizontal='center', vertical='center', text_rotation=90)
+        ws4.merge_cells(start_row=start_row, start_column=2, end_row=start_row + 4, end_column=2)
+        
+        for i in range(1, 6):
+            col_idx = i + 2
+            ws4.cell(row=start_row, column=col_idx, value=impact_labels.get(i, f"Impact {i}")).alignment = center_align
+            ws4.cell(row=start_row + 6, column=col_idx, value=i).alignment = center_align # Angka 1-5 di bawah
+
+        dampak_label_cell = ws4.cell(row=start_row+6, column=3, value="DAMPAK") # Tulis di C
+        dampak_label_cell.alignment = center_align
+        ws4.merge_cells(start_row=start_row+6, start_column=3, end_row=start_row+6, end_column=7)
+
+        # Matriks
+        for p in range(5, 0, -1): # Probabilitas 5 ke 1
+            row_idx = start_row + (5 - p) + 1
+            cell_prob_row = ws4.cell(row=row_idx, column=1, value=f"{likelihood_labels.get(p, f'L {p}')}\n({p})") # Tulis di Kolom A
+            cell_prob_row.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+            for i in range(1, 6): # Dampak 1 ke 5
+                col_idx = i + 2
+                cell = ws4.cell(row=row_idx, column=col_idx)
+                score = scores_map.get((p, i), None) # Ambil skor dari template map
+                if score is None and template: # Fallback P*I jika skor tidak ada di template
+                    score = p * i
+                cell.value = score
+                fill_color = get_color_for_score(score)
+                cell.fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
+                cell.border = thin_border
+                cell.alignment = score_align
+
+                # Tambahkan nomor risk input
+                risk_numbers = positions_data.get((p, i), [])
+                if risk_numbers:
+                     # Gabungkan nomor dengan koma, tampilkan di tengah
+                     cell.value = f"{score}\n\n({', '.join(risk_numbers)})" # Skor di atas, nomor di bawah
+                     cell.alignment = risk_num_align # Tengah
+                     cell.font = risk_num_font # Font khusus untuk nomor
+
+                ws4.row_dimensions[row_idx].height = 40 # Atur tinggi baris
+                ws4.column_dimensions[get_column_letter(col_idx)].width = 15 # Atur lebar kolom
+                
+        ws4.column_dimensions['A'].width = 25 # Untuk label probabilitas per baris
+        ws4.column_dimensions['B'].width = 5
+
+    # Gambar Peta Inheren
+    draw_risk_map(start_row=4, title="PETA RISIKO INHEREN", positions_data=inherent_positions)
+    draw_risk_map(start_row=15, title="PETA RISIKO RESIDUAL", positions_data=residual_positions)
+
+    # Simpan ke memori
+    in_memory_fp = BytesIO()
+    wb.save(in_memory_fp)
+    in_memory_fp.seek(0)
+
+    return send_file(
+        in_memory_fp,
+        as_attachment=True,
+        # Gunakan nama asesmen di nama file
+        download_name=f"Asesmen_Madya_{assessment.nama_asesmen or assessment.id}.xlsx",
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
     
 # Peta Risiko
 @risk_management_levels_bp.route('/risk-maps', methods=['POST'])
@@ -700,6 +1016,19 @@ def get_madya_assessment_detail(assessment_id):
         for entry in assessment.structure_entries
     ]
     
+    # Ambil dan format data Sasaran/KPI
+    sasaran_entries = [
+        {
+            "id": entry.id,
+            "assessment_id": entry.assessment_id,
+            "sasaran_kpi": entry.sasaran_kpi,
+            "target_level": entry.target_level,
+            "inherent_risk_score": entry.inherent_risk_score,
+            "residual_risk_score": entry.residual_risk_score
+        }
+        for entry in assessment.sasaran_kpi_entries # Akses relasi langsung
+    ]
+    
     image_url_relative = f"api/uploads/{assessment.structure_image_filename}" if assessment.structure_image_filename else None
 
     return jsonify({
@@ -711,6 +1040,7 @@ def get_madya_assessment_detail(assessment_id):
         "structure_image_filename": assessment.structure_image_filename,
         "structure_image_url": image_url_relative, 
         "structure_entries": structure_entries,
+        "sasaran_kpi_entries": sasaran_entries,
         "filter_organisasi": assessment.filter_organisasi,
         "filter_direktorat": assessment.filter_direktorat,
         "filter_divisi": assessment.filter_divisi,
@@ -992,58 +1322,74 @@ def parse_int_or_none(value):
         return None
 
 # Helper function to calculate scores and net values
-def calculate_risk_values(data, template_id):
+# def calculate_risk_values(data, template_id):
+#     inherent_p = parse_int_or_none(data.get('inherent_probabilitas'))
+#     inherent_i = parse_int_or_none(data.get('inherent_dampak'))
+#     inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif'))
+#     inherent_dampak_finansial = parse_float_or_none(data.get('inherent_dampak_finansial'))
+
+#     residual_p = parse_int_or_none(data.get('residual_probabilitas'))
+#     residual_i = parse_int_or_none(data.get('residual_dampak'))
+#     residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif'))
+#     residual_dampak_finansial = parse_float_or_none(data.get('residual_dampak_finansial'))
+    
+#     calculated = {
+#         'inherent_skor': None,
+#         'inherent_nilai_bersih': None,
+#         'residual_skor': None,
+#         'residual_nilai_bersih': None
+#     }
+    
+#     def get_score_from_template(p, i):
+#         if p is not None and i is not None and template_id is not None:
+#             score_entry = RiskMapScore.query.filter_by(
+#                 template_id=template_id,
+#                 likelihood_level=p,
+#                 impact_level=i
+#             ).first()
+#             return score_entry.score if score_entry else None
+#         elif p is not None and i is not None:
+#              print(f"PERINGATAN: Tidak ada template_id ({template_id}) atau skor tidak ditemukan untuk P={p}, I={i}. Menggunakan P*I.")
+#              return p * i
+#         return None
+
+#     calculated['inherent_skor'] = get_score_from_template(inherent_p, inherent_i)
+    
+#     if inherent_prob_kualitatif is not None and inherent_dampak_finansial is not None:
+#         calculated['inherent_nilai_bersih'] = inherent_dampak_finansial * (inherent_prob_kualitatif / 100.0)
+
+#     calculated['residual_skor'] = get_score_from_template(residual_p, residual_i)
+
+#     if residual_prob_kualitatif is not None and residual_dampak_finansial is not None:
+#         dampak_fin_res = residual_dampak_finansial if residual_dampak_finansial is not None else inherent_dampak_finansial
+#         if dampak_fin_res is not None:
+#              calculated['residual_nilai_bersih'] = dampak_fin_res * (residual_prob_kualitatif / 100.0)
+
+#     return calculated
+
+def calculate_scores_from_template(data, template_id):
     inherent_p = parse_int_or_none(data.get('inherent_probabilitas'))
     inherent_i = parse_int_or_none(data.get('inherent_dampak'))
-    inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif'))
-    inherent_dampak_finansial = parse_float_or_none(data.get('inherent_dampak_finansial'))
-
     residual_p = parse_int_or_none(data.get('residual_probabilitas'))
     residual_i = parse_int_or_none(data.get('residual_dampak'))
-    residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif'))
-    residual_dampak_finansial = parse_float_or_none(data.get('residual_dampak_finansial'))
-    
-    calculated = {
-        'inherent_skor': None,
-        'inherent_nilai_bersih': None,
-        'residual_skor': None,
-        'residual_nilai_bersih': None
-    }
-    
-    def get_score_from_template(p, i):
+
+    scores = {'inherent_skor': None, 'residual_skor': None}
+
+    def get_score(p, i):
         if p is not None and i is not None and template_id is not None:
             score_entry = RiskMapScore.query.filter_by(
-                template_id=template_id,
-                likelihood_level=p,
-                impact_level=i
+                template_id=template_id, likelihood_level=p, impact_level=i
             ).first()
-            return score_entry.score if score_entry else None
-        # Fallback jika template tidak ada atau P/I null (seharusnya tidak terjadi jika P/I valid 1-5)
-        # Anda bisa memutuskan mau return None atau p * i sebagai fallback
-        elif p is not None and i is not None:
-             print(f"PERINGATAN: Tidak ada template_id ({template_id}) atau skor tidak ditemukan untuk P={p}, I={i}. Menggunakan P*I.")
+            if score_entry: return score_entry.score
+        # Fallback P*I
+        if p is not None and i is not None and 1 <= p <= 5 and 1 <= i <= 5:
+             print(f"Fallback score calculation P*I for P={p}, I={i} (Template ID: {template_id})")
              return p * i
         return None
 
-    # Hitung Skor Inheren berdasarkan template
-    calculated['inherent_skor'] = get_score_from_template(inherent_p, inherent_i)
-    
-    if inherent_prob_kualitatif is not None and inherent_dampak_finansial is not None:
-        calculated['inherent_nilai_bersih'] = inherent_dampak_finansial * (inherent_prob_kualitatif / 100.0)
-
-    # Hitung Skor Residual berdasarkan template
-    calculated['residual_skor'] = get_score_from_template(residual_p, residual_i)
-
-    # Hitung Nilai Bersih Residual (logika ini tidak berubah)
-    if residual_prob_kualitatif is not None and residual_dampak_finansial is not None:
-        # Asumsi dampak finansial residual sama dengan inheren jika tidak diisi terpisah
-        # Atau Anda bisa menambahkan field residual_dampak_finansial di form/model
-        # Untuk sekarang, kita pakai inheren_dampak_finansial jika residual_dampak_finansial null
-        dampak_fin_res = residual_dampak_finansial if residual_dampak_finansial is not None else inherent_dampak_finansial
-        if dampak_fin_res is not None:
-             calculated['residual_nilai_bersih'] = dampak_fin_res * (residual_prob_kualitatif / 100.0)
-
-    return calculated
+    scores['inherent_skor'] = get_score(inherent_p, inherent_i)
+    scores['residual_skor'] = get_score(residual_p, residual_i)
+    return scores
 
 # --- Helper function to format entry for JSON response ---
 def format_risk_input_entry(entry):
@@ -1123,7 +1469,42 @@ def add_risk_input(assessment_id):
     kategori = data.get('kategori_risiko')
     kategori_lainnya = data.get('kategori_risiko_lainnya') if kategori == 'Lainnya' else None
 
-    calculated_values = calculate_risk_values(data, assessment.risk_map_template_id)
+    # calculated_values = calculate_risk_values(data, assessment.risk_map_template_id)
+    
+    # 1. Parse semua input numerik yang relevan
+    inherent_p = parse_int_or_none(data.get('inherent_probabilitas'))
+    inherent_i = parse_int_or_none(data.get('inherent_dampak'))
+    inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif'))
+    inherent_dampak_finansial = parse_float_or_none(data.get('inherent_dampak_finansial'))
+    residual_p = parse_int_or_none(data.get('residual_probabilitas'))
+    residual_i = parse_int_or_none(data.get('residual_dampak'))
+    residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif'))
+    biaya_penanganan = parse_float_or_none(data.get('biaya_penanganan'))
+
+    # 2. Hitung Skor menggunakan template
+    calculated_scores = calculate_scores_from_template(data, assessment.risk_map_template_id)
+    inherent_skor = calculated_scores.get('inherent_skor')
+    residual_skor = calculated_scores.get('residual_skor')
+
+    # 3. Hitung Nilai Bersih Inheren
+    inherent_nilai_bersih = None
+    if inherent_prob_kualitatif is not None and inherent_dampak_finansial is not None:
+        inherent_nilai_bersih = inherent_dampak_finansial * (inherent_prob_kualitatif / 100.0)
+
+    # 4. Hitung Dampak Finansial Residual (sesuai logika frontend)
+    calculated_residual_dampak_finansial = None
+    if residual_prob_kualitatif is not None and inherent_dampak_finansial is not None:
+        # Asumsi: Dampak finansial residual dihitung dari inheren * probabilitas residual
+        calculated_residual_dampak_finansial = inherent_dampak_finansial * (residual_prob_kualitatif / 100.0)
+
+    # 5. Hitung Nilai Bersih Residual (sesuai logika frontend)
+    residual_nilai_bersih = None
+    if residual_prob_kualitatif is not None and calculated_residual_dampak_finansial is not None:
+        # Nilai bersih residual = Dampak Fin Residual * Prob Kual Residual
+        residual_nilai_bersih = calculated_residual_dampak_finansial * (residual_prob_kualitatif / 100.0)
+        # ATAU JIKA LOGIKA FRONTEND BERBEDA (misal: Dampak Inheren * Prob Kual Res * Prob Kual Res), sesuaikan di sini.
+        # Berdasarkan kode frontend Anda, sepertinya:
+        # residual_nilai_bersih = calculated_residual_dampak_finansial * (residual_prob_kualitatif / 100.0)
 
     new_risk_input = RiskInputMadya(
         assessment_id=assessment_id,
@@ -1140,31 +1521,32 @@ def add_risk_input(assessment_id):
         indikator_risiko=data.get('indikator_risiko'),
         internal_control=data.get('internal_control'),
         deskripsi_dampak=data.get('deskripsi_dampak'),
-        inherent_probabilitas=parse_int_or_none(data.get('inherent_probabilitas')),
-        inherent_dampak=parse_int_or_none(data.get('inherent_dampak')),
-        inherent_skor=calculated_values.get('inherent_skor'),
-        inherent_prob_kualitatif=parse_float_or_none(data.get('inherent_prob_kualitatif')),
-        inherent_dampak_finansial=parse_float_or_none(data.get('inherent_dampak_finansial')),
-        inherent_nilai_bersih=calculated_values.get('inherent_nilai_bersih'),
         pemilik_risiko=data.get('pemilik_risiko'),
         jabatan_pemilik=data.get('jabatan_pemilik'),
         kontak_pemilik_hp=data.get('kontak_pemilik_hp'),
         kontak_pemilik_email=data.get('kontak_pemilik_email'),
         strategi=data.get('strategi'),
         rencana_penanganan=data.get('rencana_penanganan'),
-        biaya_penanganan=parse_float_or_none(data.get('biaya_penanganan')),
         penanganan_dilakukan=data.get('penanganan_dilakukan'),
         status_penanganan=data.get('status_penanganan'),
         jadwal_mulai_penanganan=parse_date_or_none(data.get('jadwal_mulai_penanganan')),
         jadwal_selesai_penanganan=parse_date_or_none(data.get('jadwal_selesai_penanganan')),
         pic_penanganan=data.get('pic_penanganan'),
-        residual_probabilitas=parse_int_or_none(data.get('residual_probabilitas')),
-        residual_dampak=parse_int_or_none(data.get('residual_dampak')),
-        residual_skor=calculated_values.get('residual_skor'),
-        residual_prob_kualitatif=parse_float_or_none(data.get('residual_prob_kualitatif')),
-        residual_dampak_finansial=parse_float_or_none(data.get('residual_dampak_finansial')),
-        residual_nilai_bersih=calculated_values.get('residual_nilai_bersih'),
         tanggal_review=parse_date_or_none(data.get('tanggal_review')),
+        
+        inherent_probabilitas=inherent_p,
+        inherent_dampak=inherent_i,
+        inherent_skor=inherent_skor, # Dari calculate_scores_from_template
+        inherent_prob_kualitatif=inherent_prob_kualitatif,
+        inherent_dampak_finansial=inherent_dampak_finansial,
+        inherent_nilai_bersih=inherent_nilai_bersih, # Dari perhitungan manual
+        biaya_penanganan=biaya_penanganan,
+        residual_probabilitas=residual_p,
+        residual_dampak=residual_i,
+        residual_skor=residual_skor, # Dari calculate_scores_from_template
+        residual_prob_kualitatif=residual_prob_kualitatif,
+        residual_dampak_finansial=calculated_residual_dampak_finansial, # Simpan nilai dari form
+        residual_nilai_bersih=residual_nilai_bersih,
     )
 
     db.session.add(new_risk_input)
@@ -1215,10 +1597,44 @@ def update_risk_input(risk_input_id):
     if not data:
         return jsonify({"msg": "Data tidak boleh kosong."}), 400
 
-    calculated_values = calculate_risk_values(data, assessment.risk_map_template_id)
+    # calculated_values = calculate_risk_values(data, assessment.risk_map_template_id)
 
+# 1. Parse semua input numerik yang relevan dari data BARU atau data LAMA
+    inherent_p = parse_int_or_none(data.get('inherent_probabilitas', risk_input.inherent_probabilitas))
+    inherent_i = parse_int_or_none(data.get('inherent_dampak', risk_input.inherent_dampak))
+    inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif', risk_input.inherent_prob_kualitatif))
+    inherent_dampak_finansial = parse_float_or_none(data.get('inherent_dampak_finansial', risk_input.inherent_dampak_finansial))
+    residual_p = parse_int_or_none(data.get('residual_probabilitas', risk_input.residual_probabilitas))
+    residual_i = parse_int_or_none(data.get('residual_dampak', risk_input.residual_dampak))
+    residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif', risk_input.residual_prob_kualitatif))
+    biaya_penanganan = parse_float_or_none(data.get('biaya_penanganan', risk_input.biaya_penanganan))
+
+    # 2. Hitung Skor menggunakan template (gunakan data yang sudah diparsing)
+    score_data_for_calc = {
+        'inherent_probabilitas': inherent_p, 'inherent_dampak': inherent_i,
+        'residual_probabilitas': residual_p, 'residual_dampak': residual_i
+    }
+    calculated_scores = calculate_scores_from_template(score_data_for_calc, assessment.risk_map_template_id)
+    inherent_skor = calculated_scores.get('inherent_skor')
+    residual_skor = calculated_scores.get('residual_skor')
+
+    # 3. Hitung Nilai Bersih Inheren
+    inherent_nilai_bersih = None
+    if inherent_prob_kualitatif is not None and inherent_dampak_finansial is not None:
+        inherent_nilai_bersih = inherent_dampak_finansial * (inherent_prob_kualitatif / 100.0)
+
+    # 4. Hitung Dampak Finansial Residual (sesuai logika frontend)
+    calculated_residual_dampak_finansial = None
+    if residual_prob_kualitatif is not None and inherent_dampak_finansial is not None:
+        calculated_residual_dampak_finansial = inherent_dampak_finansial * (residual_prob_kualitatif / 100.0)
+
+    # 5. Hitung Nilai Bersih Residual (sesuai logika frontend)
+    residual_nilai_bersih = None
+    if residual_prob_kualitatif is not None and calculated_residual_dampak_finansial is not None:
+        residual_nilai_bersih = calculated_residual_dampak_finansial * (residual_prob_kualitatif / 100.0)
+            
     # Update fields based on request data
-    risk_input.sasaran_id = parse_int_or_none(data.get('sasaran_id', risk_input.sasaran_id)) # Update jika ada
+    risk_input.sasaran_id = parse_int_or_none(data.get('sasaran_id', risk_input.sasaran_id))
     risk_input.kode_risiko = data.get('kode_risiko', risk_input.kode_risiko)
     risk_input.status_risiko = data.get('status_risiko', risk_input.status_risiko)
     risk_input.peluang_ancaman = data.get('peluang_ancaman', risk_input.peluang_ancaman)
@@ -1231,34 +1647,32 @@ def update_risk_input(risk_input_id):
     risk_input.indikator_risiko = data.get('indikator_risiko', risk_input.indikator_risiko)
     risk_input.internal_control = data.get('internal_control', risk_input.internal_control)
     risk_input.deskripsi_dampak = data.get('deskripsi_dampak', risk_input.deskripsi_dampak)
-
-    risk_input.inherent_probabilitas = parse_int_or_none(data.get('inherent_probabilitas', risk_input.inherent_probabilitas))
-    risk_input.inherent_dampak = parse_int_or_none(data.get('inherent_dampak', risk_input.inherent_dampak))
-    risk_input.inherent_skor = calculated_values.get('inherent_skor', risk_input.inherent_skor)
-    risk_input.inherent_prob_kualitatif = parse_float_or_none(data.get('inherent_prob_kualitatif', risk_input.inherent_prob_kualitatif))
-    risk_input.inherent_dampak_finansial = parse_float_or_none(data.get('inherent_dampak_finansial', risk_input.inherent_dampak_finansial))
-    risk_input.inherent_nilai_bersih = calculated_values.get('inherent_nilai_bersih', risk_input.inherent_nilai_bersih)
-
     risk_input.pemilik_risiko = data.get('pemilik_risiko', risk_input.pemilik_risiko)
     risk_input.jabatan_pemilik = data.get('jabatan_pemilik', risk_input.jabatan_pemilik)
     risk_input.kontak_pemilik_hp = data.get('kontak_pemilik_hp', risk_input.kontak_pemilik_hp)
     risk_input.kontak_pemilik_email = data.get('kontak_pemilik_email', risk_input.kontak_pemilik_email)
-
     risk_input.strategi = data.get('strategi', risk_input.strategi)
     risk_input.rencana_penanganan = data.get('rencana_penanganan', risk_input.rencana_penanganan)
-    risk_input.biaya_penanganan = parse_float_or_none(data.get('biaya_penanganan', risk_input.biaya_penanganan))
     risk_input.penanganan_dilakukan = data.get('penanganan_dilakukan', risk_input.penanganan_dilakukan)
     risk_input.status_penanganan = data.get('status_penanganan', risk_input.status_penanganan)
     risk_input.jadwal_mulai_penanganan = parse_date_or_none(data.get('jadwal_mulai_penanganan')) or risk_input.jadwal_mulai_penanganan
     risk_input.jadwal_selesai_penanganan = parse_date_or_none(data.get('jadwal_selesai_penanganan')) or risk_input.jadwal_selesai_penanganan
     risk_input.pic_penanganan = data.get('pic_penanganan', risk_input.pic_penanganan)
-
-    risk_input.residual_probabilitas = parse_int_or_none(data.get('residual_probabilitas', risk_input.residual_probabilitas))
-    risk_input.residual_dampak = parse_int_or_none(data.get('residual_dampak', risk_input.residual_dampak))
-    risk_input.residual_skor = calculated_values.get('residual_skor', risk_input.residual_skor)
-    risk_input.residual_prob_kualitatif = parse_float_or_none(data.get('residual_prob_kualitatif', risk_input.residual_prob_kualitatif))
-    risk_input.residual_dampak_finansial = parse_float_or_none(data.get('residual_dampak_finansial', risk_input.residual_dampak_finansial))
-    risk_input.residual_nilai_bersih = calculated_values.get('residual_nilai_bersih', risk_input.residual_nilai_bersih)
+    risk_input.tanggal_review = parse_date_or_none(data.get('tanggal_review')) or risk_input.tanggal_review
+    
+    risk_input.inherent_probabilitas = inherent_p
+    risk_input.inherent_dampak = inherent_i
+    risk_input.inherent_skor = inherent_skor
+    risk_input.inherent_prob_kualitatif = inherent_prob_kualitatif
+    risk_input.inherent_dampak_finansial = inherent_dampak_finansial
+    risk_input.inherent_nilai_bersih = inherent_nilai_bersih
+    risk_input.biaya_penanganan = biaya_penanganan
+    risk_input.residual_probabilitas = residual_p
+    risk_input.residual_dampak = residual_i
+    risk_input.residual_skor = residual_skor
+    risk_input.residual_prob_kualitatif = residual_prob_kualitatif
+    risk_input.residual_dampak_finansial = calculated_residual_dampak_finansial # Update dengan hasil hitung
+    risk_input.residual_nilai_bersih = residual_nilai_bersih
     risk_input.tanggal_review = parse_date_or_none(data.get('tanggal_review')) or risk_input.tanggal_review
 
     db.session.commit()

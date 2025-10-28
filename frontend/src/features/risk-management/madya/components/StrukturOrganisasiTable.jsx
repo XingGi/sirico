@@ -3,7 +3,7 @@ import React from "react";
 import { Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Text, Badge, Button } from "@tremor/react";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 
-function StrukturOrganisasiTable({ data, onEdit, onDelete }) {
+function StrukturOrganisasiTable({ data, onEdit, onDelete, readOnly = false }) {
   return (
     <Table>
       <TableHead>
@@ -12,7 +12,7 @@ function StrukturOrganisasiTable({ data, onEdit, onDelete }) {
           <TableHeaderCell>Direktorat</TableHeaderCell>
           <TableHeaderCell>Divisi</TableHeaderCell>
           <TableHeaderCell>Unit Kerja</TableHeaderCell>
-          <TableHeaderCell className="text-right">Aksi</TableHeaderCell> {/* <-- Sesuaikan alignment */}
+          {!readOnly && <TableHeaderCell className="text-right">Aksi</TableHeaderCell>}
         </TableRow>
       </TableHead>
       <TableBody>
@@ -23,22 +23,26 @@ function StrukturOrganisasiTable({ data, onEdit, onDelete }) {
               <TableCell>{item.direktorat || "-"}</TableCell>
               <TableCell>{item.divisi || "-"}</TableCell>
               <TableCell>{item.unit_kerja || "-"}</TableCell>
-              {/* --- PERUBAHAN: Tambahkan tombol aksi --- */}
-              <TableCell className="text-right">
+              {/* <TableCell className="text-right">
                 <Button icon={FiEdit2} variant="light" color="blue" onClick={() => onEdit(item)} className="mr-4">
                   Edit
                 </Button>
                 <Button icon={FiTrash2} variant="light" color="red" onClick={() => onDelete(item.id)}>
                   Hapus
                 </Button>
-              </TableCell>
+              </TableCell> */}
+              {!readOnly && (
+                <TableCell className="text-right">
+                  {/* Pastikan onEdit dan onDelete ada sebelum render tombol */}
+                  {onEdit && <Button icon={FiEdit2} variant="light" color="blue" onClick={() => onEdit(item)} className="mr-4" />}
+                  {onDelete && <Button icon={FiTrash2} variant="light" color="red" onClick={() => onDelete(item.id)} />}
+                </TableCell>
+              )}
             </TableRow>
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={5} className="text-center">
-              {" "}
-              {/* Colspan disesuaikan */}
+            <TableCell colSpan={readOnly ? 4 : 5} className="text-center">
               <Text>Belum ada data struktur organisasi.</Text>
             </TableCell>
           </TableRow>

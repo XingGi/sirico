@@ -441,7 +441,7 @@ function RiskInputFormModal({
                 </Select>
               </div>
               {formData.kategori_risiko === "Risiko Lainnya" && renderField("Nama Kategori Lainnya", "kategori_risiko_lainnya", <TextInput />, true, { span: 2 })}
-              {renderSelectField("Unit Kerja", "unit_kerja", unitKerjaOptions, true, { disabled: unitKerjaOptions.length === 0, placeholder: "Pilih Unit Kerja...", optionValueKey: null, optionLabelKey: null })}
+              {renderSelectField("Unit Kerja", "unit_kerja", unitKerjaOptions, true, { disabled: unitKerjaOptions.length === 0, placeholder: "Pilih Unit Kerja..." })}
               <div>
                 <label className="text-sm font-medium text-tremor-content">Sasaran Terkait (Opsional)</label>
                 <Select name="sasaran_id" value={String(formData.sasaran_id || "")} onValueChange={(v) => handleChange("sasaran_id", v)} disabled={validSasaranOptions.length === 0} className="mt-1">

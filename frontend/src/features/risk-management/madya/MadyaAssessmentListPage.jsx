@@ -1,10 +1,12 @@
 // frontend/src/features/risk-management/madya/MadyaAssessmentListPage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Title, Text, Button, Dialog, DialogPanel, Grid, Card, Badge, TextInput } from "@tremor/react";
-import { FiPlus, FiEye, FiCheckCircle, FiLoader, FiShield, FiX, FiGrid, FiList, FiTrash2, FiAlertTriangle } from "react-icons/fi";
+import { FiPlus, FiEye, FiCheckCircle, FiLoader, FiShield, FiX, FiGrid, FiList, FiTrash2, FiAlertTriangle, FiEdit2, FiDownload, FiMaximize, FiMinimize } from "react-icons/fi";
 import { useNavigate, Link } from "react-router-dom";
+import { debounce } from "lodash";
 import apiClient from "../../../api/api";
 import TemplateViewModal from "../templates/components/TemplateViewModal";
+import MadyaAssessmentView from "./components/MadyaAssessmentView";
 
 const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message, isLoading = false }) => (
   <Dialog open={isOpen} onClose={onClose} static={true}>
@@ -66,19 +68,15 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
     }
   };
 
-  // Fungsi untuk membuka modal preview
-  const handleViewClick = (templateId) => {
-    setIsDetailLoading(true);
-    setIsViewModalOpen(true);
-    apiClient
-      .get(`/risk-maps/${templateId}`)
-      .then((response) => setViewingTemplate(response.data))
-      .catch((error) => {
-        console.error("Gagal memuat detail template:", error);
-        setIsViewModalOpen(false); // Tutup jika gagal
-      })
-      .finally(() => setIsDetailLoading(false));
-  };
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsViewFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   const canProceed = assessmentName.trim() !== "" && !isCreating;
 
@@ -173,7 +171,6 @@ function MadyaAssessmentListPage() {
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState([]); // State untuk menyimpan daftar asesmen
   const [isLoadingList, setIsLoadingList] = useState(true);
-  // State untuk kontrol modal pemilihan template
   const [isSelectTemplateModalOpen, setIsSelectTemplateModalOpen] = useState(false);
   const [isCreatingAssessment, setIsCreatingAssessment] = useState(false); // Loading global
   const [viewMode, setViewMode] = useState("list");
@@ -182,6 +179,15 @@ function MadyaAssessmentListPage() {
     assessmentId: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingAssessmentData, setViewingAssessmentData] = useState(null);
+  const [viewingTemplateData, setViewingTemplateData] = useState(null);
+  const [viewingRiskInputs, setViewingRiskInputs] = useState([]);
+  const [isViewLoading, setIsViewLoading] = useState(false);
+  const [isExportingId, setIsExportingId] = useState(null);
+  const [isViewFullscreen, setIsViewFullscreen] = useState(false);
+  const viewContentRef = useRef(null);
 
   const fetchAssessments = async () => {
     setIsLoadingList(true);
@@ -201,6 +207,80 @@ function MadyaAssessmentListPage() {
       setIsLoadingList(false);
     }
   };
+
+  const handleViewClick = async (assessmentId) => {
+    setIsViewLoading(true);
+    setIsViewModalOpen(true);
+    setViewingAssessmentData(null); // Reset data lama
+    setViewingTemplateData(null);
+    setViewingRiskInputs([]);
+    try {
+      // Fetch data asesmen, template, dan risk input secara paralel
+      const [assessmentRes, riskInputRes] = await Promise.all([apiClient.get(`/madya-assessments/${assessmentId}`), apiClient.get(`/madya-assessments/${assessmentId}/risk-inputs`)]);
+      setViewingAssessmentData(assessmentRes.data);
+      setViewingRiskInputs(riskInputRes.data || []);
+
+      // Fetch detail template jika ID-nya ada
+      const templateId = assessmentRes.data.risk_map_template_id;
+      if (templateId) {
+        try {
+          const templateRes = await apiClient.get(`/risk-maps/${templateId}`);
+          setViewingTemplateData(templateRes.data);
+        } catch (templateError) {
+          console.error("Gagal memuat detail template untuk view:", templateError);
+          setViewingTemplateData(null); // Tetap null jika gagal
+        }
+      }
+    } catch (error) {
+      console.error("Gagal memuat detail asesmen untuk view:", error);
+      alert("Gagal memuat detail asesmen.");
+      setIsViewModalOpen(false); // Tutup modal jika fetch gagal
+    } finally {
+      setIsViewLoading(false);
+    }
+  };
+
+  const handleExportClick = async (assessmentId, assessmentName) => {
+    setIsExportingId(assessmentId);
+    try {
+      const response = await apiClient.get(`/madya-assessments/${assessmentId}/export`, {
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Asesmen_Madya_${assessmentName || assessmentId}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Gagal mengekspor file:", error);
+      alert("Gagal mengekspor file Excel.");
+    } finally {
+      setIsExportingId(null);
+    }
+  };
+
+  // Fungsi Fullscreen untuk Modal View
+  const toggleViewFullscreen = () => {
+    if (!document.fullscreenElement) {
+      viewContentRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsViewFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     fetchAssessments(); // Panggil fetch saat komponen dimuat
@@ -279,63 +359,87 @@ function MadyaAssessmentListPage() {
 
         <div className={`mt-6 ${viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}`}>
           {isLoadingList ? (
-            // --- KONDISI LOADING ---
-            // Jika grid, buat span full width
             <div className={`${viewMode === "grid" ? "col-span-full" : ""} flex justify-center items-center p-10`}>
               <FiLoader className="animate-spin h-6 w-6 mr-3 text-tremor-content-emphasis" />
               <Text>Memuat daftar asesmen...</Text>
             </div>
           ) : assessments.length > 0 ? (
-            // --- JIKA ADA DATA ---
             assessments.map((assessment) => (
-              <Card key={assessment.id} className="p-4 hover:shadow-lg transition-shadow duration-200 flex flex-col justify-between">
+              <Card key={assessment.id} className="p-4 hover:shadow-lg transition-shadow duration-200">
                 {" "}
-                {/* Tambah flex flex-col justify-between */}
-                {/* Bagian Info (Link) */}
-                <Link to={`/risk-management/madya/form/${assessment.id}`} className="block group mb-3">
+                {/* Hapus flex flex-col & p-0 */}
+                <div className="flex justify-between items-start">
                   {" "}
-                  {/* Beri margin bawah */}
-                  <div className="flex justify-between items-start">
+                  {/* Container utama: Info kiri, Aksi kanan */}
+                  {/* Bagian Info (Kiri) */}
+                  <div className="flex-grow group mr-4">
                     {" "}
-                    {/* items-start agar tombol tidak stretch */}
-                    <div>
-                      <p className="font-semibold text-tremor-content-strong group-hover:text-blue-600">{assessment.nama_asesmen || `Asesmen #${assessment.id}`}</p>
-                      <Text className="text-sm text-tremor-content mt-1">Dibuat pada: {assessment.created_at ? new Date(assessment.created_at).toLocaleDateString("id-ID", { year: "numeric", month: "long", day: "numeric" }) : "-"}</Text>
-                      {/* Tambahkan info lain jika perlu */}
-                    </div>
-                    {/* Tombol Buka/Edit (dihapus dari sini, dipindah ke bawah) */}
+                    {/* Beri margin kanan */}
+                    <Link to={`/risk-management/madya/form/${assessment.id}`} className="block mb-1 group">
+                      <p className="font-bold text-tremor-content-strong group-hover:text-blue-600">{assessment.nama_asesmen || `Asesmen #${assessment.id}`}</p>
+                    </Link>
+                    <Text className="text-xs text-tremor-content mt-1">Dibuat: {new Date(assessment.created_at).toLocaleDateString("id-ID")}</Text>
                   </div>
-                </Link>
-                {/* Bagian Tombol Aksi */}
-                <div className="border-t pt-2 flex justify-end gap-2">
-                  {" "}
-                  {/* Border top dan padding */}
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Mencegah Link ter-trigger
-                      navigate(`/risk-management/madya/form/${assessment.id}`);
-                    }}
-                  >
-                    Buka / Edit
-                  </Button>
-                  <Button
-                    icon={FiTrash2}
-                    size="xs"
-                    variant="light"
-                    color="red"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Mencegah Link ter-trigger
-                      openDeleteConfirm(assessment.id);
-                    }}
-                  />
+                  {/* Bagian Aksi (Kanan) */}
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    {" "}
+                    {/* Susun tombol vertikal */}
+                    {/* Grup Tombol Atas: View, Edit, Delete */}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        icon={FiEye}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewClick(assessment.id);
+                        }}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        variant="light"
+                        size="xs"
+                        icon={FiEdit2}
+                        color="blue"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/risk-management/madya/form/${assessment.id}`);
+                        }}
+                        aria-label="Edit" // Tambah aria-label
+                      />
+                      <Button
+                        variant="light"
+                        size="xs"
+                        icon={FiTrash2}
+                        color="red"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDeleteConfirm(assessment.id, assessment.nama_asesmen);
+                        }}
+                        loading={isDeleting && deleteConfirmation.assessmentId === assessment.id}
+                        disabled={isDeleting}
+                        aria-label="Delete" // Tambah aria-label
+                      />
+                    </div>
+                    {/* Tombol Export di Bawah */}
+                    <Button
+                      size="xs"
+                      variant="light" // Ubah jadi light agar mirip Asesmen Dasar
+                      icon={FiDownload}
+                      loading={isExportingId === assessment.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExportClick(assessment.id, assessment.nama_asesmen);
+                      }} // Tambah stopPropagation
+                    >
+                      Export
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))
           ) : (
-            // --- JIKA TIDAK ADA DATA ---
-            // Jika grid, buat span full width
             <Card className={`${viewMode === "grid" ? "col-span-full" : ""} text-center p-8 border-dashed border-gray-300`}>
               <FiPlus className="mx-auto h-10 w-10 text-gray-400 mb-2" />
               <Text className="font-medium">Belum ada asesmen madya.</Text>
@@ -353,6 +457,43 @@ function MadyaAssessmentListPage() {
         message={`Apakah Anda yakin ingin menghapus Asesmen Madya #${deleteConfirmation.assessmentId}? Semua data terkait (struktur, sasaran, risk input) akan ikut terhapus.`}
         isLoading={isDeleting} // Pass loading state
       />
+      <Dialog open={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} static={true}>
+        <DialogPanel className="w-full max-w-7xl h-[90vh] flex flex-col">
+          {isViewLoading ? (
+            <div className="flex justify-center items-center h-full">
+              <FiLoader className="animate-spin h-8 w-8 text-tremor-brand" />
+            </div>
+          ) : (
+            viewingAssessmentData && (
+              <>
+                <div className="flex justify-between items-start flex-shrink-0 border-b pb-3 mb-3">
+                  <div>
+                    <Title>Detail: {viewingAssessmentData.nama_asesmen}</Title>
+                    <Text>ID: #{viewingAssessmentData.id}</Text>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button icon={FiDownload} onClick={() => handleExportClick(viewingAssessmentData.id, viewingAssessmentData.nama_asesmen)} loading={isExportingId === viewingAssessmentData.id} size="sm">
+                      Export
+                    </Button>
+                    <Button variant="light" icon={isViewFullscreen ? FiMinimize : FiMaximize} onClick={toggleViewFullscreen} size="sm" />
+                  </div>
+                </div>
+
+                <div ref={viewContentRef} className="flex-grow overflow-y-auto pr-2 view-fullscreen-content">
+                  {" "}
+                  {/* Konten Scrollable */}
+                  <MadyaAssessmentView assessmentData={viewingAssessmentData} templateData={viewingTemplateData} riskInputEntries={viewingRiskInputs} />
+                </div>
+
+                <div className="flex justify-end mt-4 flex-shrink-0 border-t pt-3">
+                  <Button onClick={() => setIsViewModalOpen(false)}>Tutup</Button>
+                </div>
+              </>
+            )
+          )}
+        </DialogPanel>
+      </Dialog>
+      {/* --- HIGHLIGHT END --- */}
     </>
   );
 }

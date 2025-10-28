@@ -39,43 +39,52 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
   console.log("Unique Unit Kerja:", uniqueUnitKerja);
   console.log("Direktorat disabled?", uniqueDirektorat.length === 0);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const riskResponse = await apiClient.get(`/madya-assessments/${assessmentId}/risk-inputs`);
-        setRiskInputEntries(riskResponse.data);
-        const validSasaranProps = Array.isArray(sasaranKPIEntries) ? sasaranKPIEntries : [];
-        if (validSasaranProps.length > 0) {
-          console.log("Menggunakan sasaranKPIEntries dari props:", validSasaranProps);
-          setSasaranOptions(validSasaranProps.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
-        } else {
-          // Jika props kosong, fetch ulang (sebagai fallback)
-          console.log("sasaranKPIEntries dari props kosong/bukan array, fetch ulang...");
-          const sasaranResponse = await apiClient.get(`/madya-assessments/${assessmentId}/sasaran-kpi`);
-          if (Array.isArray(sasaranResponse.data)) {
-            setSasaranOptions(sasaranResponse.data.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
-          } else {
-            console.error("API /sasaran-kpi tidak mengembalikan array:", sasaranResponse.data);
-            setSasaranOptions([]);
-          }
-        }
-      } catch (error) {
-        console.error("Gagal memuat data Risk Input:", error);
-        setSasaranOptions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     setIsLoading(true);
+  //     try {
+  //       const riskResponse = await apiClient.get(`/madya-assessments/${assessmentId}/risk-inputs`);
+  //       setRiskInputEntries(riskResponse.data);
+  //       const validSasaranProps = Array.isArray(sasaranKPIEntries) ? sasaranKPIEntries : [];
+  //       if (validSasaranProps.length > 0) {
+  //         console.log("Menggunakan sasaranKPIEntries dari props:", validSasaranProps);
+  //         setSasaranOptions(validSasaranProps.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
+  //       } else {
+  //         console.log("sasaranKPIEntries dari props kosong/bukan array, fetch ulang...");
+  //         const sasaranResponse = await apiClient.get(`/madya-assessments/${assessmentId}/sasaran-kpi`);
+  //         if (Array.isArray(sasaranResponse.data)) {
+  //           setSasaranOptions(sasaranResponse.data.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
+  //         } else {
+  //           console.error("API /sasaran-kpi tidak mengembalikan array:", sasaranResponse.data);
+  //           setSasaranOptions([]);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Gagal memuat data Risk Input:", error);
+  //       setSasaranOptions([]);
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
 
-    if (assessmentId) {
-      fetchData();
+  //   if (assessmentId) {
+  //     fetchData();
+  //   } else {
+  //     setRiskInputEntries([]);
+  //     setSasaranOptions([]);
+  //     setIsLoading(false);
+  //   }
+  // }, [assessmentId, sasaranKPIEntries]);
+
+  useEffect(() => {
+    // Logika untuk mengisi sasaranOptions dari props sasaranKPIEntries
+    const validSasaranProps = Array.isArray(sasaranKPIEntries) ? sasaranKPIEntries : [];
+    if (validSasaranProps.length > 0) {
+      setSasaranOptions(validSasaranProps.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
     } else {
-      setRiskInputEntries([]);
       setSasaranOptions([]);
-      setIsLoading(false);
     }
-  }, [assessmentId, sasaranKPIEntries]); // Tambahkan sasaranKPIEntries sebagai dependency
+  }, [sasaranKPIEntries]);
 
   const handleOpenAddModal = () => {
     setEditingRiskData(null); // Pastikan mode tambah
@@ -89,15 +98,10 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
 
   const handleSaveRiskInput = (savedEntry, isUpdate) => {
     console.log("Data diterima di RiskInputCard handleSaveRiskInput:", savedEntry);
-    // if (isUpdate) {
-    //   setRiskInputEntries((prev) => prev.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry)));
-    // } else {
-    //   setRiskInputEntries((prev) => [...prev, savedEntry]);
-    // }
     setIsModalOpen(false); // Tutup modal otomatis
 
     if (onRiskInputSaveSuccess) {
-      onRiskInputSaveSuccess(); // Panggil callback refresh dari parent
+      onRiskInputSaveSuccess();
     }
   };
 
