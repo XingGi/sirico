@@ -3,6 +3,36 @@ from datetime import datetime
 # Kita tidak perlu lagi werkzeug.security
 # from werkzeug.security import generate_password_hash, check_password_hash
 
+user_roles = db.Table('user_roles',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True)
+)
+
+# Tabel penghubung Role dan Permission
+role_permissions = db.Table('role_permissions',
+    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True),
+    db.Column('permission_id', db.Integer, db.ForeignKey('permissions.id'), primary_key=True)
+)
+
+class Role(db.Model):
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    description = db.Column(db.String(255))
+    permissions = db.relationship('Permission', secondary=role_permissions, lazy='subquery',
+                                backref=db.backref('roles', lazy=True))
+
+    def __repr__(self):
+        return f'<Role {self.name}>'
+
+class Permission(db.Model):
+    __tablename__ = 'permissions'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False) # Contoh: 'view_risk_dasar', 'edit_risk_madya'
+    description = db.Column(db.String(255)) # Penjelasan permission
+
+    def __repr__(self):
+        return f'<Permission {self.name}>'
 class User(db.Model):
     """Model untuk tabel pengguna (users)"""
     
@@ -12,7 +42,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(128), nullable=False)
     nama_lengkap = db.Column(db.String(100), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default='user')
+    # role = db.Column(db.String(20), nullable=False, default='user')
     kris = db.relationship('KRI', backref='owner', lazy=True, cascade="all, delete-orphan")
     
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
@@ -20,9 +50,27 @@ class User(db.Model):
     business_processes = db.relationship('BusinessProcess', backref='owner', lazy=True)
     critical_assets = db.relationship('CriticalAsset', backref='owner', lazy=True)
     impact_scenarios = db.relationship('ImpactScenario', backref='owner', lazy=True)
+    
+    roles = db.relationship('Role', secondary=user_roles, lazy='subquery',
+                            backref=db.backref('users', lazy=True))
 
     def __repr__(self):
         return f'<User {self.email}>'
+    
+    # Helper untuk cek permission (opsional tapi berguna)
+    def has_permission(self, permission_name):
+        for role in self.roles:
+            for permission in role.permissions:
+                if permission.name == permission_name:
+                    return True
+        return False
+
+    # Helper untuk cek role (opsional tapi berguna)
+    def has_role(self, role_name):
+         for role in self.roles:
+             if role.name == role_name:
+                 return True
+         return False
     
 class KRI(db.Model):
     """Model untuk tabel Key Risk Indicators (KRI)"""

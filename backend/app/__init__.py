@@ -17,7 +17,7 @@ jwt = JWTManager()
 
 def create_app():
     app = Flask(__name__)
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
     
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
@@ -44,6 +44,7 @@ def create_app():
         from .routes.bpr import bpr_bp
         from .routes.rsca import rsca_bp
         from .routes.master_data import master_data_bp
+        from .routes.admin import admin_bp
 
         # Daftarkan semua blueprint ke aplikasi
         app.register_blueprint(auth_bp, url_prefix='/api')
@@ -55,6 +56,7 @@ def create_app():
         app.register_blueprint(bpr_bp, url_prefix='/api')
         app.register_blueprint(rsca_bp, url_prefix='/api')
         app.register_blueprint(master_data_bp, url_prefix='/api')
+        app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
         # Kita tidak perlu lagi mengimpor dari routes.py yang lama
         # from . import routes

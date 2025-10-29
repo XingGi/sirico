@@ -1,31 +1,154 @@
 # backend/app/seeds.py
 
-from .models import User, MasterData, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore
+from .models import User, MasterData, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, Role, Permission
 from . import db, bcrypt
 
+DEFAULT_PERMISSIONS = {
+    'view_dashboard': 'Melihat halaman dashboard',
+    # Risk Management AI
+    'view_risk_assessment_ai': 'Melihat daftar Risk Assessment AI',
+    'create_risk_assessment_ai': 'Membuat Risk Assessment AI baru',
+    'edit_risk_assessment_ai': 'Mengedit Risk Assessment AI', # Termasuk edit item risiko di dalamnya
+    'delete_risk_assessment_ai': 'Menghapus Risk Assessment AI',
+    'view_risk_register_main': 'Melihat Risk Register Utama',
+    'manage_risk_register_main': 'Tambah/Edit/Hapus item di Risk Register Utama', # Gabung
+    # Risk Management Levels
+    'view_risk_dasar': 'Melihat daftar Asesmen Dasar',
+    'manage_risk_dasar': 'Membuat/Edit/Hapus Asesmen Dasar',
+    'view_risk_madya': 'Melihat daftar Asesmen Madya',
+    'manage_risk_madya': 'Membuat/Edit/Hapus Asesmen Madya',
+    'view_risk_templates': 'Melihat daftar Template Peta Risiko',
+    'manage_risk_templates': 'Membuat/Edit/Hapus Template Peta Risiko',
+    # Modules
+    'view_rsca': 'Melihat tugas & siklus RSCA',
+    'submit_rsca': 'Mengisi dan mengirim jawaban RSCA',
+    'view_bpr': 'Melihat Proses Bisnis (BPR)',
+    'manage_bpr': 'Membuat/Edit/Hapus Proses Bisnis (BPR)',
+    'view_bia': 'Melihat halaman BIA',
+    'run_bia_simulation': 'Menjalankan simulasi BIA',
+    'manage_critical_assets': 'Mengelola Aset Kritis & Dependensi (BIA)',
+    # Admin Area
+    'view_admin_area': 'Mengakses menu Admin', # Permission umum untuk menu admin
+    'manage_users': 'Melihat & Mengelola data pengguna (Admin)',
+    'manage_roles': 'Melihat & Mengelola Roles & Permissions (Admin)',
+    'manage_master_data': 'Mengelola Master Data (Admin)',
+    'manage_regulations': 'Mengelola Master Regulasi (Admin)',
+    'manage_rsca_cycles': 'Membuat/Mengelola siklus RSCA (Admin)', # Specific admin task for RSCA
+}
+
+# --- Perubahan 3: Buat fungsi seed Roles & Permissions ---
+def seed_roles_permissions():
+    """Membuat role default (Admin, User) dan permissions jika belum ada."""
+    print("Seeding Roles and Permissions...")
+    created_items = 0
+
+    # 1. Seed Permissions
+    existing_permissions = {p.name for p in Permission.query.all()}
+    for name, description in DEFAULT_PERMISSIONS.items():
+        if name not in existing_permissions:
+            new_perm = Permission(name=name, description=description)
+            db.session.add(new_perm)
+            print(f"  Creating permission: {name}")
+            created_items += 1
+
+    if created_items > 0:
+        db.session.flush() # Flush untuk mendapatkan ID jika diperlukan nanti
+        print(f"  {created_items} new permissions created.")
+    else:
+        print("  All default permissions already exist.")
+
+    # 2. Seed Role Admin
+    admin_role = Role.query.filter_by(name='Admin').first()
+    if not admin_role:
+        print("  Creating 'Admin' role...")
+        admin_role = Role(name='Admin', description='Akses penuh ke semua fitur sistem.')
+        # Assign semua permission yang ada ke Admin
+        all_permissions = Permission.query.all()
+        admin_role.permissions.extend(all_permissions)
+        db.session.add(admin_role)
+        db.session.flush() # Pastikan admin_role punya ID
+        print("  'Admin' role created and all permissions assigned.")
+    else:
+        print("  'Admin' role already exists.")
+        # Opsional: Pastikan Admin selalu punya semua permission terbaru
+        current_admin_perm_ids = {p.id for p in admin_role.permissions}
+        all_perm_ids = {p.id for p in Permission.query.all()}
+        if current_admin_perm_ids != all_perm_ids:
+             print("  Updating Admin role permissions...")
+             admin_role.permissions = Permission.query.all()
+             print("  Admin role permissions updated.")
+
+
+    # 3. Seed Role User (Contoh: hanya bisa lihat dashboard)
+    user_role = Role.query.filter_by(name='User').first()
+    if not user_role:
+        print("  Creating 'User' role...")
+        user_role = Role(name='User', description='Akses standar untuk pengguna biasa.')
+        # Assign permission spesifik, contoh 'view_dashboard'
+        view_dashboard_perm = Permission.query.filter_by(name='view_dashboard').first()
+        if view_dashboard_perm:
+            user_role.permissions.append(view_dashboard_perm)
+        # Tambahkan permission lain untuk role User jika perlu
+        # misal: view_risk_dasar, submit_rsca, dll.
+
+        db.session.add(user_role)
+        print("  'User' role created with basic permissions.")
+    else:
+        print("  'User' role already exists.")
+
+    try:
+        db.session.commit()
+        print("Roles and Permissions seeding committed.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error committing roles/permissions: {e}")
+        
 def seed_admin():
     """Membuat akun admin jika belum ada."""
     
     # Cek apakah admin sudah ada
-    admin_user = User.query.filter_by(email="admin@admin.com").first()
+    admin_email = "admin@admin.com"
+    admin_pass = "12345678" # Sesuaikan jika perlu
+
+    admin_user = User.query.filter_by(email=admin_email).first()
+    admin_role = Role.query.filter_by(name='Admin').first()
+    
+    if not admin_role:
+        print("ERROR: Role 'Admin' not found. Please run seed_roles_permissions first or check seeding.")
+        return
     
     if not admin_user:
         print("Admin user not found, creating one...")
         
-        hashed_password = bcrypt.generate_password_hash("12345678").decode('utf-8')
-        
+        hashed_password = bcrypt.generate_password_hash(admin_pass).decode('utf-8')
         new_admin = User(
-            email="admin@admin.com",
+            email=admin_email,
             password_hash=hashed_password,
             nama_lengkap="Admin SIRICO",
-            role="admin" # <-- Menetapkan peran sebagai admin
         )
         
+        new_admin.roles.append(admin_role)
         db.session.add(new_admin)
-        db.session.commit()
-        print("Admin user created successfully.")
+        try:
+            db.session.commit()
+            print(f"Admin user '{admin_email}' created successfully with 'Admin' role.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating admin user: {e}")
     else:
-        print("Admin user already exists.")
+        print(f"Admin user '{admin_email}' already exists.")
+        # Pastikan user admin punya Role Admin
+        if admin_role not in admin_user.roles:
+            print(f"  Assigning 'Admin' role to existing admin user '{admin_email}'...")
+            admin_user.roles.append(admin_role)
+            try:
+                db.session.commit()
+                print("  'Admin' role assigned.")
+            except Exception as e:
+                db.session.rollback()
+                print(f"  Error assigning role: {e}")
+        else:
+            print("  Admin user already has 'Admin' role.")
 
 def seed_master_data():
     print("Seeding master data...")
