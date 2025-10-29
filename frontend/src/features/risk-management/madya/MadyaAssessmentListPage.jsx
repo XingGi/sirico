@@ -68,6 +68,27 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
     }
   };
 
+  const handleTemplatePreviewClick = (templateId) => {
+    setIsDetailLoading(true);
+    setIsViewModalOpen(true); // Buka modal preview
+    setViewingTemplate(null); // Reset data lama
+    // --- PERBAIKAN: Gunakan URL tanpa /api ---
+    apiClient
+      .get(`/risk-maps/${templateId}`) // Hapus /api
+      .then((response) => {
+        setViewingTemplate(response.data);
+      })
+      .catch((error) => {
+        console.error("Gagal memuat detail template untuk preview:", error);
+        alert("Gagal memuat detail template.");
+        setIsViewModalOpen(false); // Tutup jika gagal
+      })
+      .finally(() => {
+        setIsDetailLoading(false);
+      });
+    // --- AKHIR PERBAIKAN ---
+  };
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsViewFullscreen(!!document.fullscreenElement);
@@ -140,7 +161,7 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
                       </Text>
                     </div>
                     <div className="mt-4 pt-4 border-t flex justify-end gap-2">
-                      <Button icon={FiEye} variant="secondary" size="xs" onClick={() => handleViewClick(template.id)} disabled={isCreating}>
+                      <Button icon={FiEye} variant="secondary" size="xs" onClick={() => handleTemplatePreviewClick(template.id)} disabled={isCreating}>
                         Preview
                       </Button>
                       <Button icon={FiCheckCircle} size="xs" onClick={() => handleSelect(template.id)} loading={isCreating} disabled={!canProceed}>
