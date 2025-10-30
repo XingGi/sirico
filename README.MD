@@ -202,6 +202,7 @@ Buka `http://localhost:5173` di browser kamu untuk melihat aplikasi.
 
 ## 📁 Struktur Proyek
 
+```
 Struktur folder utama proyek ini adalah sebagai berikut:
 ├── backend/
 │ ├── app/
@@ -236,6 +237,7 @@ Struktur folder utama proyek ini adalah sebagai berikut:
 │ └── main.jsx # Entry point aplikasi React
 ├── .env.example # Contoh variabel lingkungan (URL API)
 └── package.json # Dependensi frontend
+```
 
 ## 🧭 Modul & Fungsionalitas (Lebih Rinci)
 
