@@ -11,6 +11,19 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return "-";
+  try {
+    return new Date(dateString).toLocaleDateString("id-ID", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch (e) {
+    return "-"; // Return strip jika format tidak valid
+  }
+};
+
 const getCellColor = (score) => {
   if (score === null || score === undefined) return "bg-gray-200 text-gray-500";
   if (score >= 20) return "bg-red-600 text-white";
@@ -36,7 +49,11 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
   const imageUrlFull = assessmentData.structure_image_url
     ? `${API_BASE_URL_FOR_IMAGE.replace("/api", "")}${assessmentData.structure_image_url.startsWith("/") ? "" : "/"}${assessmentData.structure_image_url}` // Hapus /api, tambahkan path relatif
     : null;
-  // const imageUrlFull = assessmentData.structure_image_url || null;
+
+  const getSasaranText = (sasaranId) => {
+    const found = assessmentData?.sasaran_kpi_entries?.find((s) => s.id === sasaranId);
+    return found?.sasaran_kpi || "-";
+  };
 
   return (
     <div className="space-y-6 m-1">
@@ -146,21 +163,47 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
         <Title as="h3">4. Risk Input</Title>
         <Text>Detail risiko yang diidentifikasi.</Text>
         <div className="overflow-x-auto mt-4">
-          <Table className="min-w-[1600px]">
+          <Table className="min-w-[4000px]">
             <TableHead>
-              <TableRow className="bg-gray-100 text-xs">
-                <TableHeaderCell>No</TableHeaderCell>
-                <TableHeaderCell>Kode</TableHeaderCell>
-                <TableHeaderCell>Deskripsi Risiko</TableHeaderCell>
-                <TableHeaderCell>Unit</TableHeaderCell>
-                <TableHeaderCell>Kategori</TableHeaderCell>
-                <TableHeaderCell>P(In)</TableHeaderCell>
-                <TableHeaderCell>I(In)</TableHeaderCell>
-                <TableHeaderCell>Skor(In)</TableHeaderCell>
-                <TableHeaderCell>P(Res)</TableHeaderCell>
-                <TableHeaderCell>I(Res)</TableHeaderCell>
-                <TableHeaderCell>Skor(Res)</TableHeaderCell>
+              <TableRow className="bg-gray-100 text-xs sticky top-0 z-10">
+                <TableHeaderCell className="w-12">No</TableHeaderCell>
+                <TableHeaderCell>Kode Risiko</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>Ancaman/Peluang</TableHeaderCell>
+                <TableHeaderCell>Kategori Risiko</TableHeaderCell>
+                <TableHeaderCell>Unit Kerja</TableHeaderCell>
+                <TableHeaderCell className="min-w-[200px]">Sasaran</TableHeaderCell>
+                <TableHeaderCell>Tgl Identifikasi</TableHeaderCell>
+                <TableHeaderCell className="min-w-[300px]">Deskripsi Risiko</TableHeaderCell>
+                <TableHeaderCell className="min-w-[250px]">Akar Penyebab</TableHeaderCell>
+                <TableHeaderCell className="min-w-[200px]">Indikator</TableHeaderCell>
+                <TableHeaderCell className="min-w-[250px]">Kontrol Internal</TableHeaderCell>
+                <TableHeaderCell className="min-w-[250px]">Deskripsi Dampak</TableHeaderCell>
+                <TableHeaderCell className="text-center">P (In)</TableHeaderCell>
+                <TableHeaderCell className="text-center">I (In)</TableHeaderCell>
+                <TableHeaderCell className="text-center">Skor (In)</TableHeaderCell>
+                <TableHeaderCell className="text-center">Prob Kualitatif (%) In</TableHeaderCell>
+                <TableHeaderCell className="text-center">Dampak Finansial (Rp) In</TableHeaderCell>
+                <TableHeaderCell className="text-center">Nilai Bersih (Rp) In</TableHeaderCell>
+                <TableHeaderCell>Pemilik Risiko</TableHeaderCell>
+                <TableHeaderCell>Jabatan Pemilik</TableHeaderCell>
+                <TableHeaderCell>Kontak HP</TableHeaderCell>
+                <TableHeaderCell>Kontak Email</TableHeaderCell>
                 <TableHeaderCell>Strategi</TableHeaderCell>
+                <TableHeaderCell className="min-w-[300px]">Rencana Penanganan</TableHeaderCell>
+                <TableHeaderCell className="text-center">Biaya Penanganan (Rp)</TableHeaderCell>
+                <TableHeaderCell className="min-w-[250px]">Penanganan Dilakukan</TableHeaderCell>
+                <TableHeaderCell>Status Penanganan</TableHeaderCell>
+                <TableHeaderCell>Jadwal Mulai</TableHeaderCell>
+                <TableHeaderCell>Jadwal Selesai</TableHeaderCell>
+                <TableHeaderCell>PIC Penanganan</TableHeaderCell>
+                <TableHeaderCell className="text-center">P (Res)</TableHeaderCell>
+                <TableHeaderCell className="text-center">I (Res)</TableHeaderCell>
+                <TableHeaderCell className="text-center">Skor (Res)</TableHeaderCell>
+                <TableHeaderCell className="text-center">Prob Kualitatif (%) Res</TableHeaderCell>
+                <TableHeaderCell className="text-center">Dampak Finansial (Rp) Res</TableHeaderCell>
+                <TableHeaderCell className="text-center">Nilai Bersih (Rp) Res</TableHeaderCell>
+                <TableHeaderCell>Tgl Review</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -168,26 +211,57 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
                 riskInputEntries.map((r, i) => {
                   const inherentStyle = getCellColor(r.inherent_skor);
                   const residualStyle = getCellColor(r.residual_skor);
+                  const kategoriDisplay = r.kategori_risiko === "Lainnya" || r.kategori_risiko === "Risiko Lainnya" ? r.kategori_risiko_lainnya : r.kategori_risiko;
                   return (
-                    <TableRow key={r.id} className="text-xs">
-                      <TableCell>{i + 1}</TableCell>
-                      <TableCell>{r.kode_risiko}</TableCell>
-                      <TableCell className="whitespace-normal">{r.deskripsi_risiko}</TableCell>
+                    <TableRow key={r.id} className="text-xs hover:bg-slate-50 [&>td]:py-1 [&>td]:px-2">
+                      <TableCell className="text-center">{i + 1}</TableCell>
+                      <TableCell>{r.kode_risiko || "-"}</TableCell>
+                      <TableCell>
+                        <Badge color={r.status_risiko === "Risiko Aktif" ? "blue" : "gray"}>{r.status_risiko}</Badge>
+                      </TableCell>
+                      <TableCell>{r.peluang_ancaman}</TableCell>
+                      <TableCell>{kategoriDisplay}</TableCell>
                       <TableCell>{r.unit_kerja}</TableCell>
-                      <TableCell>{r.kategori_risiko === "Lainnya" ? r.kategori_risiko_lainnya : r.kategori_risiko}</TableCell>
-                      <TableCell className={`text-center ${inherentStyle}`}>{r.inherent_probabilitas}</TableCell>
-                      <TableCell className={`text-center ${inherentStyle}`}>{r.inherent_dampak}</TableCell>
-                      <TableCell className={`text-center font-semibold ${inherentStyle}`}>{r.inherent_skor ?? "N/A"}</TableCell>
-                      <TableCell className={`text-center ${residualStyle}`}>{r.residual_probabilitas ?? "-"}</TableCell>
-                      <TableCell className={`text-center ${residualStyle}`}>{r.residual_dampak ?? "-"}</TableCell>
-                      <TableCell className={`text-center font-semibold ${residualStyle}`}>{r.residual_skor ?? "N/A"}</TableCell>
+                      <TableCell className="whitespace-normal">{getSasaranText(r.sasaran_id)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(r.tanggal_identifikasi)}</TableCell>
+                      <TableCell className="whitespace-normal">{r.deskripsi_risiko}</TableCell>
+                      <TableCell className="whitespace-normal">{r.akar_penyebab || "-"}</TableCell>
+                      <TableCell className="whitespace-normal">{r.indikator_risiko || "-"}</TableCell>
+                      <TableCell className="whitespace-normal">{r.internal_control || "-"}</TableCell>
+                      <TableCell className="whitespace-normal">{r.deskripsi_dampak || "-"}</TableCell>
+                      <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{r.inherent_probabilitas}</TableCell>
+                      <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{r.inherent_dampak}</TableCell>
+                      <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{r.inherent_skor ?? "N/A"}</TableCell>
+                      <TableCell className="text-right">{r.inherent_prob_kualitatif !== null ? `${r.inherent_prob_kualitatif}%` : "-"}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(r.inherent_dampak_finansial)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(r.inherent_nilai_bersih)}</TableCell>
+                      <TableCell>{r.pemilik_risiko || "-"}</TableCell>
+                      <TableCell>{r.jabatan_pemilik || "-"}</TableCell>
+                      <TableCell>{r.kontak_pemilik_hp || "-"}</TableCell>
+                      <TableCell>{r.kontak_pemilik_email || "-"}</TableCell>
                       <TableCell>{r.strategi || "-"}</TableCell>
+                      <TableCell className="whitespace-normal">{r.rencana_penanganan || "-"}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(r.biaya_penanganan)}</TableCell>
+                      <TableCell className="whitespace-normal">{r.penanganan_dilakukan || "-"}</TableCell>
+                      <TableCell>
+                        <Badge color={r.status_penanganan === "Done" ? "emerald" : r.status_penanganan ? "orange" : "gray"}>{r.status_penanganan || "-"}</Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(r.jadwal_mulai_penanganan)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(r.jadwal_selesai_penanganan)}</TableCell>
+                      <TableCell>{r.pic_penanganan || "-"}</TableCell>
+                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{r.residual_probabilitas ?? "-"}</TableCell>
+                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{r.residual_dampak ?? "-"}</TableCell>
+                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{r.residual_skor ?? "N/A"}</TableCell>
+                      <TableCell className="text-right">{r.residual_prob_kualitatif !== null ? `${r.residual_prob_kualitatif}%` : "-"}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(r.residual_dampak_finansial)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(r.residual_nilai_bersih)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(r.tanggal_review)}</TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-5">
+                  <TableCell colSpan={38} className="text-center py-5">
                     <Text>Belum ada data Risk Input.</Text>
                   </TableCell>
                 </TableRow>

@@ -5,6 +5,28 @@ import { FiPlus, FiEdit2, FiTrash2 } from "react-icons/fi";
 import apiClient from "../../../../api/api";
 import RiskInputFormModal from "./RiskInputFormModal";
 
+const formatCurrency = (value) => {
+  const num = parseFloat(String(value).replace(/[^0-9.-]+/g, ""));
+  if (value === null || value === undefined || isNaN(num)) return "Rp 0";
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return "-";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("id-ID", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch (e) {
+    console.error("Error formatting date:", dateString, e);
+    return "-";
+  }
+};
+
 const getRiskLevelStyle = (score) => {
   if (score === null || score === undefined) return { text: "#N/A", colorClass: "bg-gray-200 text-gray-500" };
   if (score >= 20) return { text: String(score), colorClass: "bg-red-600 text-white" }; // E
@@ -13,6 +35,14 @@ const getRiskLevelStyle = (score) => {
   if (score >= 6) return { text: String(score), colorClass: "bg-lime-400 text-black" }; // L
   if (score >= 1) return { text: String(score), colorClass: "bg-green-500 text-white" }; // R
   return { text: "#N/A", colorClass: "bg-gray-200 text-gray-500" };
+};
+
+const statusPenangananColors = {
+  Open: "gray",
+  "In Progress": "orange",
+  Done: "emerald",
+  Cancelled: "rose",
+  "-": "gray", // Default
 };
 
 function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [], onRiskInputSaveSuccess, initialFilters, onFilterChange, initialRiskInputData = [], isDataLoading = false }) {
@@ -123,6 +153,11 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
     }
   };
 
+  const getSasaranText = (sasaranId) => {
+    const found = sasaranOptions.find((s) => s.id === sasaranId);
+    return found?.sasaran_kpi || "-";
+  };
+
   return (
     <>
       <Card>
@@ -195,7 +230,7 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
           </div>
         </div>
         <div className="overflow-x-auto">
-          <Table className="min-w-[3000px] mt-4">
+          <Table className="min-w-[4500px] mt-4">
             <TableHead>
               <TableRow className="bg-gray-100 text-xs">
                 {/* Header Kolom Lengkap */}
@@ -215,13 +250,28 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
                 <TableHeaderCell className="text-center">P (In)</TableHeaderCell>
                 <TableHeaderCell className="text-center">I (In)</TableHeaderCell>
                 <TableHeaderCell className="text-center">Skor (In)</TableHeaderCell>
+                <TableHeaderCell className="text-center">Prob Kualitatif (%) In</TableHeaderCell>
+                <TableHeaderCell className="text-center">Dampak Finansial (Rp) In</TableHeaderCell>
+                <TableHeaderCell className="text-center">Nilai Bersih (Rp) In</TableHeaderCell>
+                <TableHeaderCell>Pemilik Risiko</TableHeaderCell>
+                <TableHeaderCell>Jabatan Pemilik</TableHeaderCell>
+                <TableHeaderCell>Kontak HP</TableHeaderCell>
+                <TableHeaderCell>Kontak Email</TableHeaderCell>
                 <TableHeaderCell>Strategi</TableHeaderCell>
                 <TableHeaderCell className="min-w-[300px]">Rencana Penanganan</TableHeaderCell>
+                <TableHeaderCell className="text-center">Biaya Penanganan (Rp)</TableHeaderCell>
+                <TableHeaderCell className="min-w-[250px]">Penanganan Dilakukan</TableHeaderCell>
                 <TableHeaderCell>Status Penanganan</TableHeaderCell>
-                <TableHeaderCell>PIC</TableHeaderCell>
+                <TableHeaderCell>Jadwal Mulai</TableHeaderCell>
+                <TableHeaderCell>Jadwal Selesai</TableHeaderCell>
+                <TableHeaderCell>PIC Penanganan</TableHeaderCell>
                 <TableHeaderCell className="text-center">P (Res)</TableHeaderCell>
                 <TableHeaderCell className="text-center">I (Res)</TableHeaderCell>
                 <TableHeaderCell className="text-center">Skor (Res)</TableHeaderCell>
+                <TableHeaderCell className="text-center">Prob Kualitatif (%) Res</TableHeaderCell>
+                <TableHeaderCell className="text-center">Dampak Finansial (Rp) Res</TableHeaderCell>
+                <TableHeaderCell className="text-center">Nilai Bersih (Rp) Res</TableHeaderCell>
+                <TableHeaderCell>Tgl Review</TableHeaderCell>
                 <TableHeaderCell>Aksi</TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -237,6 +287,8 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
                   const inherentStyle = getRiskLevelStyle(item.inherent_skor);
                   const residualStyle = getRiskLevelStyle(item.residual_skor);
                   const sasaranLinked = Array.isArray(sasaranOptions) ? sasaranOptions.find((s) => s.id === item.sasaran_id) : null;
+                  const kategoriDisplay = item.kategori_risiko === "Risiko Lainnya" && item.kategori_risiko_lainnya ? item.kategori_risiko_lainnya : item.kategori_risiko;
+                  const statusPenangananColor = statusPenangananColors[item.status_penanganan || "-"] || "gray";
 
                   return (
                     <TableRow key={item.id} className="text-xs [&>td]:py-1 [&>td]:px-2">
@@ -258,20 +310,33 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
                       <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{item.inherent_probabilitas}</TableCell>
                       <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{item.inherent_dampak}</TableCell>
                       <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{inherentStyle.text}</TableCell>
+                      <TableCell className="text-right">{item.inherent_prob_kualitatif !== null ? `${item.inherent_prob_kualitatif}%` : "-"}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.inherent_dampak_finansial)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.inherent_nilai_bersih)}</TableCell>
+                      <TableCell>{item.pemilik_risiko || "-"}</TableCell>
+                      <TableCell>{item.jabatan_pemilik || "-"}</TableCell>
+                      <TableCell>{item.kontak_pemilik_hp || "-"}</TableCell>
+                      <TableCell>{item.kontak_pemilik_email || "-"}</TableCell>
                       <TableCell>{item.strategi}</TableCell>
                       <TableCell className="whitespace-normal">{item.rencana_penanganan}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.biaya_penanganan)}</TableCell>
+                      <TableCell className="whitespace-normal">{item.penanganan_dilakukan || "-"}</TableCell>
                       <TableCell>
                         <Badge color={item.status_penanganan === "Done" ? "emerald" : "orange"}>{item.status_penanganan || "-"}</Badge>
                       </TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(item.jadwal_mulai_penanganan)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(item.jadwal_selesai_penanganan)}</TableCell>
                       <TableCell>{item.pic_penanganan}</TableCell>
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_probabilitas ?? "-"}</TableCell>
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_dampak ?? "-"}</TableCell>
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{residualStyle.text}</TableCell>
-                      <TableCell className="flex gap-1">
-                        {/* <Button.Group> */}
+                      <TableCell className="text-right">{item.residual_prob_kualitatif !== null ? `${item.residual_prob_kualitatif}%` : "-"}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.residual_dampak_finansial)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.residual_nilai_bersih)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(item.tanggal_review)}</TableCell>
+                      <TableCell className="sticky right-0 bg-white z-10 flex gap-1 p-1">
                         <Button size="xs" variant="light" icon={FiEdit2} color="blue" onClick={() => handleOpenEditModal(item)} />
                         <Button size="xs" variant="light" icon={FiTrash2} color="red" onClick={() => handleDeleteRiskInput(item.id)} loading={isLoading} />
-                        {/* </Button.Group> */}
                       </TableCell>
                     </TableRow>
                   );
