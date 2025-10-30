@@ -54,18 +54,21 @@ Untuk menjalankan proyek ini di lingkungan lokal, ikuti langkah-langkah berikut:
 
 ### 2. Clone Repository
 
-````bash
+```bash
 git clone [https://github.com/URL_GITHUB_KAMU/sirico-dev.git](https://github.com/URL_GITHUB_KAMU/sirico-dev.git)
 cd sirico-dev
+```
 
 ### 3. Konfigurasi Backend
 
 1.  **Masuk ke direktori backend:**
+
     ```bash
     cd backend
     ```
 
 2.  **Buat dan aktifkan virtual environment:**
+
     ```bash
     # Windows
     python -m venv venv
@@ -93,13 +96,15 @@ cd sirico-dev
     beautifulsoup4
     openpyxl
     ```
+
     ```bash
     pip install -r requirements.txt
     ```
 
 4.  **Setup Database:**
-    * Buat database baru di PostgreSQL (contoh: `sirico_db`).
-    * Salin `.env.example` (jika ada) atau buat file `.env` baru di dalam folder `backend`.
+
+    - Buat database baru di PostgreSQL (contoh: `sirico_db`).
+    - Salin `.env.example` (jika ada) atau buat file `.env` baru di dalam folder `backend`.
 
 5.  **Konfigurasi Environment Variables (`backend/.env`):**
     Isi file `.env` dengan kredensial kamu.
@@ -115,6 +120,7 @@ cd sirico-dev
     # Masukkan API Key kamu dari Google AI Studio
     GEMINI_API_KEY="AIzaSy...KEY_ANDA...s9c"
     ```
+
 ````
 
 ### 4. Konfigurasi Frontend
@@ -296,3 +302,4 @@ Link Proyek: [https://github.com/URL_ANDA]
 ```
 
 ```
+````
