@@ -121,8 +121,6 @@ cd sirico-dev
     GEMINI_API_KEY="AIzaSy...KEY_ANDA...s9c"
     ```
 
-````
-
 ### 4. Konfigurasi Frontend
 
 1.  **Masuk ke direktori frontend (dari root proyek):**
@@ -298,8 +296,3 @@ Didistribusikan di bawah Lisensi MIT. Anda perlu menambahkan file `LICENSE` send
 Nama Proyek: [Nama Anda/Organisasi] - (email@anda.com)
 
 Link Proyek: [https://github.com/URL_ANDA]
-
-```
-
-```
-````
