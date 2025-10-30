@@ -1,9 +1,10 @@
 # backend/app/routes/admin.py
 from flask import request, jsonify, Blueprint
-from app.models import db, Role, Permission, User # Import model yang relevan
-from .auth import admin_required # Import decorator admin
-# Jika perlu decorator permission: from .auth import permission_required
+from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment
+from app import bcrypt
+from .auth import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import func
 
 admin_bp = Blueprint('admin_bp', __name__)
 
@@ -168,5 +169,201 @@ def get_users():
          })
      return jsonify(result)
 
-# Endpoint GET /users/<user_id>, PUT /users/<user_id>, DELETE /users/<user_id> bisa ditambahkan di sini
-# ...
+@admin_bp.route('/users/<int:user_id>', methods=['GET'])
+@admin_required()
+def get_user_details_admin(user_id):
+    """[Admin] Mengambil detail lengkap user berdasarkan ID."""
+    user = User.query.get_or_404(user_id)
+
+    count_dasar = db.session.query(func.count(BasicAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+    count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+    count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+
+    assessment_limits = {
+        "dasar": {"count": count_dasar, "limit": user.limit_dasar}, # Gunakan count asli
+        "madya": {"count": count_madya, "limit": user.limit_madya}, # Gunakan count asli
+        "ai": {"count": count_ai, "limit": user.limit_ai}          # Gunakan count asli
+    }
+
+    return jsonify({
+        "id": user.id,
+        "nama_lengkap": user.nama_lengkap,
+        "email": user.email,
+        "phone_number": getattr(user, 'phone_number', None),
+        "institution": getattr(user, 'institution', None),
+        "role_ids": [role.id for role in user.roles], # Kirim ID roles
+        "assessment_limits": assessment_limits
+    }), 200
+
+# === ENDPOINT BARU: UPDATE User Detail (oleh Admin) ===
+@admin_bp.route('/users/<int:user_id>', methods=['PUT'])
+@admin_required()
+def update_user_details_admin(user_id):
+    """[Admin] Memperbarui detail user, termasuk roles dan limits."""
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Request body tidak boleh kosong"}), 400
+
+    updated = False
+
+    # 1. Update Profil Dasar
+    profile_fields = ['nama_lengkap', 'phone_number', 'institution']
+    for field in profile_fields:
+        if field in data:
+            setattr(user, field, data[field])
+            updated = True
+
+    # 2. Update Roles
+    if 'role_ids' in data:
+        role_ids = data['role_ids']
+        if isinstance(role_ids, list):
+            admin_role_db = Role.query.filter(func.lower(Role.name) == 'admin').first()
+            admin_role_id_in_db = admin_role_db.id if admin_role_db else None
+            is_trying_to_remove_admin_role = admin_role_id_in_db and admin_role_id_in_db not in role_ids
+            
+            if user.email.lower() == "admin@admin.com" and is_trying_to_remove_admin_role:
+                 return jsonify({"msg": "Tidak dapat menghapus role 'Admin' dari akun super admin utama."}), 400
+
+            new_roles = Role.query.filter(Role.id.in_(role_ids)).all()
+            user.roles = new_roles
+            updated = True
+        else:
+            return jsonify({"msg": "'role_ids' harus berupa array."}), 400
+
+    # 3. Update Assessment Limits
+    if 'assessment_limits' in data:
+        limits_data = data['assessment_limits']
+        limit_fields = {
+            "dasar": "limit_dasar",
+            "madya": "limit_madya",
+            "ai": "limit_ai"
+        }
+        for key, db_field in limit_fields.items():
+            if key in limits_data and 'limit' in limits_data[key]:
+                try:
+                    new_limit = int(limits_data[key]['limit']) if limits_data[key]['limit'] is not None else None
+                    if getattr(user, db_field) != new_limit:
+                        setattr(user, db_field, new_limit)
+                        updated = True
+                except (ValueError, TypeError):
+                    pass # Abaikan jika limit tidak valid
+
+    if updated:
+        try:
+            db.session.commit()
+            count_dasar = db.session.query(func.count(BasicAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+            count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+            count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+            updated_user_data = {
+                "id": user.id, "nama_lengkap": user.nama_lengkap, "email": user.email,
+                "phone_number": getattr(user, 'phone_number', None),
+                "institution": getattr(user, 'institution', None),
+                "role_ids": [role.id for role in user.roles],
+                "roles": [role.name for role in user.roles], # Kirim nama role juga
+                "assessment_limits": {
+                    "dasar": {"count": count_dasar, "limit": user.limit_dasar},
+                    "madya": {"count": count_madya, "limit": user.limit_madya},
+                    "ai": {"count": count_ai, "limit": user.limit_ai}
+                }
+            }
+            return jsonify({
+                "msg": f"Data pengguna {user.email} berhasil diperbarui.",
+                "user": updated_user_data
+            }), 200
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error updating user {user_id}: {e}")
+            return jsonify({"msg": "Gagal memperbarui data pengguna."}), 500
+    else:
+        return jsonify({"msg": "Tidak ada data yang valid untuk diperbarui."}), 400
+    
+@admin_bp.route('/users', methods=['POST'])
+@admin_required()
+def create_user_admin():
+    """[Admin] Membuat user baru."""
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    nama_lengkap = data.get('nama_lengkap')
+    role_ids = data.get('role_ids', [])
+
+    if not email or not password or not nama_lengkap:
+        return jsonify({"msg": "Email, password, dan nama lengkap wajib diisi."}), 400
+    
+    if User.query.filter_by(email=email).first():
+        return jsonify({"msg": "Email sudah terdaftar."}), 409
+    
+    # Hash password
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    
+    new_user = User(
+        email=email,
+        password_hash=hashed_password,
+        nama_lengkap=nama_lengkap,
+        phone_number=data.get('phone_number'),
+        institution=data.get('institution'),
+        # Set default limits (atau ambil dari request jika ada)
+        limit_dasar=data.get('limit_dasar', 10),
+        limit_madya=data.get('limit_madya', 5),
+        limit_ai=data.get('limit_ai', 15)
+    )
+    
+    # Assign roles
+    if role_ids:
+        roles = Role.query.filter(Role.id.in_(role_ids)).all()
+        new_user.roles.extend(roles)
+    
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Kembalikan data user baru (tanpa password)
+        # (Hitungan assessment masih 0 karena baru dibuat)
+        created_user_data = {
+            "id": new_user.id,
+            "nama_lengkap": new_user.nama_lengkap,
+            "email": new_user.email,
+            "phone_number": new_user.phone_number,
+            "institution": new_user.institution,
+            "role_ids": [role.id for role in new_user.roles],
+            "roles": [role.name for role in new_user.roles],
+            "assessment_limits": {
+                "dasar": {"count": 0, "limit": new_user.limit_dasar},
+                "madya": {"count": 0, "limit": new_user.limit_madya},
+                "ai": {"count": 0, "limit": new_user.limit_ai}
+            }
+        }
+        return jsonify({"msg": "User berhasil dibuat.", "user": created_user_data}), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating user: {e}")
+        return jsonify({"msg": "Gagal membuat user."}), 500
+
+# === ENDPOINT BARU: DELETE /users/<id> (Hapus User) ===
+@admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
+@admin_required()
+def delete_user_admin(user_id):
+    """[Admin] Menghapus user berdasarkan ID."""
+    current_admin_id_str = get_jwt_identity()
+    current_admin_id = int(current_admin_id_str)
+
+    # Keamanan: Admin tidak bisa menghapus diri sendiri
+    if user_id == current_admin_id:
+        return jsonify({"msg": "Anda tidak dapat menghapus akun Anda sendiri."}), 403
+
+    user_to_delete = User.query.get_or_404(user_id)
+    
+    # Keamanan: Admin tidak bisa menghapus super admin 'admin@admin.com'
+    if user_to_delete.email.lower() == "admin@admin.com":
+        return jsonify({"msg": "Akun super admin utama tidak dapat dihapus."}), 403
+
+    try:
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        return jsonify({"msg": f"User {user_to_delete.email} berhasil dihapus."}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting user {user_id}: {e}")
+        return jsonify({"msg": "Gagal menghapus user. Pastikan user tidak memiliki data terkait (misal: assessment)."}), 500

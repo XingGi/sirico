@@ -1,9 +1,10 @@
 # backend/app/routes/auth.py
 from flask import request, jsonify, Blueprint
-from app.models import User, Role, Permission
+from app.models import User, Role, BasicAssessment, MadyaAssessment, RiskAssessment
 from app import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request, get_jwt
 from functools import wraps
+from sqlalchemy import func
 
 # Membuat Blueprint khusus untuk otentikasi
 auth_bp = Blueprint('auth_bp', __name__)
@@ -114,7 +115,9 @@ def login():
 
         additional_claims = {
             "role": "admin" if is_admin else (user_roles_names[0] if user_roles_names else "user"),
-            "permissions": list(user_permissions) # Kirim list permission unik
+            "permissions": list(user_permissions), # Kirim list permission unik
+            "nama_lengkap": user.nama_lengkap,
+            "email": user.email
         }
         
         print(f"Final additional_claims for token: {additional_claims}")
@@ -149,3 +152,146 @@ def get_current_user():
 def logout():
     """Endpoint untuk logout."""
     return jsonify({"msg": "Logout berhasil"}), 200
+
+@auth_bp.route('/account/details', methods=['GET'])
+@jwt_required()
+def get_account_details():
+    """Mengambil detail lengkap pengguna yang sedang login."""
+    current_user_id_str = get_jwt_identity()
+    
+    try:
+        current_user_id = int(current_user_id_str) # Konversi ke integer
+    except ValueError:
+        return jsonify({"msg": "User ID tidak valid"}), 400
+
+    user = User.query.get(current_user_id)
+
+    if not user:
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+    
+    count_dasar = db.session.query(func.count(BasicAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+    count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+    count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+
+    assessment_limits = {
+        "dasar": {"count": count_dasar, "limit": user.limit_dasar}, # Gunakan count asli
+        "madya": {"count": count_madya, "limit": user.limit_madya}, # Gunakan count asli
+        "ai": {"count": count_ai, "limit": user.limit_ai}          # Gunakan count asli
+    }
+    
+    phone_number = getattr(user, 'phone_number', None) # Contoh ambil atribut
+    institution = getattr(user, 'institution', None)   # Contoh ambil atribut
+
+    return jsonify({
+        "id": user.id,
+        "nama_lengkap": user.nama_lengkap,
+        "email": user.email,
+        "phone_number": phone_number, # Kirim phone number
+        "institution": institution,   # Kirim institution
+        "assessment_limits": assessment_limits # Kirim data assessment
+        # Jangan kirim password_hash
+    }), 200
+
+# === ENDPOINT BARU UNTUK UPDATE AKUN ===
+@auth_bp.route('/account/update', methods=['PUT']) # Atau ganti auth_bp
+@jwt_required()
+def update_account_details():
+    """Memperbarui detail (non-sensitif) pengguna yang sedang login."""
+    current_user_id_str = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id_str)
+    except ValueError:
+        return jsonify({"msg": "User ID tidak valid"}), 400
+    
+    user = User.query.get(current_user_id)
+
+    if not user:
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Request body tidak boleh kosong"}), 400
+    
+    claims = get_jwt()
+    is_admin = claims.get("role") == "admin"
+    
+    updated = False
+
+    # Field yang boleh diupdate oleh user sendiri
+    allowed_profile_updates = ['nama_lengkap', 'phone_number', 'institution']
+    for field in allowed_profile_updates:
+        if field in data:
+            setattr(user, field, data[field])
+            updated = True
+
+    # --- TAMBAHAN: Update Limit jika Admin ---
+    if is_admin and 'assessment_limits' in data:
+        limits_data = data['assessment_limits']
+        limit_fields = {
+            "dasar": "limit_dasar",
+            "madya": "limit_madya",
+            "ai": "limit_ai"
+        }
+        for key, db_field in limit_fields.items():
+            if key in limits_data and 'limit' in limits_data[key]:
+                try:
+                    new_limit = int(limits_data[key]['limit']) if limits_data[key]['limit'] is not None else None
+                    if getattr(user, db_field) != new_limit:
+                       setattr(user, db_field, new_limit)
+                       updated = True
+                except (ValueError, TypeError):
+                    pass
+
+    if updated:
+        try:
+            db.session.commit()
+            return jsonify({"msg": "Profil berhasil diperbarui."}), 200
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error updating profile: {e}") # Log error di server
+            return jsonify({"msg": "Gagal memperbarui profil."}), 500
+    else:
+        return jsonify({"msg": "Tidak ada data yang valid untuk diperbarui."}), 400
+    
+@auth_bp.route('/account/change-password', methods=['PUT'])
+@jwt_required()
+def change_password():
+    """Mengubah password pengguna yang sedang login."""
+    current_user_id_str = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id_str)
+    except ValueError:
+        return jsonify({"msg": "User ID tidak valid"}), 400
+
+    user = User.query.get(current_user_id)
+    if not user:
+        # Seharusnya tidak terjadi jika token valid, tapi cek untuk keamanan
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+
+    data = request.get_json()
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+
+    if not old_password or not new_password:
+        return jsonify({"msg": "Password lama dan baru wajib diisi."}), 400
+
+    # 1. Verifikasi password lama
+    if not bcrypt.check_password_hash(user.password_hash, old_password):
+        return jsonify({"msg": "Password lama salah."}), 401 # Unauthorized
+
+    # 2. (Opsional) Validasi kompleksitas password baru di sini jika perlu
+    # if len(new_password) < 8:
+    #     return jsonify({"msg": "Password baru minimal 8 karakter."}), 400
+
+    # 3. Hash password baru
+    new_hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+
+    # 4. Update hash di database
+    user.password_hash = new_hashed_password
+    try:
+        db.session.commit()
+        return jsonify({"msg": "Password berhasil diperbarui."}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error changing password for user {user.id}: {e}")
+        return jsonify({"msg": "Gagal memperbarui password."}), 500

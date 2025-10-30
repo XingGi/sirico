@@ -28,6 +28,8 @@ import MadyaAssessmentListPage from "./features/risk-management/madya/MadyaAsses
 import MadyaAssessmentFormPage from "./features/risk-management/madya/MadyaAssessmentFormPage";
 import RolePermissionPage from "./features/admin/RolePermissionPage";
 import MemberPage from "./features/admin/MemberPage";
+import AccountSettingPage from "./features/account/AccountSettingPage";
+import PasswordSettingPage from "./features/account/PasswordSettingPage";
 
 function App() {
   return (
@@ -41,6 +43,8 @@ function App() {
           <Route element={<Layout />}>
             {/* Dashboard: Hanya perlu login */}
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/account-setting" element={<AccountSettingPage />} />
+            <Route path="/password-setting" element={<PasswordSettingPage />} />
             <Route element={<ProtectedRoute requiredPermission="create_risk_assessment_ai" />}>
               <Route path="/risk-ai/assessment-studio" element={<AssessmentStudio />} />
             </Route>

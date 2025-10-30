@@ -33,6 +33,7 @@ class Permission(db.Model):
 
     def __repr__(self):
         return f'<Permission {self.name}>'
+    
 class User(db.Model):
     """Model untuk tabel pengguna (users)"""
     
@@ -42,14 +43,24 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(128), nullable=False)
     nama_lengkap = db.Column(db.String(100), nullable=False)
-    # role = db.Column(db.String(20), nullable=False, default='user')
-    kris = db.relationship('KRI', backref='owner', lazy=True, cascade="all, delete-orphan")
-    
+    phone_number = db.Column(db.String(50), nullable=True)
+    institution = db.Column(db.String(200), nullable=True)
+    limit_dasar = db.Column(db.Integer, nullable=True, default=100)
+    limit_madya = db.Column(db.Integer, nullable=True, default=100)
+    limit_ai = db.Column(db.Integer, nullable=True, default=100)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
-    assessments = db.relationship('RiskAssessment', backref='assessor', lazy=True)
-    business_processes = db.relationship('BusinessProcess', backref='owner', lazy=True)
-    critical_assets = db.relationship('CriticalAsset', backref='owner', lazy=True)
-    impact_scenarios = db.relationship('ImpactScenario', backref='owner', lazy=True)
+    
+    kris = db.relationship('KRI', backref='owner', lazy=True, cascade="all, delete-orphan")
+    assessments = db.relationship('RiskAssessment', backref='assessor', lazy=True, cascade="all, delete-orphan")
+    business_processes = db.relationship('BusinessProcess', backref='owner', lazy=True, cascade="all, delete-orphan")
+    critical_assets = db.relationship('CriticalAsset', backref='owner', lazy=True, cascade="all, delete-orphan")
+    impact_scenarios = db.relationship('ImpactScenario', backref='owner', lazy=True, cascade="all, delete-orphan")
+    
+    main_risk_register_entries = db.relationship('MainRiskRegister', backref='owner', lazy=True, cascade="all, delete-orphan")
+    organizational_contexts = db.relationship('OrganizationalContext', backref='owner', lazy=True, cascade="all, delete-orphan")
+    basic_assessments = db.relationship('BasicAssessment', backref='owner', lazy=True, cascade="all, delete-orphan")
+    risk_map_templates = db.relationship('RiskMapTemplate', backref='owner', lazy=True, cascade="all, delete-orphan")
+    madya_assessments = db.relationship('MadyaAssessment', backref='owner', lazy=True, cascade="all, delete-orphan")
     
     roles = db.relationship('Role', secondary=user_roles, lazy='subquery',
                             backref=db.backref('users', lazy=True))

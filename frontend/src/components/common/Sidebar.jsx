@@ -1,6 +1,6 @@
 // frontend/src/components/Sidebar.jsx
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   FiGrid,
@@ -22,6 +22,9 @@ import {
   FiMap,
   FiKey,
   FiUsers,
+  FiMoreVertical,
+  FiUser,
+  FiLock,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 // import { motion, AnimatePresence } from "framer-motion";
@@ -71,6 +74,8 @@ function Sidebar({ isOpen, toggle }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [openMenu, setOpenMenu] = useState("");
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
   const hasPermission = (requiredPermission) => {
     // Admin selalu punya akses
@@ -93,13 +98,37 @@ function Sidebar({ isOpen, toggle }) {
     }
   }, [location.pathname, user]);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+    // Tambahkan event listener saat menu terbuka
+    if (isUserMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      // Hapus event listener saat menu tertutup
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    // Cleanup listener saat komponen unmount atau menu tertutup
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
+
   const handleLogout = () => {
+    setIsUserMenuOpen(false);
     logout();
     navigate("/");
   };
 
   const handleMenuClick = (key) => {
     setOpenMenu(openMenu === key ? "" : key);
+  };
+
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen(!isUserMenuOpen);
   };
 
   const navLinkClasses = ({ isActive }) => `flex items-center p-3 my-1 rounded-lg transition-colors duration-200 ${isActive ? "bg-blue-500 text-white" : "text-gray-300 hover:bg-slate-700"}`;
@@ -111,6 +140,10 @@ function Sidebar({ isOpen, toggle }) {
     if (!children) return [];
     return children.filter((child) => hasPermission(child.requiredPermission));
   };
+
+  const userName = user?.nama_lengkap || "Pengguna";
+  const userEmail = user?.email || "email@example.com";
+  const userInitial = userName ? userName[0].toUpperCase() : "?";
 
   return (
     <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-[width] duration-300 ease-in-out ${isOpen ? "w-80" : "w-20"}`}>
@@ -168,10 +201,44 @@ function Sidebar({ isOpen, toggle }) {
       </nav>
 
       {/* Logout Button (tidak berubah) */}
-      <div>
-        <button onClick={handleLogout} className="flex items-center p-3 w-full text-gray-300 hover:bg-slate-700 rounded-lg">
-          <FiLogOut className="h-6 w-6 flex-shrink-0" />
-          <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>Logout</span>
+      <div className="mt-auto pt-4 border-t border-slate-700" ref={userMenuRef}>
+        {isUserMenuOpen && isOpen && (
+          <div className="absolute bottom-[75px] left-4 z-20 bg-white rounded-md shadow-lg border border-gray-200 text-slate-700 py-1 transition-opacity duration-200 w-max min-w-[200px]">
+            <Link
+              to="/account-setting"
+              onClick={() => setIsUserMenuOpen(false)} // Tutup menu saat diklik
+              className="flex items-center w-full px-4 py-2 text-sm hover:bg-slate-100 transition-colors"
+            >
+              <FiUser className="mr-3 h-4 w-4 text-gray-500" /> Account Setting
+            </Link>
+            <Link
+              to="/password-setting" // Arahkan ke route baru
+              onClick={() => setIsUserMenuOpen(false)} // Tutup menu
+              className="flex items-center w-full px-4 py-2 text-sm hover:bg-slate-100 transition-colors"
+            >
+              <FiLock className="mr-3 h-4 w-4 text-gray-500" /> Password Setting
+            </Link>
+            <hr className="my-1 border-slate-200" /> {/* Garis pemisah */}
+            <button onClick={handleLogout} className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+              <FiLogOut className="mr-3 h-4 w-4" /> Log out
+            </button>
+          </div>
+        )}
+        {/* Tombol Trigger Menu User */}
+        <button onClick={toggleUserMenu} className="flex items-center w-full p-2 hover:bg-slate-700 rounded-lg text-left transition-colors" aria-expanded={isUserMenuOpen} aria-haspopup="true">
+          {/* Avatar Placeholder */}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0 shadow-md">
+            <span className="text-white font-bold text-lg">{userInitial}</span>
+          </div>
+          {/* Teks Nama & Email (hanya saat expanded) */}
+          <div className={`flex-grow overflow-hidden transition-all duration-200 ${isOpen ? "w-auto opacity-100" : "w-0 opacity-0"}`}>
+            <p className="text-sm font-semibold truncate">{userName}</p>
+            <p className="text-xs text-slate-400 truncate">{userEmail}</p>
+          </div>
+          {/* Ikon More (hanya saat expanded) */}
+          <div className={`flex-shrink-0 transition-opacity duration-200 ${isOpen ? "opacity-100" : "opacity-0"}`}>
+            <FiMoreVertical className="ml-2 text-slate-400" />
+          </div>
         </button>
       </div>
     </aside>
