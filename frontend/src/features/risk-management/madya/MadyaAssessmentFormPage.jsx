@@ -1,6 +1,6 @@
 // frontend/src/features/risk-management/madya/MadyaAssessmentFormPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Title, Text, Card, Button, Accordion, AccordionHeader, AccordionBody } from "@tremor/react"; // Hapus Select, SelectItem
+import { Title, Text, Card, Button, Accordion, AccordionHeader, AccordionBody } from "@tremor/react";
 import { debounce } from "lodash";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../../../api/api";
@@ -9,19 +9,22 @@ import MadyaCriteriaReference from "./components/MadyaCriteriaReference";
 import SasaranKPIAppetiteCard from "./components/SasaranKPIAppetiteCard";
 import RiskInputCard from "./components/RiskInputCard";
 import RiskMapCard from "./components/RiskMapCard";
+import { FiMaximize, FiMinimize } from "react-icons/fi";
 
 function MadyaAssessmentFormPage() {
-  const { assessmentId: idParam } = useParams(); // ID dari URL (seharusnya selalu angka setelah alur baru)
+  const { assessmentId: idParam } = useParams();
   const navigate = useNavigate();
   const [assessmentId, setAssessmentId] = useState(null);
   const [assessmentData, setAssessmentData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Loading utama halaman
+  const [isLoading, setIsLoading] = useState(true);
   const [sasaranKPIEntries, setSasaranKPIEntries] = useState([]);
   const [currentStructureEntries, setCurrentStructureEntries] = useState([]);
   const [selectedTemplateData, setSelectedTemplateData] = useState(null);
   const [isTemplateDetailLoading, setIsTemplateDetailLoading] = useState(false);
   const [riskInputEntries, setRiskInputEntries] = useState([]);
   const [isRiskInputLoading, setIsRiskInputLoading] = useState(true);
+  const criteriaCardRef = useRef(null);
+  const [isCriteriaFullscreen, setIsCriteriaFullscreen] = useState(false);
 
   // Fungsi untuk fetch detail template berdasarkan ID
   const fetchTemplateDetails = useCallback(async (templateId) => {
@@ -42,7 +45,7 @@ function MadyaAssessmentFormPage() {
     } finally {
       setIsTemplateDetailLoading(false);
     }
-  }, []); // Dependency kosong
+  }, []);
 
   const [filters, setFilters] = useState({
     organisasi: "",
@@ -51,7 +54,6 @@ function MadyaAssessmentFormPage() {
     departemen: "",
   });
 
-  // Ref untuk menyimpan fungsi debounced save
   const debouncedSaveFilters = useRef(null);
 
   // Fungsi untuk menyimpan filter ke backend
@@ -170,6 +172,28 @@ function MadyaAssessmentFormPage() {
     loadAssessmentData(); // Panggil fungsi utama saat komponen mount/idParam berubah
   }, [idParam, navigate, fetchTemplateDetails, fetchRiskInputs]); // Dependencies useEffect
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsCriteriaFullscreen(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  // --- 4. Tambahkan fungsi toggle fullscreen ---
+  const toggleCriteriaFullscreen = () => {
+    if (!document.fullscreenElement) {
+      criteriaCardRef.current?.requestFullscreen();
+      setIsCriteriaFullscreen(true);
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   // Handler untuk update state struktur dari child
   const handleStructureEntriesChange = (newEntries) => {
     setCurrentStructureEntries(newEntries);
@@ -249,18 +273,25 @@ function MadyaAssessmentFormPage() {
       />
 
       {/* Card 2: Kriteria Risiko */}
-      <Card>
-        <Accordion>
-          <AccordionHeader>
-            <div className="flex-1 text-left">
-              <Title as="h3">2. Kriteria Risiko</Title>
-              <Text>Klik untuk melihat acuan penilaian probabilitas dan dampak.</Text>
-            </div>
-          </AccordionHeader>
-          <AccordionBody>
-            <MadyaCriteriaReference />
-          </AccordionBody>
-        </Accordion>
+      <Card ref={criteriaCardRef} className="fullscreen-card">
+        <div className="flex justify-between items-start mb-4">
+          <div className="text-left">
+            <Title as="h3">2. Kriteria Risiko</Title>
+            <Text>Klik untuk melihat acuan penilaian probabilitas dan dampak.</Text>
+          </div>
+          <Button
+            type="button"
+            variant="light"
+            icon={isCriteriaFullscreen ? FiMinimize : FiMaximize}
+            onClick={(e) => {
+              toggleCriteriaFullscreen();
+            }}
+            className="mr-2"
+          >
+            {isCriteriaFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          </Button>
+        </div>
+        <MadyaCriteriaReference />
       </Card>
 
       {/* Card 3: Sasaran/KPI */}
