@@ -4,6 +4,7 @@ import { Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, Ta
 import StrukturOrganisasiTable from "./StrukturOrganisasiTable";
 import RiskMapCard from "./RiskMapCard";
 import apiClient from "../../../../api/api";
+import MadyaCriteriaReference from "./MadyaCriteriaReference";
 
 // Helper format (jika belum ada, salin dari BasicAssessmentView atau Form)
 const formatCurrency = (value) => {
@@ -113,6 +114,14 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
         )}
         <div className="mt-4">
           <StrukturOrganisasiTable data={assessmentData.structure_entries || []} onEdit={null} onDelete={null} readOnly={true} />
+        </div>
+      </Card>
+
+      <Card>
+        <Title as="h3">2. Kriteria Risiko</Title>
+        <Text>Acuan kriteria probabilitas dan dampak yang digunakan.</Text>
+        <div className="mt-4">
+          <MadyaCriteriaReference readOnly={true} />
         </div>
       </Card>
 

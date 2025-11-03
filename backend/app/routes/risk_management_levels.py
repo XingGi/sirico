@@ -445,6 +445,25 @@ def export_madya_assessment_to_excel(assessment_id):
     risk_num_font = Font(bold=True, color="000000", size=9) # Hitam, tebal, kecil
     risk_num_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
     score_align = Alignment(horizontal='right', vertical='top')
+    
+    green_fill = PatternFill(start_color="00B050", end_color="00B050", fill_type="solid")
+    lime_fill = PatternFill(start_color="92D050", end_color="92D050", fill_type="solid")
+    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    orange_fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
+    red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+    
+    black_bold_font = Font(bold=True, color="000000")
+
+    scale_styles = {
+        1: {"fill": green_fill, "font": white_bold_font},
+        2: {"fill": lime_fill, "font": black_bold_font},
+        3: {"fill": yellow_fill, "font": black_bold_font},
+        4: {"fill": orange_fill, "font": white_bold_font},
+        5: {"fill": red_fill, "font": white_bold_font}
+    }
+    
+    impact_header_fill_1 = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid") # Biru Sangat Muda
+    impact_header_fill_2 = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid") # Biru Muda
 
     # --- Sheet 1: Struktur Organisasi ---
     ws1 = wb.create_sheet(title="Struktur Organisasi")
@@ -490,23 +509,212 @@ def export_madya_assessment_to_excel(assessment_id):
     ws1.column_dimensions['C'].width = 30
     ws1.column_dimensions['D'].width = 30
     ws1.column_dimensions['E'].width = 30
-
-
-    # --- Sheet 2: Sasaran & Risk Appetite ---
-    ws2 = wb.create_sheet(title="Sasaran KPI Appetite")
-    ws2.append(["Sasaran Organisasi / KPI & Risk Appetite - Asesmen:", assessment.nama_asesmen])
+    
+    # --- Sheet 2: Kriteria Risiko ---
+    probability_data = [
+        {"level": 5, "parameter": "Hampir Pasti Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 1 bulan", "frekuensi": "> 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 80% sampai dengan 100%"},
+        {"level": 4, "parameter": "Sangat Mungkin Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 2 bulan", "frekuensi": "Diatas 5 s/d 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 60% sampai dengan 80%"},
+        {"level": 3, "parameter": "Bisa Terjadi", "kemungkinan": "Risiko pernah terjadi namun tidak sering, sekali dalam 4 bulan", "frekuensi": "Diatas 1% s/d 5% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 40% sampai dengan 60%"},
+        {"level": 2, "parameter": "Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi hanya sekali dalam 6 bulan", "frekuensi": "Dari 1 permil s/d 1% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko dari 20% sampai dengan 40%"},
+        {"level": 1, "parameter": "Sangat Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi sangat jarang, paling banyak satu kali dalam setahun", "frekuensi": "< 1 permil dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko lebih kecil dari 20%"},
+    ]
+    impact_data = [
+        {"level": 5, "kriteriaDampak": "Sangat Tinggi", "rangeFinansial": "X > 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak katastrofe yang dapat mengakibatkan kerusakan/ kerugian/ penurunan > 80% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda lebih dari 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat selanjutnya.", "kepat_pelanggaran": "Regulator memberlaku-kan sanksi signifikan (misalkan delisting saham, tidak diperkenan-kan mengikuti kliring, menarik produk yang beredar, dan lain-lain)", "reput_keluhan": "Keluhan yang menyebar ke skala nasional / internasional dan / atau diajukan secara kolektif yang diselesaikan melebihi 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_berita": "Publikasi negatif mencapai skala internasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_saing": "Penurunan pangsa pasar lebih dari 20%", "sdm_keluhan": "Demonstrasi terkoordinasi, terjadinya kematian karyawan saat kerja", "sdm_turnover": "Turn over pegawai bertalenta >15% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta >15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama lebih dari 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu > 500 kali", "sistem_platform": "X ≤ 60%", "ops_sla": ">20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian jamak", "hsse_fatality_2": "Wabah ke lingkungan", "hsse_fatality_3": "Potensi menyebabkan banyak kematian misalnya bahan kimia beracun berbahaya", "hsse_kerusakan_lingkungan": "Sangat serius kerusakan jangka panjang (>5 tahun) dan fungsi ekosistem", "hsse_penurunan_esg": "X < 60% atau memperoleh rating '40+ (severe)'", "pmn_tunda": "Tertunda > 4 bulan dari target RKAP", "bank_fraud": "X > 1.400", "asuransi_aset_rating": "Instrumen pada Investment grade < 70%", "asuransi_aset_peringkat": "atau Peringkat di bawah BBB (yang setara atau tidak diperingkat)", "aktu_rasio": "Rasio klaim > 100%"},
+        {"level": 4, "kriteriaDampak": "Tinggi", "rangeFinansial": "60% < X ≤ 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak disruptif yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% < X ≤ 60% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 6 s/d 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat pertama.", "kepat_pelanggaran": "Regulator memberlaku-kan pembatasan dan / atau pembekuan terhadap aktivitas operasional / produk / jasa tertentu.", "reput_keluhan": "Keluhan yang menyebar ke skala nasional dan / atau diajukan secara kolektif yang dapat diselesaikan dalam waktu 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_berita": "Publikasi negatif mencapai skala nasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_saing": "Penurunan pangsa pasar antara 15% sampai dengan 20%", "sdm_keluhan": "Unjuk rasa karyawan yang mengganggu aktivitas perusahaan dan / atau disertai terjadinya cedera serius / cacat permanen", "sdm_turnover": "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama 2 s/d 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 200-500 kali", "sistem_platform": "70% ≥ X > 60%", "ops_sla": "Antara 10% s/d 20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian tunggal / Cacat tetap / Ketidakhadir-an kerja yang lama", "hsse_fatality_2": "Efek ireversibel yang menyebabkan kematian", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek lingkungan jangka menengah (3-5 tahun) yang serius", "hsse_penurunan_esg": "70% ≥ X > 60% atau memperoleh rating '30-40 (high)'", "pmn_tunda": "Tertunda 3 bulan dari target RKAP", "bank_fraud": "1.201 < X ≤ 1.400", "asuransi_aset_rating": "70% ≤ Instrumen pada Investment grade < 80%", "asuransi_aset_peringkat": "atau Peringkat BBB (yang setara)", "aktu_rasio": "90% < Rasio klaim ≤ 100%"},
+        {"level": 3, "kriteriaDampak": "Sedang", "rangeFinansial": "40% < X ≤ 60%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sedang yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% - 60% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 3 s/d 6 bulan", "hukum_pelanggaran": "Perusahaan mendapat tuntutan hukum.", "kepat_pelanggaran": "Peringatan tertulis / formal, terkena denda.", "reput_keluhan": "Keluhan yang menyebar ke skala sektoral dan / atau diajukan secara kolektif yang dapat diselesaikan dalam waktu 7 hari kerja dan masih berada dalam kewenangan Pimpinan Cabang / Wilayah", "reput_berita": "Publikasi negatif skala nasional yang tersebar di media konvensional", "reput_saing": "Penurunan pangsa pasar antara 10% sampai dengan 15%", "sdm_keluhan": "Terdapat keluhan yang disalurkan mencapai tingkat sektoral / wilayah / provinsi.", "sdm_turnover": "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun ", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama < 1 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 100-199 kali", "sistem_platform": "80 % ≥ X > 70%", "ops_sla": "Antara 2,5% s/d 10% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Cacat tidak tetap / Ketidakhadir-an kerja yang terbatas", "hsse_fatality_2": "Efek ireversibel tanpa kehilangan nyawa tetapi dengan cacat serius dan rawat inap berkepanjangan", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek jangka pendek (1-2 tahun) tetapi tidak mempengaruhi fungsi ekosistem", "hsse_penurunan_esg": "80 % ≥ X > 70% atau memperoleh rating '20-30 (medium)'", "pmn_tunda": "Tertunda 2 bulan dari target RKAP", "bank_fraud": "1.001 < X ≤ 1.200", "asuransi_aset_rating": "80% ≤ Instrumen pada Investment grade < 90%", "asuransi_aset_peringkat": "atau Peringkat A (yang setara)", "aktu_rasio": "82,5% < Rasio klaim ≤ 90%"},
+        {"level": 2, "kriteriaDampak": "Kecil", "rangeFinansial": "20% < X ≤ 40%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak kecil yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 20% - 40% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda antara 2 - 3 bulan", "hukum_pelanggaran": "Perusahaan mendapat somasi.", "kepat_pelanggaran": "Diminta bertemu dengan pihak Regulator (misalkan OJK, Bank Indonesia, IDX, Kementerian terkait, Dirjen Pajak, dan lain-lain)", "reput_keluhan": "Keluhan yang terisolasi dan dapat diselesaikan dalam 3 hari kerja", "reput_berita": "Publikasi negatif yang lintas sektoral / wilayah / provinsi namun masih tersebar media konvensional.", "reput_saing": "Penurunan pangsa pasar antara 5% sampai dengan 10%", "sdm_keluhan": "Terdapat keluhan karyawan yang perlu diselesaikan oleh Penyelia Pemimpin Unit", "sdm_turnover": "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun", "sistem_gangguan": "Aplikasi dan Infrastruktur pendukung yang kurang penting tidak berfungsi selama lebih dari 1 hari s/d 3 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 50-99 kali", "sistem_platform": "90% ≥ X > 80%", "ops_sla": "Dari 1% s/d 2,5% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Perawatan Medis", "hsse_fatality_2": "Efek kesehatan minor dan reversibel (tanpa rawat inap)", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek minor pada lingkungan biologis atau fisik", "hsse_penurunan_esg": "90% ≥ X > 80% atau memperoleh rating '10-20 (low)'", "pmn_tunda": "Tertunda 1 bulan dari target RKAP", "bank_fraud": "800 ≤ X ≤ 1.000", "asuransi_aset_rating": "90% ≤ Instrumen pada Investment grade < 100%", "asuransi_aset_peringkat": "atau Peringkat AA (yang setara)", "aktu_rasio": "75% < Rasio klaim ≤ 82,5%"},
+        {"level": 1, "kriteriaDampak": "Sangat Kecil", "rangeFinansial": "X ≤ 20%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sangat rendah yang dapat mengakibatkan kerusakan/ kerugian/ penurunan kurang dari 20% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter target strategis yang harus selesai pada tahun ini tertunda kurang dari 1 bulan", "hukum_pelanggaran": "Tidak ada somasi/ tuntutan hukum", "kepat_pelanggaran": "Teguran informal / verbal.", "reput_keluhan": "Keluhan yang terisolasi dan dapat ditangani dalam 1 hari kerja", "reput_berita": "Publikasi negatif yg terisolasi di wilayah sektoral melalui media konvensional (misalkan Radio lokal, TV lokal, Surat Kabar daerah)", "reput_saing": "Penurunan pangsa pasar sampai dengan 5%", "sdm_keluhan": "Terdapat keluhan karyawan yang disalurkan sampai tingkat SP Unit namun dapat diisolir dan diselesaikan oleh Pemimpin Unit", "sdm_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sistem_gangguan": "Aplikasi & Infrastruktur pendukung yang kurang penting tidak berfungsi selama 1 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu di bawah 50 kali", "sistem_platform": "X > 90%", "ops_sla": "<1% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Pertolongan Pertama", "hsse_fatality_2": "Tidak berpengaruh pada Kinerja Kerja", "hsse_fatality_3": "[Data L1F3]", "hsse_kerusakan_lingkungan": "Kerusakan terbatas pada area minimal dengan signifikansi rendah", "hsse_penurunan_esg": "X > 90% atau memperoleh rating '0-10 (negligible)'", "pmn_tunda": "Diterima tepat waktu sesuai dengan RKAP", "bank_fraud": "X < 800", "asuransi_aset_rating": "Instrumen pada investment grade 100%,", "asuransi_aset_peringkat": "atau Peringkat AAA (yang setara)", "aktu_rasio": "Rasio klaim ≤ 75%"},
+    ]
+    
+    ws2 = wb.create_sheet(title="Kriteria Risiko") # Ganti nama dari ws_criteria ke ws2
+    ws2.page_setup.orientation = ws2.ORIENTATION_LANDSCAPE
+    
+    ws2.append(["Kriteria Probabilitas"])
     ws2['A1'].font = bold_font
-    ws2.append([])
+    ws2.append([]) # Baris kosong
+    
+    # Headers Probabilitas
+    headers_prob = ["Skala", "Parameter", "Kemungkinan terjadi", "Frekuensi kejadian", "Persentase"]
+    ws2.append(headers_prob)
+    for cell in ws2[3:3]: # Baris 3
+        cell.font = white_bold_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+        
+    # Data Probabilitas
+    prob_data_sorted = sorted(probability_data, key=lambda x: x['level'], reverse=True)
+    for item in prob_data_sorted:
+        ws2.append([
+            item['level'], item['parameter'], item['kemungkinan'],
+            item['frekuensi'], item['persentase']
+        ])
+        
+    # Style Data Probabilitas
+    for row in ws2.iter_rows(min_row=4, max_row=len(prob_data_sorted) + 3, min_col=1, max_col=5):
+        for i, cell in enumerate(row):
+            cell.border = thin_border
+            if i == 0: # Kolom Skala
+                style = scale_styles.get(cell.value)
+                if style:
+                    cell.fill = style['fill']
+                    cell.font = style['font']
+                cell.alignment = center_align
+            else:
+                cell.alignment = left_align_wrap # Rata kiri atas wrap
+    
+    # Atur lebar kolom probabilitas
+    ws2.column_dimensions[get_column_letter(1)].width = 10 # Skala
+    ws2.column_dimensions[get_column_letter(2)].width = 30 # Parameter
+    ws2.column_dimensions[get_column_letter(3)].width = 40 # Kemungkinan
+    ws2.column_dimensions[get_column_letter(4)].width = 40 # Frekuensi
+    ws2.column_dimensions[get_column_letter(5)].width = 40 # Persentase
+
+    # --- Bagian Kriteria Dampak ---
+    start_row_impact = ws2.max_row + 3
+    ws2.cell(row=start_row_impact, column=1, value="Kriteria Dampak").font = bold_font
+    start_row_impact += 2 # Lompat 2 baris
+    
+    # Header Dampak Row 1
+    # Sel A<row> (Skala)
+    cell_A = ws2.cell(row=start_row_impact, column=1, value="Skala")
+    cell_A.border = thin_border
+    cell_A.font = white_bold_font
+    cell_A.fill = header_fill
+    cell_A.alignment = center_align
+    ws2.merge_cells(start_row=start_row_impact, start_column=1, end_row=start_row_impact+3, end_column=1)
+    
+    # Sel B<row> (Kuantitatif)
+    cell_B = ws2.cell(row=start_row_impact, column=2, value="DAMPAK KUANTITATIF")
+    cell_B.border = thin_border
+    cell_B.font = bold_font
+    cell_B.alignment = center_align
+    ws2.merge_cells(start_row=start_row_impact, start_column=2, end_row=start_row_impact, end_column=4)
+    
+    # Sel E<row> (Kualitatif)
+    cell_E = ws2.cell(row=start_row_impact, column=5, value="DAMPAK KUALITATIF")
+    cell_E.border = thin_border
+    cell_E.font = bold_font
+    cell_E.alignment = center_align
+    ws2.merge_cells(start_row=start_row_impact, start_column=5, end_row=start_row_impact, end_column=27)
+
+    # Header Dampak Row 2 (Kategori Utama)
+    row_idx_2 = start_row_impact + 1
+    
+    # Kuantitatif (Kolom B, C, D)
+    headers_kuantitatif_row_2 = ["Kriteria Dampak", "Range Dampak Finansial", "Deskripsi Dampak"]
+    for i, text in enumerate(headers_kuantitatif_row_2):
+        cell = ws2.cell(row=row_idx_2, column=i+2, value=text) # Mulai dari kolom 2 (B)
+        cell.border = thin_border
+        cell.font = white_bold_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        ws2.merge_cells(start_row=row_idx_2, start_column=i+2, end_row=row_idx_2+2, end_column=i+2) # Span 3 baris ke bawah
+    
+    # Kualitatif (Kolom E dst)
+    headers_kualitatif_row_2 = [
+        ("Risiko Strategis", 1, impact_header_fill_1),
+        ("Risiko Hukum", 1, impact_header_fill_2),
+        ("Risiko Kepatuhan", 1, impact_header_fill_1),
+        ("Risiko Reputasi", 3, impact_header_fill_2),
+        ("Risiko Sumber Daya Manusia", 3, impact_header_fill_1),
+        ("Risiko Sistem Infrastruktur...", 3, impact_header_fill_2),
+        ("Risiko Operasional", 1, impact_header_fill_1),
+        ("Risiko HSSE dan Sosial", 5, impact_header_fill_2),
+        ("Risiko PMN", 1, impact_header_fill_1),
+        ("Risiko Operasional Bank", 1, impact_header_fill_2),
+        ("Risiko Investasi Asuransi", 2, impact_header_fill_1),
+        ("Risiko Aktuarial", 1, impact_header_fill_2),
+    ]
+    
+    col_idx = 5 # Mulai dari kolom E
+    for text, span, fill in headers_kualitatif_row_2:
+        cell = ws2.cell(row=row_idx_2, column=col_idx, value=text)
+        ws2.merge_cells(start_row=row_idx_2, start_column=col_idx, end_row=row_idx_2+1, end_column=col_idx+span-1) # Span 2 baris ke bawah
+        cell.alignment = center_align
+        cell.font = bold_font
+        cell.fill = fill
+        cell.border = thin_border
+        col_idx += span
+            
+    # Header Dampak Row 4 (Sub-Kategori Kualitatif)
+    row_idx_4 = start_row_impact + 3
+    headers_row_4 = [
+        "Dampak keterlambatan pencapaian program strategis", "Pelanggaran hukum", "Pelanggaran ketentuan kepatuhan",
+        "Keluhan pelanggan / nasabah / pembeli / supplier", "Pemberitaan negatif di media", "Kehilangan daya saing",
+        "Keluhan karyawan", "Turn over karyawan bertalenta", "regretted turnover",
+        "Gangguan aplikasi infrastruktur pendukung", "Serangan siber", "Hasil penilaian platform security",
+        "Pelampauan pemenuhan SLA (Service Level Agreement)",
+        "Fatality 1", "Fatality 2", "Fatality 3", "Kerusakan Lingkungan", "Penurunan ESG rating Sustainalytic",
+        "Penundaan pencairan PMN", "Total jumlah fraud internal dan eksternal",
+        "Penurunan aset... (Rating)", "Penurunan aset... (Peringkat)",
+        "Rasio Klaim"
+    ]
+    
+    for i, text in enumerate(headers_row_4):
+        cell = ws2.cell(row=row_idx_4, column=i+5, value=text) # Mulai dari kolom 5 (E)
+        cell.alignment = center_align
+        cell.font = bold_font
+        cell.fill = impact_header_fill_1 if (i+5) in [5, 7, 11, 12, 13, 17, 23, 25, 26] else impact_header_fill_2 # Ganti warna selang-seling
+        cell.border = thin_border
+        ws2.column_dimensions[get_column_letter(i+5)].width = 25 # Set width
+
+    # Data Dampak
+    data_start_row = start_row_impact + 4
+    impact_data_sorted = sorted(impact_data, key=lambda x: x['level'], reverse=True)
+    
+    for i, item in enumerate(impact_data_sorted):
+        row_idx = data_start_row + i
+        data_row = [
+            item['level'],
+            item['kriteriaDampak'], item['rangeFinansial'], item['deskripsiDampak1'],
+            item['stra_dampak'], item['hukum_pelanggaran'], item['kepat_pelanggaran'],
+            item['reput_keluhan'], item['reput_berita'], item['reput_saing'],
+            item['sdm_keluhan'], item['sdm_turnover'], item['sdm_regretted_turnover'],
+            item['sistem_gangguan'], item['sistem_siber'], item['sistem_platform'],
+            item['ops_sla'],
+            item['hsse_fatality_1'], item['hsse_fatality_2'], item['hsse_fatality_3'],
+            item['hsse_kerusakan_lingkungan'], item['hsse_penurunan_esg'],
+            item['pmn_tunda'], item['bank_fraud'],
+            item['asuransi_aset_rating'], item['asuransi_aset_peringkat'],
+            item['aktu_rasio']
+        ]
+        
+        # ws2.append(data_row) # Jangan pakai append, tapi tulis manual ke sel
+        for col_idx, cell_value in enumerate(data_row):
+            cell = ws2.cell(row=row_idx, column=col_idx + 1)
+            cell.value = cell_value
+            cell.border = thin_border
+            cell.alignment = left_align_wrap
+            if col_idx == 0: # Kolom Skala
+                style = scale_styles.get(cell.value)
+                if style:
+                    cell.fill = style['fill']
+                    cell.font = style['font']
+                cell.alignment = center_align
+            elif col_idx == 2: # Kolom Range Finansial
+                cell.alignment = Alignment(horizontal='center', vertical='top', wrap_text=True)
+
+    # Atur lebar kolom kuantitatif (B, C, D)
+    ws2.column_dimensions['B'].width = 25
+    ws2.column_dimensions['C'].width = 25
+    ws2.column_dimensions['D'].width = 30
+
+
+    ws3 = wb.create_sheet(title="Sasaran KPI Appetite") # Ganti nama dari ws2 ke ws3
+    ws3.append(["Sasaran Organisasi / KPI & Risk Appetite - Asesmen:", assessment.nama_asesmen])
+    ws3['A1'].font = bold_font
+    ws3.append([])
     headers2 = ["No", "Sasaran Organisasi / KPI", "Target Appetite", "Skor Risiko Inheren", "Skor Risiko Residual"]
-    ws2.append(headers2)
-    for cell in ws2[3:3]:
+    ws3.append(headers2)
+    for cell in ws3[3:3]:
         cell.font = white_bold_font
         cell.fill = header_fill
         cell.alignment = center_align
         cell.border = thin_border
 
     for i, entry in enumerate(assessment.sasaran_kpi_entries):
-        ws2.append([
+        ws3.append([
             i + 1,
             entry.sasaran_kpi,
             entry.target_level,
@@ -514,23 +722,23 @@ def export_madya_assessment_to_excel(assessment_id):
             entry.residual_risk_score
         ])
 
-    for row in ws2.iter_rows(min_row=4, max_col=5):
+    for row in ws3.iter_rows(min_row=4, max_col=5):
         for cell in row:
             cell.border = thin_border
             if cell.column == 2: cell.alignment = left_align_wrap
             else: cell.alignment = center_align
 
-    ws2.column_dimensions['B'].width = 60
-    ws2.column_dimensions['C'].width = 15
-    ws2.column_dimensions['D'].width = 20
-    ws2.column_dimensions['E'].width = 20
+    ws3.column_dimensions['B'].width = 60
+    ws3.column_dimensions['C'].width = 15
+    ws3.column_dimensions['D'].width = 20
+    ws3.column_dimensions['E'].width = 20
 
-    # --- Sheet 3: Risk Input ---
-    ws3 = wb.create_sheet(title="Risk Input")
-    ws3.page_setup.orientation = ws3.ORIENTATION_LANDSCAPE # Make it wide
-    ws3.append(["Detail Risk Input - Asesmen:", assessment.nama_asesmen])
-    ws3['A1'].font = bold_font
-    ws3.append([])
+    # --- Sheet 4: Risk Input (Sebelumnya ws3) ---
+    ws4 = wb.create_sheet(title="Risk Input") # Ganti nama dari ws3 ke ws4
+    ws4.page_setup.orientation = ws4.ORIENTATION_LANDSCAPE
+    ws4.append(["Detail Risk Input - Asesmen:", assessment.nama_asesmen])
+    ws4['A1'].font = bold_font
+    ws4.append([])
     headers3 = [
         "No", "Kode Risiko", "Status Risiko", "Peluang/ Ancaman", "Kategori Risiko", "Unit/Fungsi Kerja",
         "Sasaran", "Tanggal Identifikasi Risiko", "Deskripsi atau Kejadian Risiko", "Akar Penyebab",
@@ -545,15 +753,14 @@ def export_madya_assessment_to_excel(assessment_id):
         "Probabilitas Risiko Residual Kualitatif (%)", "Dampak Finansial Risiko Residual (Rp)",
         "Nilai Bersih Risiko Residual", "Tanggal Review"
     ]
-    ws3.append(headers3)
-    header_row = ws3[3:3]
+    ws4.append(headers3)
+    header_row = ws4[3:3]
     for cell in header_row:
         cell.font = white_bold_font
         cell.fill = header_fill
         cell.alignment = center_align
         cell.border = thin_border
 
-    # Buat map sasaran_id ke teks sasaran_kpi untuk lookup
     sasaran_map = {s.id: s.sasaran_kpi for s in assessment.sasaran_kpi_entries}
 
     for i, entry in enumerate(assessment.risk_inputs):
@@ -564,135 +771,122 @@ def export_madya_assessment_to_excel(assessment_id):
         tgl_selesai_str = entry.jadwal_selesai_penanganan.strftime('%d %B %Y') if entry.jadwal_selesai_penanganan else ""
         tgl_review_str = entry.tanggal_review.strftime('%d %B %Y') if entry.tanggal_review else ""
 
-        # --- Urutan data disesuaikan dengan headers3 ---
-        ws3.append([
-            i + 1, entry.kode_risiko, entry.status_risiko, entry.peluang_ancaman, kategori_display, entry.unit_kerja, # 1-6
-            sasaran_text, tgl_identifikasi_str, entry.deskripsi_risiko, entry.akar_penyebab, # 7-10
-            entry.indikator_risiko, entry.internal_control, entry.deskripsi_dampak, # 11-13
-            entry.inherent_probabilitas, entry.inherent_dampak, entry.inherent_skor, # 14-16
-            entry.inherent_prob_kualitatif, entry.inherent_dampak_finansial, entry.inherent_nilai_bersih, # 17-19
-            entry.pemilik_risiko, entry.jabatan_pemilik, entry.kontak_pemilik_hp, entry.kontak_pemilik_email, # 20-23
-            entry.strategi, entry.rencana_penanganan, entry.biaya_penanganan, # 24-26
-            entry.penanganan_dilakukan, entry.status_penanganan, tgl_mulai_str, # 27-29
-            tgl_selesai_str, entry.pic_penanganan, # 30-31
-            entry.residual_probabilitas, entry.residual_dampak, entry.residual_skor, # 32-34
-            entry.residual_prob_kualitatif,   # Kolom 35 (AI) - Probabilitas Kualitatif (%)
-            entry.residual_dampak_finansial,  # Kolom 36 (AJ) - Dampak Finansial (Rp)
-            entry.residual_nilai_bersih,      # Kolom 37 (AK) - Nilai Bersih
+        ws4.append([
+            i + 1, entry.kode_risiko, entry.status_risiko, entry.peluang_ancaman, kategori_display, entry.unit_kerja,
+            sasaran_text, tgl_identifikasi_str, entry.deskripsi_risiko, entry.akar_penyebab,
+            entry.indikator_risiko, entry.internal_control, entry.deskripsi_dampak,
+            entry.inherent_probabilitas, entry.inherent_dampak, entry.inherent_skor,
+            entry.inherent_prob_kualitatif, entry.inherent_dampak_finansial, entry.inherent_nilai_bersih,
+            entry.pemilik_risiko, entry.jabatan_pemilik, entry.kontak_pemilik_hp, entry.kontak_pemilik_email,
+            entry.strategi, entry.rencana_penanganan, entry.biaya_penanganan,
+            entry.penanganan_dilakukan, entry.status_penanganan, tgl_mulai_str,
+            tgl_selesai_str, entry.pic_penanganan,
+            entry.residual_probabilitas, entry.residual_dampak, entry.residual_skor,
+            entry.residual_prob_kualitatif,
+            entry.residual_dampak_finansial,
+            entry.residual_nilai_bersih,
             tgl_review_str
         ])
         
-        last_row = ws3.max_row
-        ws3.cell(row=last_row, column=17).number_format = '#,##0.0"%"' # Probabilitas Kualitatif Inherent
-        ws3.cell(row=last_row, column=18).number_format = '"Rp"#,##0'   # Dampak Finansial Inherent
-        ws3.cell(row=last_row, column=19).number_format = '"Rp"#,##0'   # Nilai Bersih Inherent
-        ws3.cell(row=last_row, column=26).number_format = '"Rp"#,##0'   # Biaya Penanganan
-        ws3.cell(row=last_row, column=35).number_format = '#,##0.0"%"' # Probabilitas Kualitatif Residual
-        ws3.cell(row=last_row, column=36).number_format = '"Rp"#,##0_);[Red]("-Rp"#,##0)' # AJ - Dampak Fin Residual
-        ws3.cell(row=last_row, column=37).number_format = '"Rp"#,##0_);[Red]("-Rp"#,##0)' # AK - Nilai Bersih Residual
+        last_row = ws4.max_row
+        ws4.cell(row=last_row, column=17).number_format = '#,##0.0"%"'
+        ws4.cell(row=last_row, column=18).number_format = '"Rp"#,##0'
+        ws4.cell(row=last_row, column=19).number_format = '"Rp"#,##0'
+        ws4.cell(row=last_row, column=26).number_format = '"Rp"#,##0'
+        ws4.cell(row=last_row, column=35).number_format = '#,##0.0"%"'
+        ws4.cell(row=last_row, column=36).number_format = '"Rp"#,##0_);[Red]("-Rp"#,##0)'
+        ws4.cell(row=last_row, column=37).number_format = '"Rp"#,##0_);[Red]("-Rp"#,##0)'
         
     center_cols_risk = [
-        1, 8, # No, Tgl Identifikasi
-        14, 15, 16, 17, # P(In), I(In), Skor(In), Prob Kual(In)
-        29, 30, # Tgl Mulai/Selesai Penanganan
-        32, 33, 34, 35, # P(Res), I(Res), Skor(Res), Prob Kual(Res)
-        38 # Tgl Review
+        1, 8, 14, 15, 16, 17, 29, 30, 32, 33, 34, 35, 38
     ]
-    # Kolom mata uang (rata kanan)
     currency_cols_risk = [18, 19, 26, 36, 37]
 
-    # Apply styles and width to Risk Input sheet
-    for row_idx in range(4, ws3.max_row + 1):
-        ws3.row_dimensions[row_idx].height = 45 # Beri tinggi agar wrap text cukup
+    for row_idx in range(4, ws4.max_row + 1):
+        ws4.row_dimensions[row_idx].height = 45
         for col_idx in range(1, len(headers3) + 1):
-            cell = ws3.cell(row=row_idx, column=col_idx)
+            cell = ws4.cell(row=row_idx, column=col_idx)
             cell.border = thin_border
             if col_idx in center_cols_risk:
                 cell.alignment = center_align
             elif col_idx in currency_cols_risk:
-                 cell.alignment = Alignment(horizontal='right', vertical='top') # Rata kanan untuk uang
-            else: # Sisanya rata kiri atas wrap
+                 cell.alignment = Alignment(horizontal='right', vertical='top')
+            else:
                 cell.alignment = left_align_wrap
 
-    # Sesuaikan lebar kolom (perlu di-fine-tune lagi mungkin)
     column_widths = {
-        'A': 5, 'B': 15, 'C': 12, 'D': 15, 'E': 20, 'F': 25, 'G': 30, 'H': 15, 'I': 40, 'J': 30, # 1-10
-        'K': 30, 'L': 30, 'M': 30, 'N': 8, 'O': 8, 'P': 8, 'Q': 12, 'R': 18, 'S': 18, 'T': 20, # 11-20
-        'U': 20, 'V': 15, 'W': 20, 'X': 20, 'Y': 40, 'Z': 18, 'AA': 30, 'AB': 15, 'AC': 15, # 21-29
-        'AD': 15, 'AE': 20, 'AF': 8, 'AG': 8, 'AH': 8, 'AI': 12, 'AJ': 18, 'AK': 18, 'AL': 15 # 30-38
+        'A': 5, 'B': 15, 'C': 12, 'D': 15, 'E': 20, 'F': 25, 'G': 30, 'H': 15, 'I': 40, 'J': 30,
+        'K': 30, 'L': 30, 'M': 30, 'N': 8, 'O': 8, 'P': 8, 'Q': 12, 'R': 18, 'S': 18, 'T': 20,
+        'U': 20, 'V': 15, 'W': 20, 'X': 20, 'Y': 40, 'Z': 18, 'AA': 30, 'AB': 15, 'AC': 15,
+        'AD': 15, 'AE': 20, 'AF': 8, 'AG': 8, 'AH': 8, 'AI': 12, 'AJ': 18, 'AK': 18, 'AL': 15
     }
     for col_letter, width in column_widths.items():
-         try: ws3.column_dimensions[col_letter].width = width
+         try: ws4.column_dimensions[col_letter].width = width
          except KeyError: print(f"Peringatan: Kolom {col_letter} tidak ditemukan di sheet Risk Input.")
         
-    # --- Sheet 4: Peta Risiko ---
-    ws4 = wb.create_sheet(title="Peta Risiko")
-    ws4.append(["Peta Risiko - Asesmen:", assessment.nama_asesmen])
-    ws4['A1'].font = bold_font
-    ws4.append(["Template:", template.name if template else "Tidak ada template"])
-    ws4.append([]) # Baris kosong
+    # --- Sheet 5: Peta Risiko (Sebelumnya ws4) ---
+    ws5 = wb.create_sheet(title="Peta Risiko") # Ganti nama dari ws4 ke ws5
+    ws5.append(["Peta Risiko - Asesmen:", assessment.nama_asesmen])
+    ws5['A1'].font = bold_font
+    ws5.append(["Template:", template.name if template else "Tidak ada template"])
+    ws5.append([])
 
-    # Persiapan data dari template
     likelihood_labels = {l.level: l.label for l in (template.likelihood_labels if template else [])}
     impact_labels = {i.level: i.label for i in (template.impact_labels if template else [])}
     scores_map = {(s.likelihood_level, s.impact_level): s.score for s in (template.scores if template else [])}
     levels_map = sorted(
         [
-            (lvl.min_score, lvl.max_score, lvl.color_hex.replace("#", "FF")) # Ambil warna tanpa #, tambahkan alpha FF
+            (lvl.min_score, lvl.max_score, lvl.color_hex.replace("#", "FF"))
             for lvl in (template.level_definitions if template else [])
         ],
-        key=lambda x: x[0] # Urutkan berdasarkan min_score
+        key=lambda x: x[0]
     )
 
     def get_color_for_score(score):
-        if score is None: return "FFFFFFFF" # Putih jika skor null
+        if score is None: return "FFFFFFFF"
         for min_s, max_s, color in levels_map:
             if min_s <= score <= max_s:
                 return color
-        return "FFFFFFFF" # Default putih jika di luar rentang
+        return "FFFFFFFF"
 
-    # Persiapan data posisi risk input
     inherent_positions = defaultdict(list)
     residual_positions = defaultdict(list)
     for i, risk in enumerate(risk_inputs):
         if risk.inherent_probabilitas and risk.inherent_dampak:
-            inherent_positions[(risk.inherent_probabilitas, risk.inherent_dampak)].append(str(i + 1)) # Simpan nomor urut (string)
+            inherent_positions[(risk.inherent_probabilitas, risk.inherent_dampak)].append(str(i + 1))
         if risk.residual_probabilitas and risk.residual_dampak:
-            residual_positions[(risk.residual_probabilitas, risk.residual_dampak)].append(str(i + 1)) # Simpan nomor urut (string)
+            residual_positions[(risk.residual_probabilitas, risk.residual_dampak)].append(str(i + 1))
 
-    # Fungsi untuk menggambar satu peta
     def draw_risk_map(start_row, title, positions_data):
-        ws4.merge_cells(start_row=start_row, start_column=2, end_row=start_row, end_column=6)
-        title_cell = ws4.cell(row=start_row, column=2, value=title)
+        ws5.merge_cells(start_row=start_row, start_column=2, end_row=start_row, end_column=6)
+        title_cell = ws5.cell(row=start_row, column=2, value=title)
         title_cell.font = bold_font
         title_cell.alignment = center_align
         start_row += 1
 
-        # Header Dampak
-        prob_label_cell = ws4.cell(row=start_row, column=2, value="PROBABILITAS") # Tulis di B<start_row>
+        prob_label_cell = ws5.cell(row=start_row, column=2, value="PROBABILITAS")
         prob_label_cell.alignment = Alignment(horizontal='center', vertical='center', text_rotation=90)
-        ws4.merge_cells(start_row=start_row, start_column=2, end_row=start_row + 4, end_column=2)
+        ws5.merge_cells(start_row=start_row, start_column=2, end_row=start_row + 4, end_column=2)
         
         for i in range(1, 6):
             col_idx = i + 2
-            ws4.cell(row=start_row, column=col_idx, value=impact_labels.get(i, f"Impact {i}")).alignment = center_align
-            ws4.cell(row=start_row + 6, column=col_idx, value=i).alignment = center_align # Angka 1-5 di bawah
+            ws5.cell(row=start_row, column=col_idx, value=impact_labels.get(i, f"Impact {i}")).alignment = center_align
+            ws5.cell(row=start_row + 6, column=col_idx, value=i).alignment = center_align
 
-        dampak_label_cell = ws4.cell(row=start_row+6, column=3, value="DAMPAK") # Tulis di C
+        dampak_label_cell = ws5.cell(row=start_row+6, column=3, value="DAMPAK")
         dampak_label_cell.alignment = center_align
-        ws4.merge_cells(start_row=start_row+6, start_column=3, end_row=start_row+6, end_column=7)
+        ws5.merge_cells(start_row=start_row+6, start_column=3, end_row=start_row+6, end_column=7)
 
-        # Matriks
-        for p in range(5, 0, -1): # Probabilitas 5 ke 1
+        for p in range(5, 0, -1):
             row_idx = start_row + (5 - p) + 1
-            cell_prob_row = ws4.cell(row=row_idx, column=1, value=f"{likelihood_labels.get(p, f'L {p}')}\n({p})") # Tulis di Kolom A
+            cell_prob_row = ws5.cell(row=row_idx, column=1, value=f"{likelihood_labels.get(p, f'L {p}')}\n({p})")
             cell_prob_row.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-            for i in range(1, 6): # Dampak 1 ke 5
+            for i in range(1, 6):
                 col_idx = i + 2
-                cell = ws4.cell(row=row_idx, column=col_idx)
-                score = scores_map.get((p, i), None) # Ambil skor dari template map
-                if score is None and template: # Fallback P*I jika skor tidak ada di template
+                cell = ws5.cell(row=row_idx, column=col_idx)
+                score = scores_map.get((p, i), None)
+                if score is None and template:
                     score = p * i
                 cell.value = score
                 fill_color = get_color_for_score(score)
@@ -700,21 +894,18 @@ def export_madya_assessment_to_excel(assessment_id):
                 cell.border = thin_border
                 cell.alignment = score_align
 
-                # Tambahkan nomor risk input
                 risk_numbers = positions_data.get((p, i), [])
                 if risk_numbers:
-                     # Gabungkan nomor dengan koma, tampilkan di tengah
-                     cell.value = f"{score}\n\n({', '.join(risk_numbers)})" # Skor di atas, nomor di bawah
-                     cell.alignment = risk_num_align # Tengah
-                     cell.font = risk_num_font # Font khusus untuk nomor
+                     cell.value = f"{score}\n\n({', '.join(risk_numbers)})"
+                     cell.alignment = risk_num_align
+                     cell.font = risk_num_font
 
-                ws4.row_dimensions[row_idx].height = 40 # Atur tinggi baris
-                ws4.column_dimensions[get_column_letter(col_idx)].width = 15 # Atur lebar kolom
+                ws5.row_dimensions[row_idx].height = 40
+                ws5.column_dimensions[get_column_letter(col_idx)].width = 15
                 
-        ws4.column_dimensions['A'].width = 25 # Untuk label probabilitas per baris
-        ws4.column_dimensions['B'].width = 5
+        ws5.column_dimensions['A'].width = 25
+        ws5.column_dimensions['B'].width = 5
 
-    # Gambar Peta Inheren
     draw_risk_map(start_row=4, title="PETA RISIKO INHEREN", positions_data=inherent_positions)
     draw_risk_map(start_row=15, title="PETA RISIKO RESIDUAL", positions_data=residual_positions)
 
@@ -726,7 +917,6 @@ def export_madya_assessment_to_excel(assessment_id):
     return send_file(
         in_memory_fp,
         as_attachment=True,
-        # Gunakan nama asesmen di nama file
         download_name=f"Asesmen_Madya_{assessment.nama_asesmen or assessment.id}.xlsx",
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )

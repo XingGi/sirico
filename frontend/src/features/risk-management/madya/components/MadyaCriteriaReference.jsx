@@ -208,7 +208,7 @@ const cellClassName = "align-middle text-center whitespace-normal border border-
 const headerClassName = "align-middle text-center whitespace-normal border border-slate-300";
 const columnStyle = "w-[220px]";
 
-function MadyaCriteriaReference() {
+function MadyaCriteriaReference({ readOnly = false }) {
   const [criteriaData, setCriteriaData] = useState(initialProbabilityData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -290,7 +290,7 @@ function MadyaCriteriaReference() {
                   <TableCell className={`font-semibold align-top ${criteriaStyles[`level${item.level}`]}`}>{item.level}</TableCell>
                   <TableCell className="align-top whitespace-normal max-w-xs">
                     <Text>{item.parameter}</Text>
-                    <Button size="xs" variant="light" icon={FiEdit} onClick={() => handleEditClick(item)} className="mt-2 -ml-2 p-1" />
+                    {!readOnly && <Button size="xs" variant="light" icon={FiEdit} onClick={() => handleEditClick(item)} className="mt-2 -ml-2 p-1" />}
                   </TableCell>
                   <TableCell className="align-top whitespace-normal max-w-xs">{item.kemungkinan}</TableCell>
                   <TableCell className="align-top whitespace-normal max-w-xs">{item.frekuensi}</TableCell>
@@ -434,7 +434,7 @@ function MadyaCriteriaReference() {
                     {/* Kuantitatif */}
                     <TableCell className={`${cellClassName} bg-white ${columnStyle}`}>
                       <Text className="text-center">{item.kriteriaDampak}</Text>
-                      <Button size="xs" variant="light" icon={FiEdit} onClick={() => handleImpactEditClick(item)} className="mt-2 mx-auto p-1" />
+                      {!readOnly && <Button size="xs" variant="light" icon={FiEdit} onClick={() => handleImpactEditClick(item)} className="mt-2 mx-auto p-1" />}
                     </TableCell>
                     <TableCell className={`${cellClassName} whitespace-pre-line ${columnStyle}`}>{item.rangeFinansial}</TableCell>
                     <TableCell className={`${cellClassName} ${columnStyle}`}>{item.deskripsiDampak1}</TableCell>
@@ -469,192 +469,197 @@ function MadyaCriteriaReference() {
         </div>
       </div>
 
-      {/* --- MODAL PROBABILITAS (Tidak Berubah) --- */}
-      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} static={true}>
-        <DialogPanel>
-          <Title as="h3">Edit Kriteria Probabilitas (Skala {formData.level})</Title>
-          <div className="mt-6 space-y-4">
-            <div>
-              <Text>Parameter</Text>
-              <TextInput name="parameter" value={formData.parameter} onChange={handleInputChange} className="mt-1" />
-            </div>
-            <div>
-              <Text>Kemungkinan terjadi</Text>
-              <Textarea name="kemungkinan" value={formData.kemungkinan} onChange={handleInputChange} className="mt-1" rows={3} />
-            </div>
-            <div>
-              <Text>Frekuensi kejadian</Text>
-              <Textarea name="frekuensi" value={formData.frekuensi} onChange={handleInputChange} className="mt-1" rows={3} />
-            </div>
-            <div>
-              <Text>Persentase</Text>
-              <Textarea name="persentase" value={formData.persentase} onChange={handleInputChange} className="mt-1" rows={3} />
-            </div>
-          </div>
-          <div className="mt-8 flex justify-end space-x-2">
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-              Batal
-            </Button>
-            <Button onClick={handleSave}>Simpan</Button>
-          </div>
-        </DialogPanel>
-      </Dialog>
+      {!readOnly && (
+        <>
+          {/* --- MODAL PROBABILITAS --- */}
+          <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} static={true}>
+            <DialogPanel>
+              <Title as="h3">Edit Kriteria Probabilitas (Skala {formData.level})</Title>
+              <div className="mt-6 space-y-4">
+                <div>
+                  <Text>Parameter</Text>
+                  <TextInput name="parameter" value={formData.parameter} onChange={handleInputChange} className="mt-1" />
+                </div>
+                <div>
+                  <Text>Kemungkinan terjadi</Text>
+                  <Textarea name="kemungkinan" value={formData.kemungkinan} onChange={handleInputChange} className="mt-1" rows={3} />
+                </div>
+                <div>
+                  <Text>Frekuensi kejadian</Text>
+                  <Textarea name="frekuensi" value={formData.frekuensi} onChange={handleInputChange} className="mt-1" rows={3} />
+                </div>
+                <div>
+                  <Text>Persentase</Text>
+                  <Textarea name="persentase" value={formData.persentase} onChange={handleInputChange} className="mt-1" rows={3} />
+                </div>
+              </div>
+              <div className="mt-8 flex justify-end space-x-2">
+                <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+                  Batal
+                </Button>
+                <Button onClick={handleSave}>Simpan</Button>
+              </div>
+            </DialogPanel>
+          </Dialog>
 
-      {/* --- MODAL DAMPAK (Label di-update agar sesuai) --- */}
-      <Dialog open={isImpactModalOpen} onClose={() => setIsImpactModalOpen(false)} static={true}>
-        {impactFormData && (
-          <DialogPanel className="max-w-5xl">
-            <Title as="h3">Edit Kriteria Dampak (Skala {impactFormData.level})</Title>
+          {/* --- MODAL DAMPAK --- */}
+          <Dialog open={isImpactModalOpen} onClose={() => setIsImpactModalOpen(false)} static={true}>
+            {impactFormData && (
+              <DialogPanel className="max-w-5xl">
+                <Title as="h3">Edit Kriteria Dampak (Skala {impactFormData.level})</Title>
 
-            <div className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto pr-4 pl-2 pb-2">
-              <Title as="h5" className="text-tremor-content-strong">
-                Kuantitatif
-              </Title>
-              <div>
-                <Text>Kriteria Dampak</Text>
-                <TextInput name="kriteriaDampak" value={impactFormData.kriteriaDampak} onChange={handleImpactInputChange} className="mt-1" />
-              </div>
-              <div>
-                <Text>Range Dampak Finansial</Text>
-                <Textarea name="rangeFinansial" value={impactFormData.rangeFinansial} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Deskripsi Dampak (Kuantitatif)</Text>
-                <Textarea name="deskripsiDampak1" value={impactFormData.deskripsiDampak1} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
+                <div className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto pr-4 pl-2 pb-2">
+                  <Title as="h5" className="text-tremor-content-strong">
+                    Kuantitatif
+                  </Title>
+                  <div>
+                    <Text>Kriteria Dampak</Text>
+                    <TextInput name="kriteriaDampak" value={impactFormData.kriteriaDampak} onChange={handleImpactInputChange} className="mt-1" />
+                  </div>
+                  <div>
+                    <Text>Range Dampak Finansial</Text>
+                    <Textarea name="rangeFinansial" value={impactFormData.rangeFinansial} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Deskripsi Dampak (Kuantitatif)</Text>
+                    <Textarea name="deskripsiDampak1" value={impactFormData.deskripsiDampak1} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
 
-              <hr />
-              <Title as="h5" className="text-tremor-content-strong">
-                Kualitatif
-              </Title>
-              <div>
-                <Text>Risiko Strategis - Dampak keterlambatan...</Text>
-                <Textarea name="stra_dampak" value={impactFormData.stra_dampak} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Risiko Hukum - Pelanggaran hukum</Text>
-                <Textarea name="hukum_pelanggaran" value={impactFormData.hukum_pelanggaran} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Risiko Kepatuhan - Pelanggaran ketentuan...</Text>
-                <Textarea name="kepat_pelanggaran" value={impactFormData.kepat_pelanggaran} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
+                  <hr />
+                  <Title as="h5" className="text-tremor-content-strong">
+                    Kualitatif
+                  </Title>
+                  <div>
+                    <Text>Risiko Strategis - Dampak keterlambatan...</Text>
+                    <Textarea name="stra_dampak" value={impactFormData.stra_dampak} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Risiko Hukum - Pelanggaran hukum</Text>
+                    <Textarea name="hukum_pelanggaran" value={impactFormData.hukum_pelanggaran} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Risiko Kepatuhan - Pelanggaran ketentuan...</Text>
+                    <Textarea name="kepat_pelanggaran" value={impactFormData.kepat_pelanggaran} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
 
-              <hr />
-              <Title as="h6" className="text-tremor-content-strong">
-                Kualitatif - Reputasi
-              </Title>
-              <div>
-                <Text>Keluhan pelanggan...</Text>
-                <Textarea name="reput_keluhan" value={impactFormData.reput_keluhan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Pemberitaan negatif...</Text>
-                <Textarea name="reput_berita" value={impactFormData.reput_berita} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Kehilangan daya saing</Text>
-                <Textarea name="reput_saing" value={impactFormData.reput_saing} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
+                  <hr />
+                  <Title as="h6" className="text-tremor-content-strong">
+                    Kualitatif - Reputasi
+                  </Title>
+                  <div>
+                    <Text>Keluhan pelanggan...</Text>
+                    <Textarea name="reput_keluhan" value={impactFormData.reput_keluhan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Pemberitaan negatif...</Text>
+                    <Textarea name="reput_berita" value={impactFormData.reput_berita} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Kehilangan daya saing</Text>
+                    <Textarea name="reput_saing" value={impactFormData.reput_saing} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
 
-              <hr />
-              <Title as="h6" className="text-tremor-content-strong">
-                Kualitatif - SDM
-              </Title>
-              <div>
-                <Text>Keluhan karyawan</Text>
-                <Textarea name="sdm_keluhan" value={impactFormData.sdm_keluhan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Turn over karyawan...</Text>
-                <Textarea name="sdm_turnover" value={impactFormData.sdm_turnover} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>regretted turnover</Text>
-                <Textarea name="sdm_regretted_turnover" value={impactFormData.sdm_regretted_turnover} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
+                  <hr />
+                  <Title as="h6" className="text-tremor-content-strong">
+                    Kualitatif - SDM
+                  </Title>
+                  <div>
+                    <Text>Keluhan karyawan</Text>
+                    <Textarea name="sdm_keluhan" value={impactFormData.sdm_keluhan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Turn over karyawan...</Text>
+                    <Textarea name="sdm_turnover" value={impactFormData.sdm_turnover} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>regretted turnover</Text>
+                    <Textarea name="sdm_regretted_turnover" value={impactFormData.sdm_regretted_turnover} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
 
-              <hr />
-              <Title as="h6" className="text-tremor-content-strong">
-                Kualitatif - Sistem & Operasional
-              </Title>
-              <div>
-                <Text>Gangguan aplikasi...</Text>
-                <Textarea name="sistem_gangguan" value={impactFormData.sistem_gangguan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Serangan siber</Text>
-                <Textarea name="sistem_siber" value={impactFormData.sistem_siber} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Hasil penilaian platform security</Text>
-                <Textarea name="sistem_platform" value={impactFormData.sistem_platform} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Pelampauan pemenuhan SLA...</Text>
-                <Textarea name="ops_sla" value={impactFormData.ops_sla} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
+                  <hr />
+                  <Title as="h6" className="text-tremor-content-strong">
+                    Kualitatif - Sistem & Operasional
+                  </Title>
+                  <div>
+                    <Text>Gangguan aplikasi...</Text>
+                    <Textarea name="sistem_gangguan" value={impactFormData.sistem_gangguan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Serangan siber</Text>
+                    <Textarea name="sistem_siber" value={impactFormData.sistem_siber} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Hasil penilaian platform security</Text>
+                    <Textarea name="sistem_platform" value={impactFormData.sistem_platform} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Pelampauan pemenuhan SLA...</Text>
+                    <Textarea name="ops_sla" value={impactFormData.ops_sla} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
 
-              <hr />
-              <Title as="h6" className="text-tremor-content-strong">
-                Kualitatif - HSSE & PMN
-              </Title>
-              <div>
-                <Text>HSSE - Kasus kematian jamak</Text>
-                <Textarea name="hsse_fatality_1" value={impactFormData.hsse_fatality_1} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>HSSE - Wabah ke lingkungan</Text>
-                <Textarea name="hsse_fatality_2" value={impactFormData.hsse_fatality_2} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>HSSE - Potensi menyebabkan banyak kematian...</Text>
-                <Textarea name="hsse_fatality_3" value={impactFormData.hsse_fatality_3} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>HSSE - Kerusakan Lingkungan</Text>
-                <Textarea name="hsse_kerusakan_lingkungan" value={impactFormData.hsse_kerusakan_lingkungan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>HSSE - Penurunan ESG rating...</Text>
-                <Textarea name="hsse_penurunan_esg" value={impactFormData.hsse_penurunan_esg} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>PMN - Penundaan pencairan PMN</Text>
-                <Textarea name="pmn_tunda" value={impactFormData.pmn_tunda} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
+                  <hr />
+                  <Title as="h6" className="text-tremor-content-strong">
+                    Kualitatif - HSSE & PMN
+                  </Title>
+                  <div>
+                    <Text>HSSE - Kasus kematian jamak</Text>
+                    <Textarea name="hsse_fatality_1" value={impactFormData.hsse_fatality_1} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>HSSE - Wabah ke lingkungan</Text>
+                    <Textarea name="hsse_fatality_2" value={impactFormData.hsse_fatality_2} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>HSSE - Potensi menyebabkan banyak kematian...</Text>
+                    <Textarea name="hsse_fatality_3" value={impactFormData.hsse_fatality_3} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>HSSE - Kerusakan Lingkungan</Text>
+                    <Textarea name="hsse_kerusakan_lingkungan" value={impactFormData.hsse_kerusakan_lingkungan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>HSSE - Penurunan ESG rating...</Text>
+                    <Textarea name="hsse_penurunan_esg" value={impactFormData.hsse_penurunan_esg} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>PMN - Penundaan pencairan PMN</Text>
+                    <Textarea name="pmn_tunda" value={impactFormData.pmn_tunda} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
 
-              <hr />
-              <Title as="h6" className="text-tremor-content-strong">
-                Kualitatif - Khusus Industri
-              </Title>
-              <div>
-                <Text>Bank - Total jumlah fraud internal dan eksternal</Text>
-                <Textarea name="bank_fraud" value={impactFormData.bank_fraud} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Asuransi - Instrumen pada Investment grade</Text>
-                <Textarea name="asuransi_aset_rating" value={impactFormData.asuransi_aset_rating} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Asuransi - atau Peringkat bank penerbit deposito</Text>
-                <Textarea name="asuransi_aset_peringkat" value={impactFormData.asuransi_aset_peringkat} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-              <div>
-                <Text>Aktuarial - Rasio Klaim</Text>
-                <Textarea name="aktu_rasio" value={impactFormData.aktu_rasio} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-              </div>
-            </div>
+                  <hr />
+                  <Title as="h6" className="text-tremor-content-strong">
+                    Kualitatif - Khusus Industri
+                  </Title>
+                  <div>
+                    <Text>Bank - Total jumlah fraud internal dan eksternal</Text>
+                    <Textarea name="bank_fraud" value={impactFormData.bank_fraud} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Asuransi - Instrumen pada Investment grade</Text>
+                    <Textarea name="asuransi_aset_rating" value={impactFormData.asuransi_aset_rating} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Asuransi - atau Peringkat bank penerbit deposito</Text>
+                    <Textarea name="asuransi_aset_peringkat" value={impactFormData.asuransi_aset_peringkat} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                  <div>
+                    <Text>Aktuarial - Rasio Klaim</Text>
+                    <Textarea name="aktu_rasio" value={impactFormData.aktu_rasio} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  </div>
+                </div>
 
-            <div className="mt-8 flex justify-end space-x-2">
-              <Button variant="secondary" onClick={() => setIsImpactModalOpen(false)}>
-                Batal
-              </Button>
-              <Button onClick={handleImpactSave}>Simpan</Button>
-            </div>
-          </DialogPanel>
-        )}
-      </Dialog>
+                <div className="mt-8 flex justify-end space-x-2">
+                  <Button variant="secondary" onClick={() => setIsImpactModalOpen(false)}>
+                    Batal
+                  </Button>
+                  <Button onClick={handleImpactSave}>Simpan</Button>
+                </div>
+              </DialogPanel>
+            )}
+          </Dialog>
+        </>
+      )}
+      {/* --- AKHIR PERUBAHAN 4 --- */}
     </div>
   );
 }
