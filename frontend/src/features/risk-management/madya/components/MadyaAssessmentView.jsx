@@ -121,7 +121,7 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
         <Title as="h3">2. Kriteria Risiko</Title>
         <Text>Acuan kriteria probabilitas dan dampak yang digunakan.</Text>
         <div className="mt-4">
-          <MadyaCriteriaReference readOnly={true} />
+          <MadyaCriteriaReference probabilityCriteria={assessmentData?.probability_criteria || []} impactCriteria={assessmentData?.impact_criteria || []} readOnly={true} />
         </div>
       </Card>
 

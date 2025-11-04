@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, Title, Text, TextInput, Select, SelectItem, Button, Switch, Grid } from "@tremor/react";
-import { FiPlus, FiGrid, FiList, FiSearch } from "react-icons/fi"; // Tambahkan FiList
+import { FiPlus, FiGrid, FiList, FiSearch, FiTrash2, FiAlertTriangle, FiLoader } from "react-icons/fi";
 import apiClient from "../../api/api";
 import AssessmentItem from "./components/AssessmentItem";
+import NotificationModal from "../../components/common/NotificationModal";
+import ConfirmationDialog from "../../components/common/ConfirmationDialog";
 
 // --- FUNGSI HELPER BARU (diambil dari RiskSummary.jsx) ---
 const getLevelKeyByScore = (score) => {
@@ -28,27 +30,57 @@ function AssessmentListPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [industryOptions, setIndustryOptions] = useState([]);
   const [selectedIndustry, setSelectedIndustry] = useState("all");
+  const [userLimits, setUserLimits] = useState(null);
+  const [limitModal, setLimitModal] = useState({ isOpen: false, message: "" });
   const [selectedAssessments, setSelectedAssessments] = useState([]);
 
   // --- STATE BARU UNTUK FILTER & VIEW ---
   const [selectedRiskLevel, setSelectedRiskLevel] = useState("all");
-  const [viewMode, setViewMode] = useState("list"); // 'list' atau 'grid'
+  const [viewMode, setViewMode] = useState("list");
+
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    isBulk: false,
+    assessmentId: null,
+    assessmentName: "",
+    count: 0,
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchAssessmentsAndLimits = async () => {
+    // Kita set isLoading di sini agar bisa dipanggil untuk refresh
+    setIsLoading(true);
+    try {
+      const [assessmentRes, industryRes, limitsRes] = await Promise.all([apiClient.get("/assessments"), apiClient.get("/master-data?category=INDUSTRY"), apiClient.get("/account/details")]);
+      setAssessments(assessmentRes.data);
+      setIndustryOptions(industryRes.data);
+      setUserLimits(limitsRes.data.assessment_limits);
+    } catch (error) {
+      console.error("Gagal memuat data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // ... (useEffect untuk fetch data tidak berubah)
-    const fetchData = async () => {
-      try {
-        const [assessmentRes, industryRes] = await Promise.all([apiClient.get("/assessments"), apiClient.get("/master-data?category=INDUSTRY")]);
-        setAssessments(assessmentRes.data);
-        setIndustryOptions(industryRes.data);
-      } catch (error) {
-        console.error("Gagal memuat data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
+    fetchAssessmentsAndLimits();
   }, []);
+
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     try {
+  //       const [assessmentRes, industryRes, limitsRes] = await Promise.all([apiClient.get("/assessments"), apiClient.get("/master-data?category=INDUSTRY"), apiClient.get("/account/details")]);
+  //       setAssessments(assessmentRes.data);
+  //       setIndustryOptions(industryRes.data);
+  //       setUserLimits(limitsRes.data.assessment_limits);
+  //     } catch (error) {
+  //       console.error("Gagal memuat data:", error);
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
+  //   fetchData();
+  // }, []);
 
   // --- LOGIKA FILTER DIPERBARUI ---
   const filteredAssessments = useMemo(() => {
@@ -79,6 +111,78 @@ function AssessmentListPage() {
     }
   };
   const isAllSelected = filteredAssessments.length > 0 && selectedAssessments.length === filteredAssessments.length;
+
+  const handleNewAssessmentClick = () => {
+    if (!userLimits) {
+      alert("Sedang memuat data limit, silakan coba lagi sesaat.");
+      return;
+    }
+
+    const currentCount = assessments.length;
+    const limit = userLimits.ai?.limit;
+
+    if (limit !== null && currentCount >= limit) {
+      setLimitModal({
+        isOpen: true,
+        message: `Batas pembuatan Asesmen AI Anda telah tercapai (${currentCount}/${limit}). Hubungi admin untuk menambah kuota.`,
+      });
+    } else {
+      navigate("/risk-ai/assessment-studio");
+    }
+  };
+
+  const openSingleDeleteConfirm = (id, name) => {
+    setDeleteConfirm({ isOpen: true, isBulk: false, assessmentId: id, assessmentName: name, count: 1 });
+  };
+
+  const openBulkDeleteConfirm = () => {
+    setDeleteConfirm({
+      isOpen: true,
+      isBulk: true,
+      assessmentId: null,
+      assessmentName: "",
+      count: selectedAssessments.length,
+    });
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirm({ isOpen: false, assessmentId: null, assessmentName: "" });
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+
+    if (deleteConfirm.isBulk) {
+      try {
+        const response = await apiClient.post("/assessments/bulk-delete", {
+          risk_ids: selectedAssessments,
+        });
+        alert(response.data.msg || "Asesmen terpilih berhasil dihapus.");
+        closeDeleteConfirm();
+        setSelectedAssessments([]); // <-- Kosongkan pilihan
+        fetchAssessmentsAndLimits(); // <-- Refresh data
+      } catch (error) {
+        console.error("Gagal bulk delete:", error);
+        alert(error.response?.data?.msg || "Gagal menghapus asesmen.");
+      }
+    } else {
+      if (!deleteConfirm.assessmentId) {
+        setIsDeleting(false);
+        return;
+      }
+      try {
+        const response = await apiClient.delete(`/assessments/${deleteConfirm.assessmentId}`);
+        alert(response.data.msg || "Asesmen berhasil dihapus.");
+        closeDeleteConfirm();
+        fetchAssessmentsAndLimits();
+      } catch (error) {
+        console.error("Gagal menghapus asesmen:", error);
+        alert(error.response?.data?.msg || "Gagal menghapus asesmen.");
+      }
+    }
+
+    setIsDeleting(false);
+  };
 
   return (
     <div className="p-6 sm:p-10">
@@ -113,11 +217,27 @@ function AssessmentListPage() {
       <div className="mt-6 flex justify-between items-center">
         <div>
           <Title as="h3">All Risk Assessments</Title>
-          <div className="flex items-center gap-2 mt-2">
-            <Switch id="selectAll" checked={isAllSelected} onChange={handleSelectAll} />
-            <label htmlFor="selectAll" className="text-sm text-tremor-content">
-              Select All ({selectedAssessments.length})
-            </label>
+          <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center space-x-2">
+              <Switch id="selectAll" checked={isAllSelected} onChange={handleSelectAll} />
+              <label htmlFor="selectAll" className="text-sm cursor-pointer">
+                Select All ({selectedAssessments.length})
+              </label>
+            </div>
+
+            {selectedAssessments.length > 0 && (
+              <Button
+                icon={FiTrash2}
+                color="rose"
+                variant="light"
+                size="xs"
+                onClick={openBulkDeleteConfirm} // <-- Panggil handler baru
+                loading={isDeleting && deleteConfirm.isBulk} // <-- Loading jika bulk
+                disabled={isDeleting}
+              >
+                Delete Selected ({selectedAssessments.length})
+              </Button>
+            )}
           </div>
           <Text className="mt-1">
             Showing {filteredAssessments.length} of {assessments.length} assessments
@@ -126,7 +246,7 @@ function AssessmentListPage() {
         <div className="flex items-center gap-2">
           {/* Tombol View Toggle */}
           <Button icon={viewMode === "list" ? FiGrid : FiList} variant="light" onClick={() => setViewMode((prev) => (prev === "list" ? "grid" : "list"))} />
-          <Button icon={FiPlus} onClick={() => navigate("/risk-ai/assessment-studio")}>
+          <Button icon={FiPlus} onClick={handleNewAssessmentClick} disabled={isLoading || !userLimits}>
             New Assessment
           </Button>
         </div>
@@ -148,7 +268,9 @@ function AssessmentListPage() {
                 assessment={assessment}
                 isSelected={selectedAssessments.includes(assessment.id)}
                 onSelect={handleSelect}
-                industryName={industryName} // Kirim nama lengkap sebagai prop
+                industryName={industryName}
+                onDelete={() => openSingleDeleteConfirm(assessment.id, assessment.nama_asesmen)}
+                isDeleting={isDeleting && !deleteConfirm.isBulk && deleteConfirm.assessmentId === assessment.id}
               />
             );
           })
@@ -158,6 +280,20 @@ function AssessmentListPage() {
           </Card>
         )}
       </div>
+      <NotificationModal isOpen={limitModal.isOpen} onClose={() => setLimitModal({ isOpen: false, message: "" })} title="Batas Kuota Tercapai" message={limitModal.message} />
+      <ConfirmationDialog
+        isOpen={deleteConfirm.isOpen}
+        onClose={closeDeleteConfirm}
+        onConfirm={handleConfirmDelete}
+        // Judul dan pesan dinamis berdasarkan mode (bulk atau single)
+        title={deleteConfirm.isBulk ? "Konfirmasi Hapus Massal" : "Konfirmasi Hapus Asesmen"}
+        message={
+          deleteConfirm.isBulk
+            ? `Apakah Anda yakin ingin menghapus ${deleteConfirm.count} asesmen terpilih? Tindakan ini tidak dapat dibatalkan.`
+            : `Apakah Anda yakin ingin menghapus asesmen "${deleteConfirm.assessmentName}"? Semua data risiko di dalamnya akan ikut terhapus.`
+        }
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

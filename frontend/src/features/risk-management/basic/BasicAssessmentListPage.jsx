@@ -6,6 +6,7 @@ import { Card, Title, Text, Button, Dialog, DialogPanel, Table, TableHead, Table
 import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle, FiDownload, FiMaximize, FiMinimize, FiGrid, FiList, FiLoader, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import BasicAssessmentView from "./components/BasicAssessmentView";
+import NotificationModal from "../../../components/common/NotificationModal";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return "Rp 0";
@@ -53,6 +54,8 @@ function BasicAssessmentListPage() {
     assessmentName: "",
   });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [userLimits, setUserLimits] = useState(null);
+  const [limitModal, setLimitModal] = useState({ isOpen: false, message: "" });
 
   const fetchAssessments = () => {
     setIsLoading(true); // Set loading ON setiap kali fetch
@@ -64,7 +67,20 @@ function BasicAssessmentListPage() {
   };
 
   useEffect(() => {
-    fetchAssessments(); // Panggil fungsi fetch
+    setIsLoading(true);
+    fetchAssessments();
+
+    apiClient
+      .get("/account/details")
+      .then((response) => {
+        setUserLimits(response.data.assessment_limits);
+      })
+      .catch((err) => {
+        console.error("Gagal memuat limit user:", err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
 
     const handleFullscreenChange = () => {
       setIsViewFullscreen(!!document.fullscreenElement);
@@ -155,6 +171,27 @@ function BasicAssessmentListPage() {
     }
   };
 
+  const handleNewAssessmentClick = () => {
+    // Cek apakah limits sudah dimuat
+    if (!userLimits) {
+      alert("Sedang memuat data limit, silakan coba lagi sesaat.");
+      return;
+    }
+
+    const currentCount = assessments.length;
+    const limit = userLimits.dasar?.limit;
+
+    // Cek jika limit ada (bukan null) dan count sudah melebihi/sama dengan limit
+    if (limit !== null && currentCount >= limit) {
+      setLimitModal({
+        isOpen: true,
+        message: `Batas pembuatan Asesmen Dasar Anda telah tercapai (${currentCount}/${limit}). Hubungi admin untuk menambah kuota.`,
+      });
+    } else {
+      navigate("/risk-management/dasar/new");
+    }
+  };
+
   return (
     <>
       <div className="p-6 sm:p-10">
@@ -165,7 +202,7 @@ function BasicAssessmentListPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button icon={viewMode === "list" ? FiGrid : FiList} variant="light" onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} aria-label={viewMode === "list" ? "Switch to grid view" : "Switch to list view"} />
-            <Button icon={FiPlus} onClick={() => navigate("/risk-management/dasar/new")}>
+            <Button icon={FiPlus} onClick={handleNewAssessmentClick} disabled={isLoading || !userLimits}>
               New Assessment
             </Button>
           </div>
@@ -357,6 +394,7 @@ function BasicAssessmentListPage() {
         // Tambahkan prop loading jika komponen ConfirmationDialog mendukungnya
         // isLoading={isDeleting} // Uncomment jika komponennya dimodifikasi
       />
+      <NotificationModal isOpen={limitModal.isOpen} onClose={() => setLimitModal({ isOpen: false, message: "" })} title="Batas Kuota Tercapai" message={limitModal.message} />
     </>
   );
 }

@@ -5,6 +5,7 @@ from flask import request, jsonify, Blueprint
 from app.models import db, User, RiskAssessment, RiskRegister, MainRiskRegister
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
+from sqlalchemy import func
 from app.ai_services import analyze_assessment_with_gemini, generate_detailed_risk_analysis_with_gemini
 
 # Membuat Blueprint untuk fitur Risk Management AI
@@ -143,6 +144,78 @@ def get_assessment_details(assessment_id):
         "ai_implementation_plan": safe_json_loads(assessment.ai_implementation_plan),
         "ai_next_steps": assessment.ai_next_steps,
     })
+
+@risk_ai_bp.route('/assessments/<int:assessment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_assessment(assessment_id):
+    """Menghapus Risk Assessment AI beserta semua data terkaitnya."""
+    current_user_id = get_jwt_identity()
+    
+    # Cari asesmen milik user
+    assessment = RiskAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404(
+        "Asesmen tidak ditemukan atau bukan milik Anda."
+    )
+    
+    try:
+        MainRiskRegister.query.filter_by(
+            source_assessment_id=assessment_id, 
+            user_id=current_user_id
+        ).update({"source_assessment_id": None}, synchronize_session=False)
+        
+        db.session.delete(assessment)
+        db.session.commit()
+        
+        return jsonify({"msg": f"Asesmen '{assessment.nama_asesmen}' dan semua risiko terkait berhasil dihapus."}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting assessment {assessment_id}: {e}")
+        return jsonify({"msg": "Gagal menghapus asesmen. Terjadi kesalahan internal."}), 500
+    
+@risk_ai_bp.route('/assessments/bulk-delete', methods=['POST'])
+@jwt_required()
+def bulk_delete_assessments():
+    """Menghapus beberapa Risk Assessment AI berdasarkan daftar ID."""
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    requested_ids = data.get('risk_ids') # Harapannya ini adalah array [1, 2, 3]
+
+    if not requested_ids or not isinstance(requested_ids, list):
+        return jsonify({"msg": "Data 'risk_ids' (berupa array) wajib diisi."}), 400
+
+    try:
+        valid_assessments_to_delete = RiskAssessment.query.with_entities(RiskAssessment.id).filter(
+            RiskAssessment.id.in_(requested_ids),
+            RiskAssessment.user_id == current_user_id
+        ).all()
+        
+        valid_ids = [a_id[0] for a_id in valid_assessments_to_delete]
+        num_deleted = len(valid_ids)
+        
+        if num_deleted == 0:
+             return jsonify({"msg": "Tidak ada asesmen yang ditemukan atau Anda tidak punya izin untuk menghapusnya."}), 404
+
+        MainRiskRegister.query.filter(
+            MainRiskRegister.source_assessment_id.in_(valid_ids),
+            MainRiskRegister.user_id == current_user_id
+        ).update({"source_assessment_id": None}, synchronize_session=False)
+        
+        RiskRegister.query.filter(
+            RiskRegister.assessment_id.in_(valid_ids)
+        ).delete(synchronize_session=False)
+
+        RiskAssessment.query.filter(
+            RiskAssessment.id.in_(valid_ids)
+        ).delete(synchronize_session=False)
+        
+        db.session.commit()
+        
+        return jsonify({"msg": f"{num_deleted} asesmen berhasil dihapus."}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error during bulk delete assessments: {e}") 
+        return jsonify({"msg": "Gagal menghapus asesmen. Terjadi kesalahan internal pada database."}), 500
     
 # === ENDPOINT BARU UNTUK ANALISIS AI ===
 @risk_ai_bp.route('/assessments/analyze', methods=['POST'])
@@ -150,6 +223,20 @@ def get_assessment_details(assessment_id):
 def analyze_assessment():
     current_user_id = get_jwt_identity()
     form_data = request.get_json()
+    
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+        
+    # Cek jika limit AI di-set (bukan None)
+    if user.limit_ai is not None:
+        # Hitung jumlah asesmen AI yang sudah dibuat user
+        current_ai_count = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+        
+        if current_ai_count >= user.limit_ai:
+            return jsonify({
+                "msg": f"Batas pembuatan Asesmen AI Anda telah tercapai ({current_ai_count}/{user.limit_ai}). Hubungi admin untuk menambah kuota."
+            }), 403 #
 
     # --- Validasi Input ---
     if not form_data or not form_data.get('nama_asesmen'):
@@ -198,10 +285,15 @@ def analyze_assessment():
             
             risk_type_prefix = risk.get('risk_type', 'XX').upper()
             kode_risiko_unik = f"A{assessment_id}-{risk_type_prefix}{str(i+1).zfill(2)}"
+            
+            generated_title = risk.get('title')
+            if not generated_title or generated_title.strip() == "":
+                deskripsi = risk.get('deskripsi_risiko', 'Risiko Tanpa Judul')
+                generated_title = ' '.join(deskripsi.split()[:7]) + '...'
 
             new_risk_entry = RiskRegister(
                 kode_risiko=kode_risiko_unik,
-                title=risk.get('title'),
+                title=generated_title,
                 objective=risk.get('objective'),
                 risk_type=risk.get('risk_type'),
                 deskripsi_risiko=risk.get('deskripsi_risiko'),

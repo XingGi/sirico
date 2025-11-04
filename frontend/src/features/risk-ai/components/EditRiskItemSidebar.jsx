@@ -53,7 +53,7 @@ function EditRiskItemSidebar({ risk, isOpen, onClose, onSave }) {
 
   const handleSave = async () => {
     try {
-      await apiClient.put(`/risks/${editedRisk.id}`, editedRisk);
+      // await apiClient.put(`/risks/${editedRisk.id}`, editedRisk);
       onSave(editedRisk);
       onClose();
     } catch (error) {
@@ -81,6 +81,10 @@ function EditRiskItemSidebar({ risk, isOpen, onClose, onSave }) {
           <div>
             <h3 className="font-semibold text-lg mb-2 text-gray-700">Basic Information</h3>
             <div className="space-y-4 p-4 border rounded-lg">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Title *</label>
+                <TextInput name="title" value={editedRisk.title || ""} onChange={handleChange} required placeholder="Judul singkat risiko (maks 5 kata)" className="mt-1" />
+              </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Objective</label>
                 <Textarea name="objective" value={editedRisk.objective || ""} onChange={handleChange} rows={3} />

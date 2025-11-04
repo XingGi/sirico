@@ -7,7 +7,7 @@ from flask import request, jsonify, Blueprint, send_file, current_app
 from app.models import (
     db, BasicAssessment, OrganizationalContext, 
     BasicRiskIdentification, BasicRiskAnalysis, RiskMapTemplate, RiskMapLikelihoodLabel, 
-    RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry, SasaranOrganisasiKPI, RiskInputMadya, basic_assessment_contexts
+    RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, MadyaAssessment, OrganizationalStructureEntry, SasaranOrganisasiKPI, RiskInputMadya, basic_assessment_contexts, MadyaCriteriaProbability, MadyaCriteriaImpact, User
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
@@ -18,6 +18,27 @@ from openpyxl.drawing.image import Image
 from openpyxl.utils import get_column_letter
 from collections import defaultdict
 
+DEFAULT_PROBABILITY_CRITERIA = [
+  { "level": 5, "parameter": "Hampir Pasti Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 1 bulan", "frekuensi": "> 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 80% sampai dengan 100%" },
+  { "level": 4, "parameter": "Sangat Mungkin Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 2 bulan", "frekuensi": "Diatas 5 s/d 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 60% sampai dengan 80%" },
+  { "level": 3, "parameter": "Bisa Terjadi", "kemungkinan": "Risiko pernah terjadi namun tidak sering, sekali dalam 4 bulan", "frekuensi": "Diatas 1% s/d 5% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 40% sampai dengan 60%" },
+  { "level": 2, "parameter": "Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi hanya sekali dalam 6 bulan", "frekuensi": "Dari 1 permil s/d 1% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko dari 20% sampai dengan 40%" },
+  { "level": 1, "parameter": "Sangat Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi sangat jarang, paling banyak satu kali dalam setahun", "frekuensi": "< 1 permil dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko lebih kecil dari 20%" },
+]
+
+# (Saya singkat data dampak defaultnya, tapi Anda harus memasukkan SEMUA field)
+DEFAULT_IMPACT_CRITERIA = [
+  { "level": 5, "kriteriaDampak": "Sangat Tinggi", "rangeFinansial": "X > 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak katastrofe yang dapat mengakibatkan kerusakan/ kerugian/ penurunan > 80% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda lebih dari 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat selanjutnya.", "kepat_pelanggaran": "Regulator memberlaku-kan sanksi signifikan (misalkan delisting saham, tidak diperkenan-kan mengikuti kliring, menarik produk yang beredar, dan lain-lain)", "reput_keluhan": "Keluhan yang menyebar ke skala nasional / internasional dan / atau diajukan secara kolektif yang diselesaikan melebihi 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_berita": "Publikasi negatif mencapai skala internasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_saing": "Penurunan pangsa pasar lebih dari 20%", "sdm_keluhan": "Demonstrasi terkoordinasi, terjadinya kematian karyawan saat kerja", "sdm_turnover": "Turn over pegawai bertalenta >15% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta >15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama lebih dari 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu lebih dari 500 kali", "sistem_platform": "X ≤ 60%", "ops_sla": ">20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian jamak", "hsse_fatality_2": "Wabah ke lingkungan", "hsse_fatality_3": "Potensi menyebabkan banyak kematian misalnya bahan kimia beracun berbahaya", "hsse_kerusakan_lingkungan": "Sangat serius kerusakan jangka panjang (>5 tahun) dan fungsi ekosistem", "hsse_penurunan_esg": "X < 60% atau memperoleh rating '40+ (severe)'", "pmn_tunda": "Tertunda > 4 bulan dari target RKAP", "bank_fraud": "X > 1.400", "asuransi_aset_rating": "Instrumen pada Investment grade < 70%", "asuransi_aset_peringkat": "atau Peringkat di bawah BBB (yang setara atau tidak diperingkat)", "aktu_rasio": "Rasio klaim > 100%" },
+  # SKALA 4
+  { "level": 4, "kriteriaDampak": "Tinggi", "rangeFinansial": "60% < X ≤ 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak signifikan yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 60% - 80% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 6 s/d 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat pertama.", "kepat_pelanggaran": "Regulator memberlaku-kan pembatasan dan / atau pembekuan terhadap aktivitas operasional / produk / jasa tertentu.", "reput_keluhan": "Terdapat keluhan pelanggan/ nasabah/ pembeli/ supplier yang signifikan dan dipublikasikan di media massa nasional/ internasional", "reput_berita": "Pemberitaan negatif di media massa nasional dan media sosial yang signifikan, menjadi isu utama, dan mudah ditangani", "reput_saing": "Kehilangan daya saing signifikan yang ditunjukkan dengan penurunan pangsa pasar 5% - 10%", "sdm_keluhan": "Terdapat keluhan karyawan yang menimbulkan gangguan operasional ringan di satu unit", "sdm_turnover": "Turn over karyawan bertalenta (regretted turnover) 5% - 7%", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama 2 s/d 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 200-500 kali", "sistem_platform": "70% ≥ X > 60%", "ops_sla": "Antara 10% s/d 20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian tunggal / Cacat tetap / Ketidakhadir-an kerja yang lama", "hsse_fatality_2": "Efek ireversibel yang menyebabkan kematian", "hsse_fatality_3": "[Data L4F3]", "hsse_kerusakan_lingkungan": "Efek lingkungan jangka menengah (3-5 tahun) yang serius", "hsse_penurunan_esg": "70% ≥ X > 60% atau memperoleh rating '30-40 (high)'", "pmn_tunda": "Tertunda 3 bulan dari target RKAP", "bank_fraud": "1.201 < X ≤ 1.400", "asuransi_aset_rating": "70% ≤ Instrumen pada Investment grade < 80%", "asuransi_aset_peringkat": "atau Peringkat BBB (yang setara)", "aktu_rasio": "90% < Rasio klaim ≤ 100%" },
+  # SKALA 3
+  { "level": 3, "kriteriaDampak": "Sedang", "rangeFinansial": "40% < X ≤ 60%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sedang yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% - 60% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 3 s/d 6 bulan", "hukum_pelanggaran": "Perusahaan mendapat tuntutan hukum.", "kepat_pelanggaran": "Peringatan tertulis / formal, terkena denda.", "reput_keluhan": "Terdapat keluhan pelanggan/ nasabah/ pembeli/ supplier yang cukup signifikan dan dipublikasikan di media massa lokal", "reput_berita": "Pemberitaan negatif di media massa lokal dan media sosial yang cukup signifikan, namun tidak menjadi isu utama", "reput_saing": "Kehilangan daya saing cukup signifikan yang ditunjukkan dengan penurunan pangsa pasar 1% - 5%", "sdm_keluhan": "Terdapat keluhan karyawan yang memerlukan eskalasi luas (sampai tingkat Direksi) untuk penyelesaian", "sdm_turnover": "Turn over karyawan bertalenta (regretted turnover) 3% - 5%", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama < 1 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 100-199 kali", "sistem_platform": "80 % ≥ X > 70%", "ops_sla": "Antara 2,5% s/d 10% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Cacat tidak tetap / Ketidakhadir-an kerja yang terbatas", "hsse_fatality_2": "Efek ireversibel tanpa kehilangan nyawa tetapi dengan cacat serius dan rawat inap berkepanjangan", "hsse_fatality_3": "[Data L3F3]", "hsse_kerusakan_lingkungan": "Efek jangka pendek (1-2 tahun) tetapi tidak mempengaruhi fungsi ekosistem", "hsse_penurunan_esg": "80 % ≥ X > 70% atau memperoleh rating '20-30 (medium)'", "pmn_tunda": "Tertunda 2 bulan dari target RKAP", "bank_fraud": "1.001 < X ≤ 1.200", "asuransi_aset_rating": "80% ≤ Instrumen pada Investment grade < 90%", "asuransi_aset_peringkat": "atau Peringkat A (yang setara)", "aktu_rasio": "82,5% < Rasio klaim ≤ 90%" },
+  # SKALA 2
+  { "level": 2, "kriteriaDampak": "Kecil", "rangeFinansial": "20% < X ≤ 40%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak kecil yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 20% - 40% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda antara 2 - 3 bulan ", "hukum_pelanggaran": "Perusahaan mendapat somasi.", "kepat_pelanggaran": "Diminta bertemu dengan pihak Regulator (misalkan OJK, Bank Indonesia, IDX, Kementerian terkait, Dirjen Pajak, dan lain-lain)", "reput_keluhan": "Terdapat keluhan pelanggan/ nasabah/ pembeli/ supplier yang tidak signifikan dan tidak dipublikasikan di media massa", "reput_berita": "Pemberitaan negatif yg terisolasi di wilayah sektoral melalui media konvensional (misalkan Radio lokal, TV lokal, Surat Kabar daerah)", "reput_saing": "Kehilangan daya saing tidak signifikan yang ditunjukkan dengan penurunan pangsa pasar < 1%", "sdm_keluhan": "Terdapat keluhan karyawan yang memerlukan eskalasi terbatas (sampai tingkat unit SDM) untuk penyelesaian", "sdm_turnover": "Turn over karyawan bertalenta (regretted turnover) 1% - 3%", "sdm_regretted_turnover": "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun", "sistem_gangguan": "Aplikasi dan Infrastruktur pendukung yang kurang penting tidak berfungsi selama lebih dari 1 hari s/d 3 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 50-99 kali", "sistem_platform": "90% ≥ X > 80%", "ops_sla": "Dari 1% s/d 2,5% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Perawatan Medis", "hsse_fatality_2": "Efek kesehatan minor dan reversibel (tanpa rawat inap)", "hsse_fatality_3": "[Data L2F3]", "hsse_kerusakan_lingkungan": "Efek minor pada lingkungan biologis atau fisik", "hsse_penurunan_esg": "90% ≥ X > 80% atau memperoleh rating '10-20 (low)'", "pmn_tunda": "Tertunda 1 bulan dari target RKAP", "bank_fraud": "800 ≤ X ≤ 1.000", "asuransi_aset_rating": "90% ≤ Instrumen pada Investment grade < 100%", "asuransi_aset_peringkat": "atau Peringkat AA (yang setara)", "aktu_rasio": "75% < Rasio klaim ≤ 82,5%" },
+  # SKALA 1
+  { "level": 1, "kriteriaDampak": "Sangat Kecil", "rangeFinansial": "X ≤ 20%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sangat rendah yang dapat mengakibatkan kerusakan/ kerugian/ penurunan kurang dari 20% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter target strategis yang harus selesai pada tahun ini tertunda kurang dari 1 bulan", "hukum_pelanggaran": "Tidak ada somasi/ tuntutan hukum", "kepat_pelanggaran": "Teguran informal / verbal.", "reput_keluhan": "Tidak ada keluhan pelanggan/ nasabah/ pembeli/ supplier", "reput_berita": "Publikasi negatif yg terisolasi dan dapat ditangani dalam 1 hari kerja", "reput_saing": "Penurunan pangsa pasar sampai dengan 5%", "sdm_keluhan": "Terdapat keluhan karyawan yang disalurkan sampai tingkat SP Unit namun dapat diisolir dan diselesaikan oleh Pemimpin Unit", "sdm_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sistem_gangguan": "Aplikasi & Infrastruktur pendukung yang kurang penting tidak berfungsi selama 1 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu di bawah 50 kali", "sistem_platform": "X > 90%", "ops_sla": "<1% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Pertolongan Pertama", "hsse_fatality_2": "Tidak berpengaruh pada Kinerja Kerja", "hsse_fatality_3": "[Data L1F3]", "hsse_kerusakan_lingkungan": "Kerusakan terbatas pada area minimal dengan signifikansi rendah", "hsse_penurunan_esg": "X > 90% atau memperoleh rating '0-10 (negligible)'", "pmn_tunda": "Diterima tepat waktu sesuai dengan RKAP", "bank_fraud": "X < 800", "asuransi_aset_rating": "Instrumen pada investment grade 100%,", "asuransi_aset_peringkat": "atau Peringkat AAA (yang setara)", "aktu_rasio": "Rasio klaim ≤ 75%" }
+]
+
 # Membuat Blueprint untuk Risk Management Levels
 risk_management_levels_bp = Blueprint('risk_management_levels_bp', __name__)
 
@@ -27,6 +48,18 @@ def create_basic_assessment():
     """Endpoint untuk membuat Asesmen Dasar baru beserta konteks dan risikonya."""
     current_user_id = get_jwt_identity()
     data = request.get_json()
+    
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+        
+    if user.limit_dasar is not None:
+        current_dasar_count = db.session.query(func.count(BasicAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+        
+        if current_dasar_count >= user.limit_dasar:
+            return jsonify({
+                "msg": f"Batas pembuatan Asesmen Dasar Anda telah tercapai ({current_dasar_count}/{user.limit_dasar}). Hubungi admin untuk menambah kuota."
+            }), 403
 
     if not data or not data.get('nama_unit_kerja') or not data.get('nama_perusahaan'):
         return jsonify({"msg": "Nama Unit Kerja dan Nama Perusahaan wajib diisi."}), 400
@@ -511,22 +544,68 @@ def export_madya_assessment_to_excel(assessment_id):
     ws1.column_dimensions['E'].width = 30
     
     # --- Sheet 2: Kriteria Risiko ---
+    # probability_data = [
+    #     {"level": 5, "parameter": "Hampir Pasti Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 1 bulan", "frekuensi": "> 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 80% sampai dengan 100%"},
+    #     {"level": 4, "parameter": "Sangat Mungkin Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 2 bulan", "frekuensi": "Diatas 5 s/d 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 60% sampai dengan 80%"},
+    #     {"level": 3, "parameter": "Bisa Terjadi", "kemungkinan": "Risiko pernah terjadi namun tidak sering, sekali dalam 4 bulan", "frekuensi": "Diatas 1% s/d 5% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 40% sampai dengan 60%"},
+    #     {"level": 2, "parameter": "Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi hanya sekali dalam 6 bulan", "frekuensi": "Dari 1 permil s/d 1% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko dari 20% sampai dengan 40%"},
+    #     {"level": 1, "parameter": "Sangat Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi sangat jarang, paling banyak satu kali dalam setahun", "frekuensi": "< 1 permil dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko lebih kecil dari 20%"},
+    # ]
+    # impact_data = [
+    #     {"level": 5, "kriteriaDampak": "Sangat Tinggi", "rangeFinansial": "X > 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak katastrofe yang dapat mengakibatkan kerusakan/ kerugian/ penurunan > 80% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda lebih dari 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat selanjutnya.", "kepat_pelanggaran": "Regulator memberlaku-kan sanksi signifikan (misalkan delisting saham, tidak diperkenan-kan mengikuti kliring, menarik produk yang beredar, dan lain-lain)", "reput_keluhan": "Keluhan yang menyebar ke skala nasional / internasional dan / atau diajukan secara kolektif yang diselesaikan melebihi 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_berita": "Publikasi negatif mencapai skala internasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_saing": "Penurunan pangsa pasar lebih dari 20%", "sdm_keluhan": "Demonstrasi terkoordinasi, terjadinya kematian karyawan saat kerja", "sdm_turnover": "Turn over pegawai bertalenta >15% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta >15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama lebih dari 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu > 500 kali", "sistem_platform": "X ≤ 60%", "ops_sla": ">20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian jamak", "hsse_fatality_2": "Wabah ke lingkungan", "hsse_fatality_3": "Potensi menyebabkan banyak kematian misalnya bahan kimia beracun berbahaya", "hsse_kerusakan_lingkungan": "Sangat serius kerusakan jangka panjang (>5 tahun) dan fungsi ekosistem", "hsse_penurunan_esg": "X < 60% atau memperoleh rating '40+ (severe)'", "pmn_tunda": "Tertunda > 4 bulan dari target RKAP", "bank_fraud": "X > 1.400", "asuransi_aset_rating": "Instrumen pada Investment grade < 70%", "asuransi_aset_peringkat": "atau Peringkat di bawah BBB (yang setara atau tidak diperingkat)", "aktu_rasio": "Rasio klaim > 100%"},
+    #     {"level": 4, "kriteriaDampak": "Tinggi", "rangeFinansial": "60% < X ≤ 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak disruptif yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% < X ≤ 60% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 6 s/d 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat pertama.", "kepat_pelanggaran": "Regulator memberlaku-kan pembatasan dan / atau pembekuan terhadap aktivitas operasional / produk / jasa tertentu.", "reput_keluhan": "Keluhan yang menyebar ke skala nasional dan / atau diajukan secara kolektif yang dapat diselesaikan dalam waktu 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_berita": "Publikasi negatif mencapai skala nasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_saing": "Penurunan pangsa pasar antara 15% sampai dengan 20%", "sdm_keluhan": "Unjuk rasa karyawan yang mengganggu aktivitas perusahaan dan / atau disertai terjadinya cedera serius / cacat permanen", "sdm_turnover": "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama 2 s/d 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 200-500 kali", "sistem_platform": "70% ≥ X > 60%", "ops_sla": "Antara 10% s/d 20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian tunggal / Cacat tetap / Ketidakhadir-an kerja yang lama", "hsse_fatality_2": "Efek ireversibel yang menyebabkan kematian", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek lingkungan jangka menengah (3-5 tahun) yang serius", "hsse_penurunan_esg": "70% ≥ X > 60% atau memperoleh rating '30-40 (high)'", "pmn_tunda": "Tertunda 3 bulan dari target RKAP", "bank_fraud": "1.201 < X ≤ 1.400", "asuransi_aset_rating": "70% ≤ Instrumen pada Investment grade < 80%", "asuransi_aset_peringkat": "atau Peringkat BBB (yang setara)", "aktu_rasio": "90% < Rasio klaim ≤ 100%"},
+    #     {"level": 3, "kriteriaDampak": "Sedang", "rangeFinansial": "40% < X ≤ 60%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sedang yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% - 60% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 3 s/d 6 bulan", "hukum_pelanggaran": "Perusahaan mendapat tuntutan hukum.", "kepat_pelanggaran": "Peringatan tertulis / formal, terkena denda.", "reput_keluhan": "Keluhan yang menyebar ke skala sektoral dan / atau diajukan secara kolektif yang dapat diselesaikan dalam waktu 7 hari kerja dan masih berada dalam kewenangan Pimpinan Cabang / Wilayah", "reput_berita": "Publikasi negatif skala nasional yang tersebar di media konvensional", "reput_saing": "Penurunan pangsa pasar antara 10% sampai dengan 15%", "sdm_keluhan": "Terdapat keluhan yang disalurkan mencapai tingkat sektoral / wilayah / provinsi.", "sdm_turnover": "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun ", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama < 1 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 100-199 kali", "sistem_platform": "80 % ≥ X > 70%", "ops_sla": "Antara 2,5% s/d 10% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Cacat tidak tetap / Ketidakhadir-an kerja yang terbatas", "hsse_fatality_2": "Efek ireversibel tanpa kehilangan nyawa tetapi dengan cacat serius dan rawat inap berkepanjangan", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek jangka pendek (1-2 tahun) tetapi tidak mempengaruhi fungsi ekosistem", "hsse_penurunan_esg": "80 % ≥ X > 70% atau memperoleh rating '20-30 (medium)'", "pmn_tunda": "Tertunda 2 bulan dari target RKAP", "bank_fraud": "1.001 < X ≤ 1.200", "asuransi_aset_rating": "80% ≤ Instrumen pada Investment grade < 90%", "asuransi_aset_peringkat": "atau Peringkat A (yang setara)", "aktu_rasio": "82,5% < Rasio klaim ≤ 90%"},
+    #     {"level": 2, "kriteriaDampak": "Kecil", "rangeFinansial": "20% < X ≤ 40%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak kecil yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 20% - 40% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda antara 2 - 3 bulan", "hukum_pelanggaran": "Perusahaan mendapat somasi.", "kepat_pelanggaran": "Diminta bertemu dengan pihak Regulator (misalkan OJK, Bank Indonesia, IDX, Kementerian terkait, Dirjen Pajak, dan lain-lain)", "reput_keluhan": "Keluhan yang terisolasi dan dapat diselesaikan dalam 3 hari kerja", "reput_berita": "Publikasi negatif yang lintas sektoral / wilayah / provinsi namun masih tersebar media konvensional.", "reput_saing": "Penurunan pangsa pasar antara 5% sampai dengan 10%", "sdm_keluhan": "Terdapat keluhan karyawan yang perlu diselesaikan oleh Penyelia Pemimpin Unit", "sdm_turnover": "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun", "sistem_gangguan": "Aplikasi dan Infrastruktur pendukung yang kurang penting tidak berfungsi selama lebih dari 1 hari s/d 3 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 50-99 kali", "sistem_platform": "90% ≥ X > 80%", "ops_sla": "Dari 1% s/d 2,5% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Perawatan Medis", "hsse_fatality_2": "Efek kesehatan minor dan reversibel (tanpa rawat inap)", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek minor pada lingkungan biologis atau fisik", "hsse_penurunan_esg": "90% ≥ X > 80% atau memperoleh rating '10-20 (low)'", "pmn_tunda": "Tertunda 1 bulan dari target RKAP", "bank_fraud": "800 ≤ X ≤ 1.000", "asuransi_aset_rating": "90% ≤ Instrumen pada Investment grade < 100%", "asuransi_aset_peringkat": "atau Peringkat AA (yang setara)", "aktu_rasio": "75% < Rasio klaim ≤ 82,5%"},
+    #     {"level": 1, "kriteriaDampak": "Sangat Kecil", "rangeFinansial": "X ≤ 20%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sangat rendah yang dapat mengakibatkan kerusakan/ kerugian/ penurunan kurang dari 20% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter target strategis yang harus selesai pada tahun ini tertunda kurang dari 1 bulan", "hukum_pelanggaran": "Tidak ada somasi/ tuntutan hukum", "kepat_pelanggaran": "Teguran informal / verbal.", "reput_keluhan": "Keluhan yang terisolasi dan dapat ditangani dalam 1 hari kerja", "reput_berita": "Publikasi negatif yg terisolasi di wilayah sektoral melalui media konvensional (misalkan Radio lokal, TV lokal, Surat Kabar daerah)", "reput_saing": "Penurunan pangsa pasar sampai dengan 5%", "sdm_keluhan": "Terdapat keluhan karyawan yang disalurkan sampai tingkat SP Unit namun dapat diisolir dan diselesaikan oleh Pemimpin Unit", "sdm_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sistem_gangguan": "Aplikasi & Infrastruktur pendukung yang kurang penting tidak berfungsi selama 1 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu di bawah 50 kali", "sistem_platform": "X > 90%", "ops_sla": "<1% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Pertolongan Pertama", "hsse_fatality_2": "Tidak berpengaruh pada Kinerja Kerja", "hsse_fatality_3": "[Data L1F3]", "hsse_kerusakan_lingkungan": "Kerusakan terbatas pada area minimal dengan signifikansi rendah", "hsse_penurunan_esg": "X > 90% atau memperoleh rating '0-10 (negligible)'", "pmn_tunda": "Diterima tepat waktu sesuai dengan RKAP", "bank_fraud": "X < 800", "asuransi_aset_rating": "Instrumen pada investment grade 100%,", "asuransi_aset_peringkat": "atau Peringkat AAA (yang setara)", "aktu_rasio": "Rasio klaim ≤ 75%"},
+    # ]
+    
     probability_data = [
-        {"level": 5, "parameter": "Hampir Pasti Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 1 bulan", "frekuensi": "> 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 80% sampai dengan 100%"},
-        {"level": 4, "parameter": "Sangat Mungkin Terjadi", "kemungkinan": "Risiko pernah terjadi sekali dalam 2 bulan", "frekuensi": "Diatas 5 s/d 10% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 60% sampai dengan 80%"},
-        {"level": 3, "parameter": "Bisa Terjadi", "kemungkinan": "Risiko pernah terjadi namun tidak sering, sekali dalam 4 bulan", "frekuensi": "Diatas 1% s/d 5% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko antara 40% sampai dengan 60%"},
-        {"level": 2, "parameter": "Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi hanya sekali dalam 6 bulan", "frekuensi": "Dari 1 permil s/d 1% dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko dari 20% sampai dengan 40%"},
-        {"level": 1, "parameter": "Sangat Jarang Terjadi", "kemungkinan": "Risiko mungkin terjadi sangat jarang, paling banyak satu kali dalam setahun", "frekuensi": "< 1 permil dari frekuensi kejadian / jumlah transaksi", "persentase": "Probabilitas kejadian Risiko lebih kecil dari 20%"},
-    ]
-    impact_data = [
-        {"level": 5, "kriteriaDampak": "Sangat Tinggi", "rangeFinansial": "X > 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak katastrofe yang dapat mengakibatkan kerusakan/ kerugian/ penurunan > 80% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda lebih dari 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat selanjutnya.", "kepat_pelanggaran": "Regulator memberlaku-kan sanksi signifikan (misalkan delisting saham, tidak diperkenan-kan mengikuti kliring, menarik produk yang beredar, dan lain-lain)", "reput_keluhan": "Keluhan yang menyebar ke skala nasional / internasional dan / atau diajukan secara kolektif yang diselesaikan melebihi 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_berita": "Publikasi negatif mencapai skala internasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_saing": "Penurunan pangsa pasar lebih dari 20%", "sdm_keluhan": "Demonstrasi terkoordinasi, terjadinya kematian karyawan saat kerja", "sdm_turnover": "Turn over pegawai bertalenta >15% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta >15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama lebih dari 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu > 500 kali", "sistem_platform": "X ≤ 60%", "ops_sla": ">20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian jamak", "hsse_fatality_2": "Wabah ke lingkungan", "hsse_fatality_3": "Potensi menyebabkan banyak kematian misalnya bahan kimia beracun berbahaya", "hsse_kerusakan_lingkungan": "Sangat serius kerusakan jangka panjang (>5 tahun) dan fungsi ekosistem", "hsse_penurunan_esg": "X < 60% atau memperoleh rating '40+ (severe)'", "pmn_tunda": "Tertunda > 4 bulan dari target RKAP", "bank_fraud": "X > 1.400", "asuransi_aset_rating": "Instrumen pada Investment grade < 70%", "asuransi_aset_peringkat": "atau Peringkat di bawah BBB (yang setara atau tidak diperingkat)", "aktu_rasio": "Rasio klaim > 100%"},
-        {"level": 4, "kriteriaDampak": "Tinggi", "rangeFinansial": "60% < X ≤ 80%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak disruptif yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% < X ≤ 60% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 6 s/d 9 bulan", "hukum_pelanggaran": "Perusahaan diputuskan kalah di pengadilan tingkat pertama.", "kepat_pelanggaran": "Regulator memberlaku-kan pembatasan dan / atau pembekuan terhadap aktivitas operasional / produk / jasa tertentu.", "reput_keluhan": "Keluhan yang menyebar ke skala nasional dan / atau diajukan secara kolektif yang dapat diselesaikan dalam waktu 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_berita": "Publikasi negatif mencapai skala nasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat", "reput_saing": "Penurunan pangsa pasar antara 15% sampai dengan 20%", "sdm_keluhan": "Unjuk rasa karyawan yang mengganggu aktivitas perusahaan dan / atau disertai terjadinya cedera serius / cacat permanen", "sdm_turnover": "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama 2 s/d 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 200-500 kali", "sistem_platform": "70% ≥ X > 60%", "ops_sla": "Antara 10% s/d 20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus kematian tunggal / Cacat tetap / Ketidakhadir-an kerja yang lama", "hsse_fatality_2": "Efek ireversibel yang menyebabkan kematian", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek lingkungan jangka menengah (3-5 tahun) yang serius", "hsse_penurunan_esg": "70% ≥ X > 60% atau memperoleh rating '30-40 (high)'", "pmn_tunda": "Tertunda 3 bulan dari target RKAP", "bank_fraud": "1.201 < X ≤ 1.400", "asuransi_aset_rating": "70% ≤ Instrumen pada Investment grade < 80%", "asuransi_aset_peringkat": "atau Peringkat BBB (yang setara)", "aktu_rasio": "90% < Rasio klaim ≤ 100%"},
-        {"level": 3, "kriteriaDampak": "Sedang", "rangeFinansial": "40% < X ≤ 60%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sedang yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% - 60% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 3 s/d 6 bulan", "hukum_pelanggaran": "Perusahaan mendapat tuntutan hukum.", "kepat_pelanggaran": "Peringatan tertulis / formal, terkena denda.", "reput_keluhan": "Keluhan yang menyebar ke skala sektoral dan / atau diajukan secara kolektif yang dapat diselesaikan dalam waktu 7 hari kerja dan masih berada dalam kewenangan Pimpinan Cabang / Wilayah", "reput_berita": "Publikasi negatif skala nasional yang tersebar di media konvensional", "reput_saing": "Penurunan pangsa pasar antara 10% sampai dengan 15%", "sdm_keluhan": "Terdapat keluhan yang disalurkan mencapai tingkat sektoral / wilayah / provinsi.", "sdm_turnover": "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun ", "sdm_regretted_turnover": "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun", "sistem_gangguan": "Infrastruktur vital yang penting tidak berfungsi selama < 1 jam (misalkan Listrik, air, jaringan komunikasi & online system)", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 100-199 kali", "sistem_platform": "80 % ≥ X > 70%", "ops_sla": "Antara 2,5% s/d 10% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Cacat tidak tetap / Ketidakhadir-an kerja yang terbatas", "hsse_fatality_2": "Efek ireversibel tanpa kehilangan nyawa tetapi dengan cacat serius dan rawat inap berkepanjangan", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek jangka pendek (1-2 tahun) tetapi tidak mempengaruhi fungsi ekosistem", "hsse_penurunan_esg": "80 % ≥ X > 70% atau memperoleh rating '20-30 (medium)'", "pmn_tunda": "Tertunda 2 bulan dari target RKAP", "bank_fraud": "1.001 < X ≤ 1.200", "asuransi_aset_rating": "80% ≤ Instrumen pada Investment grade < 90%", "asuransi_aset_peringkat": "atau Peringkat A (yang setara)", "aktu_rasio": "82,5% < Rasio klaim ≤ 90%"},
-        {"level": 2, "kriteriaDampak": "Kecil", "rangeFinansial": "20% < X ≤ 40%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak kecil yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 20% - 40% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda antara 2 - 3 bulan", "hukum_pelanggaran": "Perusahaan mendapat somasi.", "kepat_pelanggaran": "Diminta bertemu dengan pihak Regulator (misalkan OJK, Bank Indonesia, IDX, Kementerian terkait, Dirjen Pajak, dan lain-lain)", "reput_keluhan": "Keluhan yang terisolasi dan dapat diselesaikan dalam 3 hari kerja", "reput_berita": "Publikasi negatif yang lintas sektoral / wilayah / provinsi namun masih tersebar media konvensional.", "reput_saing": "Penurunan pangsa pasar antara 5% sampai dengan 10%", "sdm_keluhan": "Terdapat keluhan karyawan yang perlu diselesaikan oleh Penyelia Pemimpin Unit", "sdm_turnover": "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun", "sistem_gangguan": "Aplikasi dan Infrastruktur pendukung yang kurang penting tidak berfungsi selama lebih dari 1 hari s/d 3 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu 50-99 kali", "sistem_platform": "90% ≥ X > 80%", "ops_sla": "Dari 1% s/d 2,5% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Perawatan Medis", "hsse_fatality_2": "Efek kesehatan minor dan reversibel (tanpa rawat inap)", "hsse_fatality_3": "-", "hsse_kerusakan_lingkungan": "Efek minor pada lingkungan biologis atau fisik", "hsse_penurunan_esg": "90% ≥ X > 80% atau memperoleh rating '10-20 (low)'", "pmn_tunda": "Tertunda 1 bulan dari target RKAP", "bank_fraud": "800 ≤ X ≤ 1.000", "asuransi_aset_rating": "90% ≤ Instrumen pada Investment grade < 100%", "asuransi_aset_peringkat": "atau Peringkat AA (yang setara)", "aktu_rasio": "75% < Rasio klaim ≤ 82,5%"},
-        {"level": 1, "kriteriaDampak": "Sangat Kecil", "rangeFinansial": "X ≤ 20%\ndari Batasan Risiko", "deskripsiDampak1": "Dampak sangat rendah yang dapat mengakibatkan kerusakan/ kerugian/ penurunan kurang dari 20% dari nilai Batasan Risiko", "stra_dampak": "Minimal 1 parameter target strategis yang harus selesai pada tahun ini tertunda kurang dari 1 bulan", "hukum_pelanggaran": "Tidak ada somasi/ tuntutan hukum", "kepat_pelanggaran": "Teguran informal / verbal.", "reput_keluhan": "Keluhan yang terisolasi dan dapat ditangani dalam 1 hari kerja", "reput_berita": "Publikasi negatif yg terisolasi di wilayah sektoral melalui media konvensional (misalkan Radio lokal, TV lokal, Surat Kabar daerah)", "reput_saing": "Penurunan pangsa pasar sampai dengan 5%", "sdm_keluhan": "Terdapat keluhan karyawan yang disalurkan sampai tingkat SP Unit namun dapat diisolir dan diselesaikan oleh Pemimpin Unit", "sdm_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sdm_regretted_turnover": "Turn over pegawai bertalenta kurang dari 1% setahun", "sistem_gangguan": "Aplikasi & Infrastruktur pendukung yang kurang penting tidak berfungsi selama 1 hari", "sistem_siber": "Jumlah rata-rata serangan siber per minggu di bawah 50 kali", "sistem_platform": "X > 90%", "ops_sla": "<1% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)", "hsse_fatality_1": "Kasus Pertolongan Pertama", "hsse_fatality_2": "Tidak berpengaruh pada Kinerja Kerja", "hsse_fatality_3": "[Data L1F3]", "hsse_kerusakan_lingkungan": "Kerusakan terbatas pada area minimal dengan signifikansi rendah", "hsse_penurunan_esg": "X > 90% atau memperoleh rating '0-10 (negligible)'", "pmn_tunda": "Diterima tepat waktu sesuai dengan RKAP", "bank_fraud": "X < 800", "asuransi_aset_rating": "Instrumen pada investment grade 100%,", "asuransi_aset_peringkat": "atau Peringkat AAA (yang setara)", "aktu_rasio": "Rasio klaim ≤ 75%"},
+        {
+            "level": c.level, 
+            "parameter": c.parameter, 
+            "kemungkinan": c.kemungkinan, 
+            "frekuensi": c.frekuensi, 
+            "persentase": c.persentase
+        } 
+        for c in assessment.probability_criteria # <-- Mengambil dari database
     ]
     
-    ws2 = wb.create_sheet(title="Kriteria Risiko") # Ganti nama dari ws_criteria ke ws2
+    # Ambil data dampak yang SUDAH DIEDIT dari relasi 'assessment'
+    impact_data = []
+    for c in assessment.impact_criteria: # <-- Mengambil dari database
+        # Kita perlu mengonversi objek model menjadi dictionary
+        # agar sisa kode (item['kriteriaDampak']) tetap berfungsi
+        impact_data.append({
+            "level": c.level,
+            "kriteriaDampak": c.kriteriaDampak, 
+            "rangeFinansial": c.rangeFinansial, 
+            "deskripsiDampak1": c.deskripsiDampak1,
+            "stra_dampak": c.stra_dampak, 
+            "hukum_pelanggaran": c.hukum_pelanggaran, 
+            "kepat_pelanggaran": c.kepat_pelanggaran,
+            "reput_keluhan": c.reput_keluhan, 
+            "reput_berita": c.reput_berita, 
+            "reput_saing": c.reput_saing,
+            "sdm_keluhan": c.sdm_keluhan, 
+            "sdm_turnover": c.sdm_turnover, 
+            "sdm_regretted_turnover": c.sdm_regretted_turnover,
+            "sistem_gangguan": c.sistem_gangguan, 
+            "sistem_siber": c.sistem_siber, 
+            "sistem_platform": c.sistem_platform,
+            "ops_sla": c.ops_sla,
+            "hsse_fatality_1": c.hsse_fatality_1, 
+            "hsse_fatality_2": c.hsse_fatality_2, 
+            "hsse_fatality_3": c.hsse_fatality_3,
+            "hsse_kerusakan_lingkungan": c.hsse_kerusakan_lingkungan, 
+            "hsse_penurunan_esg": c.hsse_penurunan_esg,
+            "pmn_tunda": c.pmn_tunda, 
+            "bank_fraud": c.bank_fraud,
+            "asuransi_aset_rating": c.asuransi_aset_rating, 
+            "asuransi_aset_peringkat": c.asuransi_aset_peringkat,
+            "aktu_rasio": c.aktu_rasio
+        })
+        
+    ws2 = wb.create_sheet(title="Kriteria Risiko")
     ws2.page_setup.orientation = ws2.ORIENTATION_LANDSCAPE
     
     ws2.append(["Kriteria Probabilitas"])
@@ -1058,6 +1137,18 @@ def create_madya_assessment():
     current_user_id = get_jwt_identity()
     data = request.get_json() or {}
     
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+        
+    if user.limit_madya is not None:
+        current_madya_count = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+        
+        if current_madya_count >= user.limit_madya:
+            return jsonify({
+                "msg": f"Batas pembuatan Asesmen Madya Anda telah tercapai ({current_madya_count}/{user.limit_madya}). Hubungi admin untuk menambah kuota."
+            }), 403
+    
     assessment_name = data.get('nama_asesmen')
     if not assessment_name:
         return jsonify({"msg": "'nama_asesmen' wajib diisi."}), 400
@@ -1080,8 +1171,38 @@ def create_madya_assessment():
         risk_map_template_id=selected_template_id
     )
     db.session.add(new_assessment)
-    db.session.commit()
-    # Kembalikan ID agar frontend bisa lanjut ke step berikutnya
+    db.session.flush() # Penting: untuk mendapatkan new_assessment.id
+
+    # --- HIGHLIGHT: Salin kriteria default ke asesmen baru ---
+    try:
+        # Salin Kriteria Probabilitas
+        for prob_data in DEFAULT_PROBABILITY_CRITERIA:
+            new_prob_criteria = MadyaCriteriaProbability(
+                assessment_id=new_assessment.id,
+                **prob_data # Gunakan dictionary unpacking
+            )
+            db.session.add(new_prob_criteria)
+            
+        # Salin Kriteria Dampak
+        for impact_data in DEFAULT_IMPACT_CRITERIA:
+            new_impact_criteria = MadyaCriteriaImpact(
+                assessment_id=new_assessment.id,
+                **impact_data # Gunakan dictionary unpacking
+            )
+            db.session.add(new_impact_criteria)
+            
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        # Hapus asesmen yang setengah jadi jika penyalinan kriteria gagal
+        try:
+            db.session.delete(new_assessment)
+            db.session.commit()
+        except:
+            pass # Abaikan jika delete gagal
+        print(f"ERROR: Gagal menyalin kriteria default untuk asesmen baru. {e}")
+        return jsonify({"msg": "Gagal membuat asesmen: Error saat inisialisasi kriteria."}), 500
+
     return jsonify({"id": new_assessment.id, "message": "Asesmen Madya baru berhasil dibuat."}), 201
 
 @risk_management_levels_bp.route('/madya-assessments', methods=['GET'])
@@ -1220,6 +1341,16 @@ def get_madya_assessment_detail(assessment_id):
     ]
     
     image_url_relative = f"api/uploads/{assessment.structure_image_filename}" if assessment.structure_image_filename else None
+    
+    prob_criteria = [{
+        "id": c.id, "level": c.level, "parameter": c.parameter, 
+        "kemungkinan": c.kemungkinan, "frekuensi": c.frekuensi, "persentase": c.persentase
+    } for c in assessment.probability_criteria] # <-- Ambil dari assessment
+
+    impact_criteria = []
+    for c in assessment.impact_criteria: # <-- Ambil dari assessment
+        c_dict = {column.name: getattr(c, column.name) for column in c.__table__.columns if column.name not in ['assessment_id']}
+        impact_criteria.append(c_dict)
 
     return jsonify({
         "id": assessment.id,
@@ -1235,6 +1366,8 @@ def get_madya_assessment_detail(assessment_id):
         "filter_direktorat": assessment.filter_direktorat,
         "filter_divisi": assessment.filter_divisi,
         "filter_departemen": assessment.filter_departemen,
+        "probability_criteria": prob_criteria,
+        "impact_criteria": impact_criteria
     })
     
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/filters', methods=['PUT'])
@@ -1348,6 +1481,49 @@ def update_madya_assessment_template(assessment_id):
     db.session.commit()
 
     return jsonify({"msg": "Template peta risiko berhasil diperbarui."})
+
+@risk_management_levels_bp.route('/madya-assessments/criteria/probability/<int:criteria_id>', methods=['PUT'])
+@jwt_required()
+def update_madya_probability_criteria_entry(criteria_id):
+    current_user_id = get_jwt_identity()
+    criteria_entry = MadyaCriteriaProbability.query.get_or_404(criteria_id)
+    
+    # Otorisasi: Cek apakah user adalah pemilik asesmen dari kriteria ini
+    assessment = MadyaAssessment.query.get_or_404(criteria_entry.assessment_id)
+    if str(assessment.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+
+    data = request.get_json()
+    
+    criteria_entry.parameter = data.get('parameter', criteria_entry.parameter)
+    criteria_entry.kemungkinan = data.get('kemungkinan', criteria_entry.kemungkinan)
+    criteria_entry.frekuensi = data.get('frekuensi', criteria_entry.frekuensi)
+    criteria_entry.persentase = data.get('persentase', criteria_entry.persentase)
+    
+    db.session.commit()
+    return jsonify({"msg": "Kriteria probabilitas berhasil diperbarui."})
+
+# --- HIGHLIGHT: API BARU UNTUK EDIT KRITERIA DAMPAK (PER ASESMEN) ---
+@risk_management_levels_bp.route('/madya-assessments/criteria/impact/<int:criteria_id>', methods=['PUT'])
+@jwt_required()
+def update_madya_impact_criteria_entry(criteria_id):
+    current_user_id = get_jwt_identity()
+    criteria_entry = MadyaCriteriaImpact.query.get_or_404(criteria_id)
+
+    # Otorisasi
+    assessment = MadyaAssessment.query.get_or_404(criteria_entry.assessment_id)
+    if str(assessment.user_id) != current_user_id:
+        return jsonify({"msg": "Akses ditolak."}), 403
+        
+    data = request.get_json()
+    
+    # Update semua field dampak
+    for key in data:
+        if hasattr(criteria_entry, key) and key not in ['id', 'assessment_id']: # Jangan update ID
+            setattr(criteria_entry, key, data[key])
+            
+    db.session.commit()
+    return jsonify({"msg": "Kriteria dampak berhasil diperbarui."})
 
 @risk_management_levels_bp.route('/structure-entries/<int:entry_id>', methods=['PUT', 'DELETE'])
 @jwt_required()

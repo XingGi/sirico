@@ -3,9 +3,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, Text, Badge, Button, Switch } from "@tremor/react";
-import { FiCalendar, FiHash, FiTag, FiEye } from "react-icons/fi";
+import { FiCalendar, FiHash, FiTag, FiEye, FiTrash2 } from "react-icons/fi";
 
-function AssessmentItem({ assessment, isSelected, onSelect, industryName }) {
+function AssessmentItem({ assessment, isSelected, onSelect, industryName, onDelete, isDeleting }) {
   const navigate = useNavigate();
 
   // Ambil hanya bagian tanggal dari 'tanggal_mulai'
@@ -37,9 +37,23 @@ function AssessmentItem({ assessment, isSelected, onSelect, industryName }) {
         </div>
 
         {/* Tombol Aksi */}
-        <Button variant="secondary" icon={FiEye} onClick={() => navigate(`/risk-ai/assessments/${assessment.id}`)}>
-          View
-        </Button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Button variant="secondary" icon={FiEye} onClick={() => navigate(`/risk-ai/assessments/${assessment.id}`)}>
+            View
+          </Button>
+          <Button
+            variant="light"
+            icon={FiTrash2}
+            color="red"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            loading={isDeleting}
+            disabled={isDeleting}
+            aria-label="Delete assessment"
+          />
+        </div>
       </div>
     </Card>
   );

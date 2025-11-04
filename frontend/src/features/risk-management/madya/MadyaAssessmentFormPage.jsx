@@ -25,6 +25,8 @@ function MadyaAssessmentFormPage() {
   const [isRiskInputLoading, setIsRiskInputLoading] = useState(true);
   const criteriaCardRef = useRef(null);
   const [isCriteriaFullscreen, setIsCriteriaFullscreen] = useState(false);
+  const [probabilityCriteria, setProbabilityCriteria] = useState([]);
+  const [impactCriteria, setImpactCriteria] = useState([]);
 
   // Fungsi untuk fetch detail template berdasarkan ID
   const fetchTemplateDetails = useCallback(async (templateId) => {
@@ -136,6 +138,9 @@ function MadyaAssessmentFormPage() {
         setAssessmentData(assessmentRes.data);
         setCurrentStructureEntries(assessmentRes.data.structure_entries || []); // Pastikan array
 
+        setProbabilityCriteria(assessmentRes.data.probability_criteria || []);
+        setImpactCriteria(assessmentRes.data.impact_criteria || []);
+
         await fetchSasaranKPI(id);
         await fetchRiskInputs(id);
 
@@ -171,6 +176,19 @@ function MadyaAssessmentFormPage() {
 
     loadAssessmentData(); // Panggil fungsi utama saat komponen mount/idParam berubah
   }, [idParam, navigate, fetchTemplateDetails, fetchRiskInputs]); // Dependencies useEffect
+
+  const refreshCriteriaData = async () => {
+    if (!assessmentId) return;
+    try {
+      // Ambil ulang data asesmen lengkap, yang berisi kriteria terbaru
+      const assessmentRes = await apiClient.get(`/madya-assessments/${assessmentId}`);
+      setProbabilityCriteria(assessmentRes.data.probability_criteria || []);
+      setImpactCriteria(assessmentRes.data.impact_criteria || []);
+      console.log("Data kriteria di-refresh.");
+    } catch (error) {
+      console.error("Gagal me-refresh kriteria:", error);
+    }
+  };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -246,8 +264,6 @@ function MadyaAssessmentFormPage() {
   return (
     <div className="p-6 sm:p-10 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-        {" "}
-        {/* Dibuat flex-col di layar kecil */}
         <div>
           <Title>{assessmentData?.nama_asesmen ? `Asesmen: ${assessmentData.nama_asesmen}` : "Memuat Asesmen..."}</Title>
           <Text>Lengkapi detail asesmen risiko tingkat madya.</Text>
@@ -262,8 +278,6 @@ function MadyaAssessmentFormPage() {
         </Card>
       </div>
 
-      {/* Hapus Card Pemilihan Template */}
-
       {/* Card 1: Struktur Organisasi */}
       <StrukturOrganisasiCard
         assessmentId={assessmentId}
@@ -277,7 +291,7 @@ function MadyaAssessmentFormPage() {
         <div className="flex justify-between items-start mb-4">
           <div className="text-left">
             <Title as="h3">2. Kriteria Risiko</Title>
-            <Text>Klik untuk melihat acuan penilaian probabilitas dan dampak.</Text>
+            <Text>Edit kriteria probabilitas dan dampak khusus untuk asesmen ini.</Text>
           </div>
           <Button
             type="button"
@@ -291,7 +305,12 @@ function MadyaAssessmentFormPage() {
             {isCriteriaFullscreen ? "Exit Fullscreen" : "Fullscreen"}
           </Button>
         </div>
-        <MadyaCriteriaReference />
+        <MadyaCriteriaReference
+          probabilityCriteria={probabilityCriteria} // <-- Kirim state kriteria
+          impactCriteria={impactCriteria} // <-- Kirim state kriteria
+          onCriteriaSave={refreshCriteriaData} // <-- Kirim fungsi refresh
+          readOnly={false} // <-- Buat BISA diedit
+        />
       </Card>
 
       {/* Card 3: Sasaran/KPI */}

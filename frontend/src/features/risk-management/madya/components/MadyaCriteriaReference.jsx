@@ -1,7 +1,8 @@
 // frontend/src/features/risk-management/madya/components/MadyaCriteriaReference.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TabGroup, TabList, Tab, TabPanels, TabPanel, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Button, Dialog, DialogPanel, TextInput, Textarea } from "@tremor/react";
 import { FiEdit, FiEye } from "react-icons/fi";
+import apiClient from "../../../../api/api";
 
 const initialProbabilityData = [
   {
@@ -208,7 +209,12 @@ const cellClassName = "align-middle text-center whitespace-normal border border-
 const headerClassName = "align-middle text-center whitespace-normal border border-slate-300";
 const columnStyle = "w-[220px]";
 
-function MadyaCriteriaReference({ readOnly = false }) {
+function MadyaCriteriaReference({
+  probabilityCriteria = [],
+  impactCriteria = [],
+  onCriteriaSave, // Fungsi refresh dari parent
+  readOnly = false,
+}) {
   const [criteriaData, setCriteriaData] = useState(initialProbabilityData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -223,6 +229,14 @@ function MadyaCriteriaReference({ readOnly = false }) {
   const [isImpactModalOpen, setIsImpactModalOpen] = useState(false);
   const [impactFormData, setImpactFormData] = useState(null);
 
+  useEffect(() => {
+    setCriteriaData(probabilityCriteria);
+  }, [probabilityCriteria]);
+
+  useEffect(() => {
+    setImpactData(impactCriteria);
+  }, [impactCriteria]);
+
   const handleEditClick = (item) => {
     setFormData(item);
     setIsModalOpen(true);
@@ -234,9 +248,17 @@ function MadyaCriteriaReference({ readOnly = false }) {
       [name]: value,
     }));
   };
-  const handleSave = () => {
-    setCriteriaData((prevData) => prevData.map((item) => (item.level === formData.level ? formData : item)));
-    setIsModalOpen(false);
+  const handleSave = async () => {
+    if (!formData.id) return;
+    try {
+      // Panggil API PUT baru kita
+      await apiClient.put(`/madya-assessments/criteria/probability/${formData.id}`, formData);
+      setIsModalOpen(false);
+      if (onCriteriaSave) onCriteriaSave(); // Panggil refresh parent
+      alert("Kriteria probabilitas berhasil diperbarui.");
+    } catch (error) {
+      alert("Gagal menyimpan: " + (error.response?.data?.msg || "Error"));
+    }
   };
 
   const handleImpactEditClick = (item) => {
@@ -249,13 +271,18 @@ function MadyaCriteriaReference({ readOnly = false }) {
     setImpactFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleImpactSave = () => {
-    if (!impactFormData) return;
-
-    setImpactData((prevData) => prevData.map((item) => (item.level === impactFormData.level ? impactFormData : item)));
-
-    setIsImpactModalOpen(false);
-    setImpactFormData(null);
+  const handleImpactSave = async () => {
+    if (!impactFormData || !impactFormData.id) return;
+    try {
+      // Panggil API PUT baru kita
+      await apiClient.put(`/madya-assessments/criteria/impact/${impactFormData.id}`, impactFormData);
+      setIsImpactModalOpen(false);
+      setImpactFormData(null);
+      if (onCriteriaSave) onCriteriaSave(); // Panggil refresh parent
+      alert("Kriteria dampak berhasil diperbarui.");
+    } catch (error) {
+      alert("Gagal menyimpan: " + (error.response?.data?.msg || "Error"));
+    }
   };
 
   return (

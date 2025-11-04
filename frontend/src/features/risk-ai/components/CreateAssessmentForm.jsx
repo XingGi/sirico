@@ -168,7 +168,7 @@ function CreateAssessmentForm() {
     try {
       const response = await apiClient.post("/assessments/analyze", formData);
       alert("Analisis AI berhasil! Anda akan diarahkan ke halaman hasil.");
-      navigate(`/assessments/${response.data.assessment_id}`);
+      navigate(`/risk-ai/assessments/${response.data.assessment_id}`);
     } catch (error) {
       alert("Error: " + (error.response?.data?.msg || "Gagal membuat dan menganalisis asesmen."));
     } finally {

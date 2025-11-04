@@ -528,6 +528,50 @@ class RiskMapScore(db.Model):
     impact_level = db.Column(db.Integer, nullable=False)     # Nilai 1-5
     score = db.Column(db.Integer, nullable=False)            # Skor kustom dari pengguna
     
+class MadyaCriteriaProbability(db.Model):
+    """Menyimpan satu baris kriteria probabilitas KHUSUS UNTUK ASESMEN INI."""
+    __tablename__ = 'madya_criteria_probability'
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, db.ForeignKey('madya_assessments.id'), nullable=False)
+    level = db.Column(db.Integer, nullable=False)
+    parameter = db.Column(db.String(255), nullable=True)
+    kemungkinan = db.Column(db.Text, nullable=True)
+    frekuensi = db.Column(db.Text, nullable=True)
+    persentase = db.Column(db.Text, nullable=True)
+
+class MadyaCriteriaImpact(db.Model):
+    """Menyimpan satu baris kriteria dampak KHUSUS UNTUK ASESMEN INI."""
+    __tablename__ = 'madya_criteria_impact'
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_id = db.Column(db.Integer, db.ForeignKey('madya_assessments.id'), nullable=False)
+    level = db.Column(db.Integer, nullable=False)
+    kriteriaDampak = db.Column(db.String(255), nullable=True)
+    rangeFinansial = db.Column(db.Text, nullable=True)
+    deskripsiDampak1 = db.Column(db.Text, nullable=True)
+    stra_dampak = db.Column(db.Text, nullable=True)
+    hukum_pelanggaran = db.Column(db.Text, nullable=True)
+    kepat_pelanggaran = db.Column(db.Text, nullable=True)
+    reput_keluhan = db.Column(db.Text, nullable=True)
+    reput_berita = db.Column(db.Text, nullable=True)
+    reput_saing = db.Column(db.Text, nullable=True)
+    sdm_keluhan = db.Column(db.Text, nullable=True)
+    sdm_turnover = db.Column(db.Text, nullable=True)
+    sdm_regretted_turnover = db.Column(db.Text, nullable=True)
+    sistem_gangguan = db.Column(db.Text, nullable=True)
+    sistem_siber = db.Column(db.Text, nullable=True)
+    sistem_platform = db.Column(db.Text, nullable=True)
+    ops_sla = db.Column(db.Text, nullable=True)
+    hsse_fatality_1 = db.Column(db.Text, nullable=True)
+    hsse_fatality_2 = db.Column(db.Text, nullable=True)
+    hsse_fatality_3 = db.Column(db.Text, nullable=True)
+    hsse_kerusakan_lingkungan = db.Column(db.Text, nullable=True)
+    hsse_penurunan_esg = db.Column(db.Text, nullable=True)
+    pmn_tunda = db.Column(db.Text, nullable=True)
+    bank_fraud = db.Column(db.Text, nullable=True)
+    asuransi_aset_rating = db.Column(db.Text, nullable=True)
+    asuransi_aset_peringkat = db.Column(db.Text, nullable=True)
+    aktu_rasio = db.Column(db.Text, nullable=True)
+    
 # Fitur Madya Assessment
 class MadyaAssessment(db.Model):
     """Model induk untuk Asesmen tingkat Madya."""
@@ -542,8 +586,11 @@ class MadyaAssessment(db.Model):
     
     structure_image_filename = db.Column(db.String(300), nullable=True) # Nama file gambar struktur
     structure_entries = db.relationship('OrganizationalStructureEntry', backref='assessment', lazy=True, cascade="all, delete-orphan")
-    sasaran_kpi_entries = db.relationship('SasaranOrganisasiKPI', back_populates='assessment', lazy=True, cascade="all, delete-orphan")
+    sasaran_kpi_entries = db.relationship('SasaranOrganisasiKPI', back_populates='assessment', lazy=True, cascade="all, delete-orphan", order_by='SasaranOrganisasiKPI.id')
     risk_inputs = db.relationship('RiskInputMadya', back_populates='assessment', lazy=True, cascade="all, delete-orphan")
+    
+    probability_criteria = db.relationship('MadyaCriteriaProbability', backref='assessment', lazy=True, cascade="all, delete-orphan")
+    impact_criteria = db.relationship('MadyaCriteriaImpact', backref='assessment', lazy=True, cascade="all, delete-orphan")
     
     filter_organisasi = db.Column(db.String(200), nullable=True)
     filter_direktorat = db.Column(db.String(200), nullable=True)

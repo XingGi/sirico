@@ -153,7 +153,8 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
     """
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-pro')
+        json_config = genai.GenerationConfig(response_mime_type="application/json")
+        model = genai.GenerativeModel('gemini-2.5-pro', generation_config=json_config)
 
         konteks = f"""
         **Nama Proyek:** {form_data.get('nama_asesmen')}
@@ -165,15 +166,16 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
 
         prompt = f"""
         Anda adalah seorang Chief Risk Officer (CRO) profesional. Berdasarkan konteks proyek di bawah ini, identifikasi 10 potensi risiko paling signifikan.
-        Jawaban Anda HARUS berupa array JSON yang valid. Setiap objek dalam array harus memiliki kunci-kunci berikut: "objective", "risk_type", "risk_description", "potential_cause", "potential_impact", "existing_control", "control_effectiveness", "inherent_likelihood", "inherent_impact", "mitigation_plan", "residual_likelihood", "residual_impact".
+        Jawaban Anda HARUS berupa array JSON yang valid. Setiap objek dalam array harus memiliki kunci-kunci berikut: "title", "objective", "risk_type", "risk_description", "potential_cause", "potential_impact", "existing_control", "control_effectiveness", "inherent_likelihood", "inherent_impact", "mitigation_plan", "residual_likelihood", "residual_impact".
 
-        - "title": (WAJIB) Buat judul risiko yang singkat dan deskriptif, maksimal 5 kata. Contoh: "Penurunan Kepercayaan Publik".
+        - "title": (WAJIB) Buat judul risiko yang singkat dan deskriptif, maksimal 5-7 kata.
         - "objective" adalah tujuan dari mitigasi risiko.
         - "risk_type" harus salah satu dari: 'RP' (Risiko Pasar), 'RK' (Risiko Kepatuhan), 'RO' (Risiko Operasional), atau 'RR' (Risiko Reputasi).
         - "control_effectiveness" harus salah satu dari: 'Not Effective', 'Partially Effective', 'Fully Effective'.
         - Semua skor likelihood dan impact HARUS berupa angka integer antara 1 dan 5.
         - Semua field lain HARUS berupa string singkat dan jelas dalam Bahasa Indonesia.
         - JANGAN menyertakan kunci "kode_risiko" dalam output JSON Anda.
+        - Pastikan outputnya adalah array JSON yang valid.
 
         Konteks Proyek:
         ---
@@ -185,18 +187,19 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
         
         print("--- RAW AI RESPONSE ---"); print(response.text); print("-----------------------")
         
-        cleaned_text = response.text.strip().replace('```json', '').replace('```', '')
-        parsed_risks = json.loads(cleaned_text)
+        # cleaned_text = response.text.strip().replace('```json', '').replace('```', '')
+        
+        parsed_risks = json.loads(response.text)
 
         risks_for_db = []
         # Gunakan enumerate untuk mendapatkan 'i' (index)
         for i, risk in enumerate(parsed_risks): 
             risk_type_prefix = risk.get('risk_type', 'XX').upper()
-            kode_risiko = f"{risk_type_prefix}{str(i+1).zfill(3)}"
+            # kode_risiko = f"{risk_type_prefix}{str(i+1).zfill(3)}"
             
             risks_for_db.append({
-                # === PERBAIKAN DI SINI ===
-                "kode_risiko": kode_risiko,
+                "title": risk.get('title'),
+                # "kode_risiko": kode_risiko,
                 "objective": risk.get('objective'),
                 "risk_type": risk.get('risk_type'),
                 "deskripsi_risiko": risk.get('risk_description'),

@@ -196,22 +196,14 @@ function TemplateEditorPage() {
         <Text>Ubah nilai di dalam setiap sel sesuai kebutuhan template Anda.</Text>
 
         <div className="flex items-stretch mt-6">
-          {" "}
-          {/* Main flex container */}
           {/* Label Sumbu Y (Probabilitas) */}
           <div className="flex items-center justify-center mr-4 w-6">
-            {" "}
-            {/* Adjusted width */}
             <span className="font-semibold text-gray-600 tracking-wider text-sm" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
               PROBABILITAS
             </span>
           </div>
-          {/* Kontainer untuk Sumbu X dan Matriks */}
           <div className="flex-1">
-            {/* Label Sumbu X (Dampak) - di atas */}
             <div className="grid grid-cols-5 gap-2 ml-[8rem]">
-              {" "}
-              {/* Offset for Y labels */}
               {template.impact_labels
                 .sort((a, b) => a.level - b.level)
                 .map((l) => (
@@ -225,14 +217,10 @@ function TemplateEditorPage() {
             <div className="flex items-stretch">
               {/* Label Level Y (Probabilitas) */}
               <div className="flex flex-col justify-around w-32 text-right pr-2">
-                {" "}
-                {/* Adjusted width */}
                 {template.likelihood_labels
                   .sort((a, b) => b.level - a.level)
                   .map((l) => (
                     <div key={l.level} className="h-16 flex items-center justify-end font-medium text-sm">
-                      {" "}
-                      {/* Match cell height */}
                       {l.label}
                     </div>
                   ))}

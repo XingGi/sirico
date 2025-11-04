@@ -7,6 +7,7 @@ import { debounce } from "lodash";
 import apiClient from "../../../api/api";
 import TemplateViewModal from "../templates/components/TemplateViewModal";
 import MadyaAssessmentView from "./components/MadyaAssessmentView";
+import NotificationModal from "../../../components/common/NotificationModal";
 
 const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message, isLoading = false }) => (
   <Dialog open={isOpen} onClose={onClose} static={true}>
@@ -192,6 +193,8 @@ function MadyaAssessmentListPage() {
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState([]); // State untuk menyimpan daftar asesmen
   const [isLoadingList, setIsLoadingList] = useState(true);
+  const [userLimits, setUserLimits] = useState(null);
+  const [limitModal, setLimitModal] = useState({ isOpen: false, message: "" });
   const [isSelectTemplateModalOpen, setIsSelectTemplateModalOpen] = useState(false);
   const [isCreatingAssessment, setIsCreatingAssessment] = useState(false); // Loading global
   const [viewMode, setViewMode] = useState("list");
@@ -304,11 +307,40 @@ function MadyaAssessmentListPage() {
   }, []);
 
   useEffect(() => {
-    fetchAssessments(); // Panggil fetch saat komponen dimuat
+    fetchAssessments();
+    setIsLoadingList(true); // Pastikan loading total aktif
+    apiClient
+      .get("/account/details")
+      .then((response) => {
+        setUserLimits(response.data.assessment_limits);
+      })
+      .catch((err) => {
+        console.error("Gagal memuat limit user:", err);
+      })
+      .finally(() => {
+        // (loading di-false-kan oleh fetchAssessments, jadi tidak perlu di sini)
+      });
   }, []);
 
   // Handler untuk membuka modal
   const handleOpenSelectTemplateModal = () => {
+    if (userLimits) {
+      const currentCount = assessments.length;
+      const limit = userLimits.madya?.limit;
+
+      if (limit !== null && currentCount >= limit) {
+        setLimitModal({
+          isOpen: true,
+          message: `Batas pembuatan Asesmen Madya Anda telah tercapai (${currentCount}/${limit}). Hubungi admin untuk menambah kuota.`,
+        });
+        return;
+      }
+    } else if (isLoadingList) {
+      alert("Sedang memuat data limit, silakan coba lagi sesaat.");
+      return;
+    }
+
+    // Jika lolos, baru buka modal
     setIsSelectTemplateModalOpen(true);
   };
 
@@ -372,7 +404,7 @@ function MadyaAssessmentListPage() {
               onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} // Toggle state
               aria-label={viewMode === "list" ? "Switch to grid view" : "Switch to list view"}
             />
-            <Button icon={FiPlus} onClick={handleOpenSelectTemplateModal} loading={isCreatingAssessment}>
+            <Button icon={FiPlus} onClick={handleOpenSelectTemplateModal} loading={isCreatingAssessment} disabled={isLoadingList || !userLimits}>
               Asesmen Baru
             </Button>
           </div>
@@ -514,7 +546,7 @@ function MadyaAssessmentListPage() {
           )}
         </DialogPanel>
       </Dialog>
-      {/* --- HIGHLIGHT END --- */}
+      <NotificationModal isOpen={limitModal.isOpen} onClose={() => setLimitModal({ isOpen: false, message: "" })} title="Batas Kuota Tercapai" message={limitModal.message} />
     </>
   );
 }

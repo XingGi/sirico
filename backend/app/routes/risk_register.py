@@ -48,9 +48,16 @@ def update_main_risk_register_item(risk_id):
     data = request.get_json()
     if not data:
         return jsonify({"msg": "Request body tidak boleh kosong"}), 400
+    
+    fields_to_update = [
+        'title', 'objective', 'deskripsi_risiko', 'risk_causes', 'risk_impacts', 
+        'existing_controls', 'control_effectiveness', 'mitigation_plan', 
+        'inherent_likelihood', 'inherent_impact', 'residual_likelihood', 
+        'residual_impact', 'status', 'treatment_option'
+    ]
 
     # Loop melalui semua field yang bisa di-update
-    for field in ['objective', 'deskripsi_risiko', 'risk_causes', 'risk_impacts', 'existing_controls', 'control_effectiveness', 'mitigation_plan', 'inherent_likelihood', 'inherent_impact', 'residual_likelihood', 'residual_impact', 'status', 'treatment_option']:
+    for field in fields_to_update:
         if field in data:
             setattr(risk_item, field, data[field])
     
@@ -59,7 +66,7 @@ def update_main_risk_register_item(risk_id):
         "id": risk_item.id,
         "kode_risiko": risk_item.kode_risiko,
         "objective": risk_item.objective,
-        # ... tambahkan field lain jika perlu dikembalikan
+        "title": risk_item.title
     }}), 200
 
 @risk_register_bp.route('/risk-register/<int:risk_id>', methods=['DELETE'])
