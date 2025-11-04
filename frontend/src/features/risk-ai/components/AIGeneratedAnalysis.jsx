@@ -1,8 +1,9 @@
 // frontend/src/components/AIGeneratedAnalysis.jsx
 
-import React from "react";
-import { Card, Title, Text, Accordion, AccordionHeader, AccordionBody } from "@tremor/react";
-import { FiCpu, FiAlertOctagon, FiChevronsRight, FiZap, FiClipboard, FiTrendingUp, FiArrowRight } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import { Card, Title, Text, Accordion, AccordionHeader, AccordionBody, Flex, Icon } from "@tremor/react";
+import { FiCpu, FiAlertOctagon, FiChevronsRight, FiZap, FiClipboard, FiTrendingUp, FiArrowRight, FiLoader, FiAlertCircle } from "react-icons/fi";
+import apiClient from "../../../api/api";
 
 // Komponen kecil untuk setiap seksi agar lebih rapi
 const AnalysisSection = ({ icon, title, children }) => (
@@ -15,11 +16,67 @@ const AnalysisSection = ({ icon, title, children }) => (
   </div>
 );
 
-function AIGeneratedAnalysis({ analysisData }) {
-  // Destructuring semua data dari prop
+function AIGeneratedAnalysis({ analysisData, assessmentId, onSummaryLoaded }) {
+  // const [analysis, setAnalysis] = useState(analysisData);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Cek apakah data summary *belum* ada
+    if (analysisData && !analysisData.ai_executive_summary) {
+      console.log("Summary tidak ditemukan. Memulai fetch summary untuk Asesmen ID:", assessmentId);
+      setIsLoading(true);
+      setError(null);
+
+      const fetchSummary = async () => {
+        try {
+          // Panggil API baru yang kita buat di backend
+          const response = await apiClient.post(`/assessments/${assessmentId}/generate-summary`);
+          // Update state lokal dengan data summary yang baru diterima
+          onSummaryLoaded(response.data);
+        } catch (err) {
+          console.error("Gagal memuat AI Summary:", err);
+          setError(err.response?.data?.msg || "AI gagal membuat ringkasan eksekutif.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchSummary();
+    }
+  }, [assessmentId, analysisData, onSummaryLoaded]);
+
   const { ai_executive_summary, ai_risk_profile_analysis, ai_immediate_priorities, ai_critical_risks_discussion, ai_implementation_plan, ai_next_steps } = analysisData || {};
 
-  // Jangan tampilkan apa-apa jika data utama tidak ada
+  // --- Tampilan saat Loading (Panggilan AI ke-2) ---
+  if (isLoading) {
+    return (
+      <Card className="mt-6 rounded-xl shadow-lg">
+        <Flex justifyContent="center" alignItems="center" className="space-x-3 py-10">
+          <Icon icon={FiLoader} className="animate-spin" size="lg" color="blue" />
+          <div className="text-left">
+            <Title className="text-tremor-content-strong">AI Sedang Bekerja</Title>
+            <Text>Menulis ringkasan eksekutif dan rekomendasi... (Ini bisa memakan waktu hingga 30 detik)</Text>
+          </div>
+        </Flex>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="mt-6 rounded-xl shadow-lg bg-rose-50 border-rose-200">
+        <Flex justifyContent="center" alignItems="center" className="space-x-3 py-10">
+          <Icon icon={FiAlertCircle} size="lg" color="rose" />
+          <div className="text-left">
+            <Title className="text-rose-800">Gagal Membuat Ringkasan</Title>
+            <Text className="text-rose-700">{error}</Text>
+          </div>
+        </Flex>
+      </Card>
+    );
+  }
+
   if (!ai_executive_summary) {
     return null;
   }

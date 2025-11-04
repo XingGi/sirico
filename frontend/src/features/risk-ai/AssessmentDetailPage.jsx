@@ -69,6 +69,13 @@ function AssessmentDetailPage() {
     }));
   };
 
+  const handleSummaryLoaded = (newAnalysisData) => {
+    setAssessment((prevData) => ({
+      ...prevData,
+      ...newAnalysisData, // Gabungkan data asesmen lama dengan data summary baru
+    }));
+  };
+
   if (isLoading) return <div className="p-10">Memuat Laporan Asesmen Risiko...</div>;
   if (!assessment) return <div className="p-10">Gagal memuat data asesmen.</div>;
 
@@ -274,7 +281,7 @@ function AssessmentDetailPage() {
 
         <RiskSummary risks={assessment.risks} />
 
-        <AIGeneratedAnalysis analysisData={assessment} />
+        <AIGeneratedAnalysis analysisData={assessment} assessmentId={assessment.id} onSummaryLoaded={handleSummaryLoaded} />
 
         <Card className="mt-6 rounded-xl bg-orange-50 border border-orange-200">
           <div className="flex items-center gap-3">

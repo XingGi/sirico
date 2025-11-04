@@ -312,23 +312,88 @@ def analyze_assessment():
             )
             db.session.add(new_risk_entry)
             # 4. Panggil Layanan AI untuk analisis detail
-            print("Membuat ringkasan dan rekomendasi dari risiko yang teridentifikasi...")
-            analysis_content = generate_detailed_risk_analysis_with_gemini(identified_risks, gemini_api_key)
+            # print("Membuat ringkasan dan rekomendasi dari risiko yang teridentifikasi...")
+            # analysis_content = generate_detailed_risk_analysis_with_gemini(identified_risks, gemini_api_key)
             
-            if analysis_content:
-                new_assessment.ai_executive_summary = analysis_content.get("executive_summary")
-                new_assessment.ai_risk_profile_analysis = json.dumps(analysis_content.get("risk_profile_analysis"))
-                new_assessment.ai_immediate_priorities = json.dumps(analysis_content.get("immediate_priorities"))
-                new_assessment.ai_critical_risks_discussion = json.dumps(analysis_content.get("critical_risks_discussion"))
-                new_assessment.ai_implementation_plan = json.dumps(analysis_content.get("implementation_plan"))
-                new_assessment.ai_next_steps = analysis_content.get("next_steps")
-                print("Analisis detail berhasil dibuat.")
+            # if analysis_content:
+            #     new_assessment.ai_executive_summary = analysis_content.get("executive_summary")
+            #     new_assessment.ai_risk_profile_analysis = json.dumps(analysis_content.get("risk_profile_analysis"))
+            #     new_assessment.ai_immediate_priorities = json.dumps(analysis_content.get("immediate_priorities"))
+            #     new_assessment.ai_critical_risks_discussion = json.dumps(analysis_content.get("critical_risks_discussion"))
+            #     new_assessment.ai_implementation_plan = json.dumps(analysis_content.get("implementation_plan"))
+            #     new_assessment.ai_next_steps = analysis_content.get("next_steps")
+            #     print("Analisis detail berhasil dibuat.")
     else:
-        db.session.commit()
-        return jsonify({"msg": "Asesmen berhasil dibuat, namun analisis AI gagal.", "assessment_id": assessment_id}), 500
+        db.session.rollback() # Batalkan jika AI gagal membuat risiko
+        return jsonify({"msg": "Asesmen gagal dibuat, analisis AI tidak mengembalikan risiko.", "assessment_id": assessment_id}), 500
+    
+        # db.session.commit()
+        # return jsonify({"msg": "Asesmen berhasil dibuat, namun analisis AI gagal.", "assessment_id": assessment_id}), 500
 
     db.session.commit()
     return jsonify({"msg": "Analisis risiko AI berhasil dan disimpan.", "assessment_id": assessment_id}), 201
+
+# --- HIGHLIGHT: TAMBAHKAN ENDPOINT BARU UNTUK PANGGILAN AI KE-2 ---
+@risk_ai_bp.route('/assessments/<int:assessment_id>/generate-summary', methods=['POST'])
+@jwt_required()
+def generate_summary_for_assessment(assessment_id):
+    current_user_id = get_jwt_identity()
+    assessment = RiskAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+
+    # Cek apakah summary sudah ada (jangan generate ulang jika tidak perlu)
+    if assessment.ai_executive_summary:
+        print(f"Summary untuk Asesmen {assessment_id} sudah ada. Mengembalikan data lama.")
+        # Kita perlu memuat ulang data yang sudah di-JSON-kan
+        def safe_json_loads(json_string):
+            if not json_string: return None
+            try: return json.loads(json_string)
+            except (json.JSONDecodeError, TypeError): return None
+            
+        return jsonify({
+            "ai_executive_summary": assessment.ai_executive_summary,
+            "ai_risk_profile_analysis": safe_json_loads(assessment.ai_risk_profile_analysis),
+            "ai_immediate_priorities": safe_json_loads(assessment.ai_immediate_priorities),
+            "ai_critical_risks_discussion": safe_json_loads(assessment.ai_critical_risks_discussion),
+            "ai_implementation_plan": safe_json_loads(assessment.ai_implementation_plan),
+            "ai_next_steps": assessment.ai_next_steps,
+        }), 200 # 200 OK (bukan 201 Created)
+
+    # Jika summary belum ada, panggil AI
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
+
+    # Kumpulkan data risiko yang sudah ada di DB
+    risks_from_db = assessment.risk_register_entries
+    risk_list_for_ai = [
+        {
+            "kode_risiko": r.kode_risiko,
+            "deskripsi_risiko": r.deskripsi_risiko,
+            "inherent_likelihood": r.inherent_likelihood,
+            "inherent_impact": r.inherent_impact,
+            "risk_type": r.risk_type
+        } for r in risks_from_db
+    ]
+
+    print(f"Membuat ringkasan untuk Asesmen {assessment_id}...")
+    analysis_content = generate_detailed_risk_analysis_with_gemini(risk_list_for_ai, gemini_api_key)
+    
+    if analysis_content:
+        # Simpan hasil ke asesmen yang ada
+        assessment.ai_executive_summary = analysis_content.get("executive_summary")
+        assessment.ai_risk_profile_analysis = json.dumps(analysis_content.get("risk_profile_analysis"))
+        assessment.ai_immediate_priorities = json.dumps(analysis_content.get("immediate_priorities"))
+        assessment.ai_critical_risks_discussion = json.dumps(analysis_content.get("critical_risks_discussion"))
+        assessment.ai_implementation_plan = json.dumps(analysis_content.get("implementation_plan"))
+        assessment.ai_next_steps = analysis_content.get("next_steps")
+        
+        db.session.commit()
+        print("Analisis detail berhasil dibuat dan disimpan.")
+        
+        # Kembalikan data yang baru saja dibuat
+        return jsonify(analysis_content), 200
+    else:
+        return jsonify({"msg": "Gagal membuat ringkasan eksekutif."}), 500
 
 @risk_ai_bp.route('/risks/<int:risk_id>', methods=['PUT'])
 @jwt_required()

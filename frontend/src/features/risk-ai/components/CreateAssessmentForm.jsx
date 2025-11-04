@@ -6,8 +6,9 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import AsyncSelect from "react-select/async";
 import { components } from "react-select";
-import { Card, Title, Text, Button, TextInput, Textarea, Select, SearchSelect, SelectItem, SearchSelectItem, ProgressBar, Dialog, DialogPanel, Switch } from "@tremor/react";
-import { FiCpu, FiArchive, FiBriefcase, FiFlag, FiCheckSquare, FiPlusSquare, FiHome, FiShield, FiDollarSign, FiTarget, FiBookOpen, FiUsers, FiClipboard } from "react-icons/fi";
+import { Card, Title, Text, Button, TextInput, Textarea, Select, SearchSelect, SelectItem, SearchSelectItem, ProgressBar, Dialog, DialogPanel, Switch, Icon } from "@tremor/react";
+import { FiCpu, FiArchive, FiBriefcase, FiFlag, FiCheckSquare, FiPlusSquare, FiHome, FiShield, FiDollarSign, FiTarget, FiBookOpen, FiUsers, FiClipboard, FiCheckCircle } from "react-icons/fi";
+import NotificationModal from "../../../components/common/NotificationModal";
 
 // Data untuk kategori risiko (sekarang dengan deskripsi singkat)
 const RISK_CATEGORIES = [
@@ -71,6 +72,10 @@ function CreateAssessmentForm() {
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
   const [hasAgreedTerms, setHasAgreedTerms] = useState(false);
   const [hasAgreedUsage, setHasAgreedUsage] = useState(false);
+  const [successModal, setSuccessModal] = useState({
+    isOpen: false,
+    assessmentId: null,
+  });
 
   // useEffect untuk mengambil data master dropdown
   useEffect(() => {
@@ -163,16 +168,29 @@ function CreateAssessmentForm() {
   };
 
   const handleConfirmAndAnalyze = async () => {
-    setIsAgreementModalOpen(false); // Tutup pop-up persetujuan
-    setIsLoading(true); // Buka pop-up proses...
+    setIsAgreementModalOpen(false);
+    setIsLoading(true);
     try {
       const response = await apiClient.post("/assessments/analyze", formData);
-      alert("Analisis AI berhasil! Anda akan diarahkan ke halaman hasil.");
-      navigate(`/risk-ai/assessments/${response.data.assessment_id}`);
+      setIsLoading(false);
+      // alert("Analisis AI berhasil! Anda akan diarahkan ke halaman hasil.");
+      // navigate(`/risk-ai/assessments/${response.data.assessment_id}`);
+      setSuccessModal({
+        isOpen: true,
+        assessmentId: response.data.assessment_id,
+      });
     } catch (error) {
       alert("Error: " + (error.response?.data?.msg || "Gagal membuat dan menganalisis asesmen."));
-    } finally {
-      setIsLoading(false); // Tutup pop-up proses
+    }
+  };
+
+  const handleCloseSuccessModal = () => {
+    const { assessmentId } = successModal; // Ambil ID yang disimpan
+    setSuccessModal({ isOpen: false, assessmentId: null });
+
+    // Lakukan navigasi SEKARANG, setelah user klik "Mengerti"
+    if (assessmentId) {
+      navigate(`/risk-ai/assessments/${assessmentId}`);
     }
   };
 
@@ -180,8 +198,6 @@ function CreateAssessmentForm() {
 
   return (
     <>
-      {" "}
-      {/* Gunakan Fragment untuk membungkus form dan dialog */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="rounded-xl shadow-lg">
           <div className="flex items-center gap-2">
@@ -470,6 +486,14 @@ function CreateAssessmentForm() {
           <Text className="mt-2 text-xs">AI sedang memproses, ini mungkin memakan waktu beberapa saat...</Text>
         </DialogPanel>
       </Dialog>
+      <NotificationModal
+        isOpen={successModal.isOpen}
+        onClose={handleCloseSuccessModal}
+        title="Analisis Selesai!"
+        message="Analisis AI berhasil! Daftar risiko awal telah dibuat. Anda akan diarahkan ke halaman hasil untuk meninjaunya."
+        // Kita gunakan ikon FiCheckCircle untuk sukses
+        icon={<FiCheckCircle className="w-6 h-6 text-blue-600" />}
+      />
     </>
   );
 }

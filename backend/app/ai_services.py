@@ -154,7 +154,7 @@ def analyze_assessment_with_gemini(form_data: dict, api_key: str) -> list | None
     try:
         genai.configure(api_key=api_key)
         json_config = genai.GenerationConfig(response_mime_type="application/json")
-        model = genai.GenerativeModel('gemini-2.5-pro', generation_config=json_config)
+        model = genai.GenerativeModel('gemini-2.5-flash', generation_config=json_config)
 
         konteks = f"""
         **Nama Proyek:** {form_data.get('nama_asesmen')}
