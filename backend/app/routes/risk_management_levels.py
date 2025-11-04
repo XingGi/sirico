@@ -1578,14 +1578,7 @@ def add_sasaran_kpi(assessment_id):
     # Kembalikan data yang baru dibuat
     return jsonify({
         "msg": "Sasaran Organisasi/KPI berhasil ditambahkan.",
-        "entry": {
-            "id": new_sasaran.id,
-            "assessment_id": new_sasaran.assessment_id,
-            "sasaran_kpi": new_sasaran.sasaran_kpi,
-            "target_level": new_sasaran.target_level,
-            "inherent_risk_score": new_sasaran.inherent_risk_score,
-            "residual_risk_score": new_sasaran.residual_risk_score
-        }
+        "entry": format_sasaran_entry(new_sasaran)
     }), 201
 
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/sasaran-kpi', methods=['GET'])
@@ -1635,11 +1628,7 @@ def update_sasaran_target_level(sasaran_id):
     # Kembalikan data yang sudah diupdate
     return jsonify({
         "msg": "Target level berhasil diperbarui.",
-        "entry": {
-            "id": sasaran_entry.id,
-            "target_level": sasaran_entry.target_level
-            # Sertakan field lain jika perlu di-update di frontend
-        }
+        "entry": format_sasaran_entry(sasaran_entry)
     })
 
 @risk_management_levels_bp.route('/sasaran-kpi/<int:sasaran_id>', methods=['DELETE'])
@@ -1793,6 +1782,19 @@ def format_risk_input_entry(entry):
 
     return entry_dict
 
+def format_sasaran_entry(entry):
+    """Mengubah objek SasaranOrganisasiKPI menjadi dictionary."""
+    if not entry:
+        return None
+    return {
+        "id": entry.id,
+        "assessment_id": entry.assessment_id,
+        "sasaran_kpi": entry.sasaran_kpi,
+        "target_level": entry.target_level,
+        "inherent_risk_score": entry.inherent_risk_score,
+        "residual_risk_score": entry.residual_risk_score
+    }
+
 def update_sasaran_kpi_scores(sasaran_id):
     """Menghitung dan memperbarui skor inheren & residual tertinggi untuk Sasaran/KPI."""
     if not sasaran_id:
@@ -1921,11 +1923,14 @@ def add_risk_input(assessment_id):
     
     update_sasaran_kpi_scores(new_risk_input.sasaran_id)
     db.session.commit()
+    
+    updated_sasaran_entry = SasaranOrganisasiKPI.query.get(new_risk_input.sasaran_id) if new_risk_input.sasaran_id else None
 
     # Kembalikan data lengkap setelah disimpan
     return jsonify({
         "msg": "Risk Input berhasil ditambahkan.",
-        "entry": format_risk_input_entry(new_risk_input)
+        "entry": format_risk_input_entry(new_risk_input),
+        "updated_sasaran": format_sasaran_entry(updated_sasaran_entry)
     }), 201
 
 
@@ -2046,6 +2051,8 @@ def update_risk_input(risk_input_id):
     
     update_sasaran_kpi_scores(risk_input.sasaran_id)
     db.session.commit()
+    
+    updated_sasaran_entry = SasaranOrganisasiKPI.query.get(risk_input.sasaran_id) if risk_input.sasaran_id else None
 
     # Kembalikan data yang sudah diupdate
     # updated_entry_dict = {c.name: getattr(risk_input, c.name) for c in risk_input.__table__.columns}
@@ -2053,7 +2060,11 @@ def update_risk_input(risk_input_id):
     #     if updated_entry_dict.get(date_field):
     #         updated_entry_dict[date_field] = updated_entry_dict[date_field].isoformat()
 
-    return jsonify({"msg": "Risk Input berhasil diperbarui.", "entry": format_risk_input_entry(risk_input)})
+    return jsonify({
+        "msg": "Risk Input berhasil diperbarui.",
+        "entry": format_risk_input_entry(risk_input),
+        "updated_sasaran": format_sasaran_entry(updated_sasaran_entry)
+    })
 
 
 @risk_management_levels_bp.route('/risk-inputs/<int:risk_input_id>', methods=['DELETE'])

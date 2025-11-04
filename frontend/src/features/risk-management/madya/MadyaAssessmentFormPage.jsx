@@ -108,11 +108,30 @@ function MadyaAssessmentFormPage() {
   }, []); // Dependency kosong karena assessmentId didapat dari state
 
   // Fungsi refresh yang bisa dipanggil dari child RiskInputCard
-  const refreshRiskInputsAndSasaran = () => {
-    if (assessmentId) {
-      fetchRiskInputs(assessmentId); // Refresh Risk Inputs
-      refreshSasaranKPI(); // Refresh Sasaran (karena skor mungkin berubah)
-    }
+  // const refreshRiskInputsAndSasaran = () => {
+  //   if (assessmentId) {
+  //     fetchRiskInputs(assessmentId);
+  //     refreshSasaranKPI();
+  //   }
+  // };
+
+  const handleSasaranChange = (data, action) => {
+    setSasaranKPIEntries((prevEntries) => {
+      if (action === "add") {
+        // Tambahkan sasaran baru ke state
+        return [...prevEntries, data];
+      }
+      if (action === "update") {
+        // Ganti sasaran yang ada di state
+        return prevEntries.map((item) => (item.id === data.id ? data : item));
+      }
+      if (action === "delete") {
+        // Hapus sasaran dari state
+        return prevEntries.filter((item) => item.id !== data.id);
+      }
+      return prevEntries; // Default
+    });
+    console.log(`State Sasaran di-update secara manual (action: ${action})`);
   };
 
   useEffect(() => {
@@ -217,22 +236,58 @@ function MadyaAssessmentFormPage() {
     setCurrentStructureEntries(newEntries);
   };
 
+  const handleRiskInputSave = (responseData, isUpdate) => {
+    // responseData = { entry: {...risk_input...}, updated_sasaran: {...sasaran_kpi...} }
+
+    if (!responseData || !responseData.entry) {
+      console.error("Save success dipanggil tanpa data, melakukan refresh total...");
+      // Fallback: jika terjadi error, lakukan refresh manual
+      fetchRiskInputs(assessmentId);
+      fetchSasaranKPI(assessmentId); // Pastikan fetchSasaranKPI masih ada
+      return;
+    }
+
+    const savedEntry = responseData.entry;
+    const updatedSasaran = responseData.updated_sasaran;
+
+    // 1. Update state Risk Inputs secara manual
+    setRiskInputEntries((prevEntries) => {
+      if (isUpdate) {
+        // Ganti item yang diedit
+        return prevEntries.map((item) => (item.id === savedEntry.id ? savedEntry : item));
+      } else {
+        // Tambah item baru
+        return [...prevEntries, savedEntry];
+      }
+    });
+
+    // 2. Update state Sasaran KPI jika ada yang berubah
+    if (updatedSasaran) {
+      setSasaranKPIEntries((prevSasaran) => {
+        // Ganti item sasaran yang skornya baru di-update
+        return prevSasaran.map((item) => (item.id === updatedSasaran.id ? updatedSasaran : item));
+      });
+    }
+
+    console.log("State Sasaran & Risk Input di-update secara manual tanpa refresh API.");
+  };
+
   // Fungsi fetch khusus Sasaran/KPI
-  const fetchSasaranKPI = async (id) => {
+  const fetchSasaranKPI = useCallback(async (id) => {
     try {
       const sasaranRes = await apiClient.get(`/madya-assessments/${id}/sasaran-kpi`);
-      setSasaranKPIEntries(sasaranRes.data || []); // Pastikan array
+      setSasaranKPIEntries(sasaranRes.data || []);
       console.log("Sasaran KPI data refreshed:", sasaranRes.data);
     } catch (error) {
       console.error("Gagal refresh data Sasaran KPI:", error);
     }
-  };
+  }, []);
 
-  const refreshSasaranKPI = () => {
-    if (assessmentId) {
-      fetchSasaranKPI(assessmentId);
-    }
-  };
+  // const refreshSasaranKPI = () => {
+  //   if (assessmentId) {
+  //     fetchSasaranKPI(assessmentId);
+  //   }
+  // };
 
   // Kondisi loading gabungan
   const isPageLoading = isLoading || isTemplateDetailLoading || isRiskInputLoading;
@@ -318,7 +373,7 @@ function MadyaAssessmentFormPage() {
         <SasaranKPIAppetiteCard
           assessmentId={assessmentId}
           initialData={sasaranKPIEntries || []} // Pastikan array
-          onDataChange={refreshSasaranKPI} // Panggil refresh khusus sasaran
+          onSasaranChange={handleSasaranChange}
         />
       )}
 
@@ -329,7 +384,7 @@ function MadyaAssessmentFormPage() {
           structureEntries={currentStructureEntries} // Kirim state lokal struktur
           sasaranKPIEntries={sasaranKPIEntries || []} // Kirim state lokal sasaran
           templateScores={selectedTemplateData?.scores || []} // Kirim scores dari detail template
-          onRiskInputSaveSuccess={refreshRiskInputsAndSasaran}
+          onRiskInputSaveSuccess={handleRiskInputSave}
           initialFilters={filters}
           onFilterChange={handleFilterChange}
           initialRiskInputData={riskInputEntries} // Prop baru untuk data awal tabel

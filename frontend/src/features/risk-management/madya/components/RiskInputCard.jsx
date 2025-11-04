@@ -126,12 +126,12 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
     setIsModalOpen(true);
   };
 
-  const handleSaveRiskInput = (savedEntry, isUpdate) => {
-    console.log("Data diterima di RiskInputCard handleSaveRiskInput:", savedEntry);
+  const handleSaveRiskInput = (responseData, isUpdate) => {
+    console.log("Data diterima di RiskInputCard handleSaveRiskInput:", responseData);
     setIsModalOpen(false); // Tutup modal otomatis
 
     if (onRiskInputSaveSuccess) {
-      onRiskInputSaveSuccess();
+      onRiskInputSaveSuccess(responseData, isUpdate);
     }
   };
 

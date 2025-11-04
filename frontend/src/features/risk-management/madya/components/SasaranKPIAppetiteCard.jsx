@@ -42,8 +42,8 @@ function SasaranFormModal({ isOpen, onClose, onSave, initialText = "" }) {
 }
 
 // Komponen Utama Card 3
-function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }) {
-  const [sasaranEntries, setSasaranEntries] = useState(initialData);
+function SasaranKPIAppetiteCard({ assessmentId, initialData: sasaranEntries = [], onSasaranChange }) {
+  // const [sasaranEntries, setSasaranEntries] = useState(initialData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [updatingTargetId, setUpdatingTargetId] = useState(null);
@@ -55,10 +55,12 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
       const response = await apiClient.post(`/madya-assessments/${assessmentId}/sasaran-kpi`, {
         sasaran_kpi: sasaranText,
       });
-      setSasaranEntries((prev) => [...prev, response.data.entry]); // Tambahkan data baru ke state
+      // setSasaranEntries((prev) => [...prev, response.data.entry]);
       setIsModalOpen(false); // Tutup modal
       // Panggil onDataChange jika ada (opsional, tergantung kebutuhan refresh)
-      if (onDataChange) onDataChange();
+      if (onSasaranChange) {
+        onSasaranChange(response.data.entry, "add");
+      }
     } catch (error) {
       alert("Gagal menambahkan Sasaran/KPI: " + (error.response?.data?.msg || "Error"));
     } finally {
@@ -72,8 +74,10 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
       setIsLoading(true);
       try {
         await apiClient.delete(`/sasaran-kpi/${sasaranId}`);
-        setSasaranEntries((prev) => prev.filter((entry) => entry.id !== sasaranId)); // Hapus dari state
-        if (onDataChange) onDataChange();
+        // setSasaranEntries((prev) => prev.filter((entry) => entry.id !== sasaranId));
+        if (onSasaranChange) {
+          onSasaranChange({ id: sasaranId }, "delete");
+        }
       } catch (error) {
         alert("Gagal menghapus Sasaran/KPI: " + (error.response?.data?.msg || "Error"));
       } finally {
@@ -89,9 +93,11 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData = [], onDataChange }
         target_level: newTargetLevel,
       });
       // Update state lokal secara optimis atau berdasarkan response
-      setSasaranEntries((prev) => prev.map((entry) => (entry.id === sasaranId ? { ...entry, target_level: response.data.entry.target_level } : entry)));
+      // setSasaranEntries((prev) => prev.map((entry) => (entry.id === sasaranId ? { ...entry, target_level: response.data.entry.target_level } : entry)));
       // Panggil onDataChange jika perlu refresh data lain yang bergantung
-      if (onDataChange) onDataChange();
+      if (onSasaranChange) {
+        onSasaranChange(response.data.entry, "update");
+      }
     } catch (error) {
       alert("Gagal mengupdate Target Level: " + (error.response?.data?.msg || "Error"));
       // Rollback state jika perlu (jika update optimis gagal)

@@ -262,7 +262,7 @@ function RiskInputFormModal({
       } else {
         response = await apiClient.post(`/madya-assessments/${assessmentId}/risk-inputs`, payload);
       }
-      onSaveSuccess(response.data.entry, isEditMode); // Kirim data hasil save/update ke parent
+      onSaveSuccess(response.data, isEditMode); // Kirim data hasil save/update ke parent
       onClose(); // Tutup modal jika sukses
     } catch (err) {
       setError(err.response?.data?.msg || `Gagal ${isEditMode ? "memperbarui" : "menyimpan"} Risk Input.`);
