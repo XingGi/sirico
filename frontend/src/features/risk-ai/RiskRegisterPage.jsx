@@ -6,6 +6,7 @@ import { FiSearch, FiUpload, FiDownload, FiMaximize, FiMinimize, FiTrash2 } from
 import apiClient from "../../api/api";
 import MainRiskRegisterTable from "./components/MainRiskRegisterTable";
 import EditRiskItemSidebar from "./components/EditRiskItemSidebar";
+import { toast } from "sonner";
 
 function RiskRegisterPage() {
   const [risks, setRisks] = useState([]);
@@ -92,7 +93,7 @@ function RiskRegisterPage() {
       apiClient
         .delete(`/risk-register/${riskId}`)
         .then(() => {
-          alert("Risiko berhasil dihapus.");
+          toast.success(response.data.msg || "Risiko berhasil dihapus.");
           fetchData(); // Muat ulang data
         })
         .catch((error) => alert("Gagal menghapus risiko."));
@@ -102,7 +103,7 @@ function RiskRegisterPage() {
   const handleDeleteSelected = () => {
     if (window.confirm(`Anda yakin ingin menghapus ${selectedRisks.length} risiko terpilih?`)) {
       apiClient.post("/risk-register/bulk-delete", { risk_ids: selectedRisks }).then(() => {
-        alert("Risiko terpilih berhasil dihapus.");
+        toast.success("Risiko terpilih berhasil dihapus.");
         setSelectedRisks([]);
         fetchData();
       });

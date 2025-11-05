@@ -7,6 +7,7 @@ import { debounce } from "lodash";
 import apiClient from "../../../api/api";
 import TemplateViewModal from "../templates/components/TemplateViewModal";
 import MadyaAssessmentView from "./components/MadyaAssessmentView";
+import { toast } from "sonner";
 import NotificationModal from "../../../components/common/NotificationModal";
 
 const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message, isLoading = false }) => (
@@ -383,7 +384,9 @@ function MadyaAssessmentListPage() {
       fetchAssessments(); // Muat ulang daftar
     } catch (error) {
       console.error("Gagal menghapus asesmen madya:", error);
-      alert("Gagal menghapus asesmen: " + (error.response?.data?.msg || "Terjadi kesalahan."));
+      toast.error("Gagal menghapus asesmen", {
+        description: error.response?.data?.msg || "Terjadi kesalahan.",
+      });
     } finally {
       setIsDeleting(false);
     }

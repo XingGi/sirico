@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { TabGroup, TabList, Tab, TabPanels, TabPanel, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Button, Dialog, DialogPanel, TextInput, Textarea } from "@tremor/react";
 import { FiEdit, FiEye } from "react-icons/fi";
 import apiClient from "../../../../api/api";
+import { toast } from "sonner";
 
 const initialProbabilityData = [
   {
@@ -255,9 +256,9 @@ function MadyaCriteriaReference({
       await apiClient.put(`/madya-assessments/criteria/probability/${formData.id}`, formData);
       setIsModalOpen(false);
       if (onCriteriaSave) onCriteriaSave(); // Panggil refresh parent
-      alert("Kriteria probabilitas berhasil diperbarui.");
+      toast.success("Kriteria probabilitas berhasil diperbarui.");
     } catch (error) {
-      alert("Gagal menyimpan: " + (error.response?.data?.msg || "Error"));
+      toast.error("Gagal menyimpan: " + (error.response?.data?.msg || "Error"));
     }
   };
 
@@ -279,9 +280,9 @@ function MadyaCriteriaReference({
       setIsImpactModalOpen(false);
       setImpactFormData(null);
       if (onCriteriaSave) onCriteriaSave(); // Panggil refresh parent
-      alert("Kriteria dampak berhasil diperbarui.");
+      toast.success("Kriteria dampak berhasil diperbarui.");
     } catch (error) {
-      alert("Gagal menyimpan: " + (error.response?.data?.msg || "Error"));
+      toast.error("Gagal menyimpan: " + (error.response?.data?.msg || "Error"));
     }
   };
 

@@ -10,6 +10,7 @@ import SasaranKPIAppetiteCard from "./components/SasaranKPIAppetiteCard";
 import RiskInputCard from "./components/RiskInputCard";
 import RiskMapCard from "./components/RiskMapCard";
 import { FiMaximize, FiMinimize } from "react-icons/fi";
+import { toast } from "sonner";
 
 function MadyaAssessmentFormPage() {
   const { assessmentId: idParam } = useParams();
@@ -118,15 +119,15 @@ function MadyaAssessmentFormPage() {
   const handleSasaranChange = (data, action) => {
     setSasaranKPIEntries((prevEntries) => {
       if (action === "add") {
-        // Tambahkan sasaran baru ke state
+        toast.success("Sasaran/KPI berhasil ditambahkan.");
         return [...prevEntries, data];
       }
       if (action === "update") {
-        // Ganti sasaran yang ada di state
+        toast.success("Target level berhasil diperbarui.");
         return prevEntries.map((item) => (item.id === data.id ? data : item));
       }
       if (action === "delete") {
-        // Hapus sasaran dari state
+        toast.success("Sasaran/KPI berhasil dihapus.");
         return prevEntries.filter((item) => item.id !== data.id);
       }
       return prevEntries; // Default
@@ -240,10 +241,11 @@ function MadyaAssessmentFormPage() {
     // responseData = { entry: {...risk_input...}, updated_sasaran: {...sasaran_kpi...} }
 
     if (!responseData || !responseData.entry) {
-      console.error("Save success dipanggil tanpa data, melakukan refresh total...");
+      // console.error("Save success dipanggil tanpa data, melakukan refresh total...");
       // Fallback: jika terjadi error, lakukan refresh manual
       fetchRiskInputs(assessmentId);
       fetchSasaranKPI(assessmentId); // Pastikan fetchSasaranKPI masih ada
+      toast.success(isUpdate ? "Risk Input berhasil diperbarui." : "Risk Input berhasil ditambahkan.");
       return;
     }
 
@@ -409,7 +411,8 @@ function MadyaAssessmentFormPage() {
         <Button
           onClick={() => {
             console.log("Tombol 'Simpan & Lanjutkan' diklik, user tetap di halaman.");
-            alert("Progress per bagian tersimpan otomatis. Anda tetap di halaman ini.");
+            // alert("Progress per bagian tersimpan otomatis. Anda tetap di halaman ini.");
+            toast.success("Progress per bagian tersimpan otomatis. Anda tetap di halaman ini.");
           }}
         >
           Simpan & Lanjutkan (Nanti)

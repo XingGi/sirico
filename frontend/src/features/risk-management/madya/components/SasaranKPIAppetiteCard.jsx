@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Card, Title, Text, Button, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Textarea, Dialog, DialogPanel, Select, SelectItem } from "@tremor/react";
 import { FiPlus, FiTrash2, FiSave, FiX } from "react-icons/fi";
 import apiClient from "../../../../api/api";
+import { toast } from "sonner";
 
 // Komponen Modal untuk menambah/mengedit Sasaran/KPI
 function SasaranFormModal({ isOpen, onClose, onSave, initialText = "" }) {
@@ -62,7 +63,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData: sasaranEntries = []
         onSasaranChange(response.data.entry, "add");
       }
     } catch (error) {
-      alert("Gagal menambahkan Sasaran/KPI: " + (error.response?.data?.msg || "Error"));
+      toast.error("Gagal menambahkan Sasaran/KPI", { description: error.response?.data?.msg || "Error" });
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +80,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData: sasaranEntries = []
           onSasaranChange({ id: sasaranId }, "delete");
         }
       } catch (error) {
-        alert("Gagal menghapus Sasaran/KPI: " + (error.response?.data?.msg || "Error"));
+        toast.error("Gagal menghapus Sasaran/KPI", { description: error.response?.data?.msg || "Error" });
       } finally {
         setIsLoading(false);
       }
@@ -99,7 +100,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData: sasaranEntries = []
         onSasaranChange(response.data.entry, "update");
       }
     } catch (error) {
-      alert("Gagal mengupdate Target Level: " + (error.response?.data?.msg || "Error"));
+      toast.error("Gagal mengupdate Target Level", { description: error.response?.data?.msg || "Error" });
       // Rollback state jika perlu (jika update optimis gagal)
     } finally {
       setUpdatingTargetId(null); // Hentikan loading untuk baris ini

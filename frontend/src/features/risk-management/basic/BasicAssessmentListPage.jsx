@@ -6,6 +6,7 @@ import { Card, Title, Text, Button, Dialog, DialogPanel, Table, TableHead, Table
 import { FiPlus, FiHome, FiCalendar, FiEdit2, FiEye, FiInfo, FiCheckCircle, FiDownload, FiMaximize, FiMinimize, FiGrid, FiList, FiLoader, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import BasicAssessmentView from "./components/BasicAssessmentView";
+import { toast } from "sonner";
 import NotificationModal from "../../../components/common/NotificationModal";
 
 const formatCurrency = (value) => {
@@ -134,7 +135,7 @@ function BasicAssessmentListPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Gagal mengekspor file:", error);
-      alert("Gagal mengekspor file Excel.");
+      toast.error("Gagal mengekspor file Excel.");
     } finally {
       setIsExportingId(null);
     }
@@ -159,12 +160,12 @@ function BasicAssessmentListPage() {
     try {
       // Panggil API DELETE
       await apiClient.delete(`/basic-assessments/${deleteConfirmation.assessmentId}`);
-      alert(`Asesmen "${deleteConfirmation.assessmentName}" berhasil dihapus.`);
+      toast.success(`Asesmen "${deleteConfirmation.assessmentName}" berhasil dihapus.`);
       closeDeleteConfirm(); // Tutup dialog
       fetchAssessments(); // Muat ulang daftar setelah berhasil hapus
     } catch (error) {
       console.error("Gagal menghapus asesmen:", error);
-      alert("Gagal menghapus asesmen: " + (error.response?.data?.msg || "Terjadi kesalahan."));
+      toast.error("Gagal menghapus asesmen: " + (error.response?.data?.msg || "Terjadi kesalahan."));
       // Dialog tetap terbuka jika gagal, agar user tahu ada masalah
     } finally {
       setIsDeleting(false); // Hentikan loading hapus

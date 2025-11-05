@@ -16,6 +16,7 @@ import {
 } from "@tremor/react";
 import { FiX } from "react-icons/fi";
 import apiClient from "../../../api/api";
+import { toast } from "sonner";
 
 // 2. Buat fungsi helper untuk kalkulasi Risk Level di sini
 const getLevelInfo = (likelihood, impact) => {
@@ -57,7 +58,9 @@ function EditRiskItemSidebar({ risk, isOpen, onClose, onSave }) {
       onSave(editedRisk);
       onClose();
     } catch (error) {
-      alert("Gagal menyimpan perubahan: " + (error.response?.data?.msg || "Error tidak diketahui"));
+      toast.error("Gagal Menyimpan Perubahan", {
+        description: error.response?.data?.msg || "Endpoint tidak ditemukan atau terjadi error.",
+      });
     }
   };
 

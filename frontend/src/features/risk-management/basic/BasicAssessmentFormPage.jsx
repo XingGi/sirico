@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Card, Title, Text, Button, TextInput, Textarea, NumberInput, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Dialog, DialogPanel, Select, SelectItem } from "@tremor/react";
 import { FiBriefcase, FiHome, FiSave, FiPlus, FiTrash2, FiEdit2, FiHelpCircle, FiMaximize, FiMinimize, FiAlertTriangle } from "react-icons/fi";
 import apiClient from "../../../api/api";
+import { toast } from "sonner";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return "Rp 0";
@@ -287,14 +288,14 @@ function BasicAssessmentFormPage() {
     try {
       if (isEditMode) {
         await apiClient.put(`/basic-assessments/${assessmentId}`, payload);
-        alert("Asesmen Dasar berhasil diperbarui!");
+        toast.success("Asesmen Dasar berhasil diperbarui!");
       } else {
         await apiClient.post("/basic-assessments", payload);
-        alert("Asesmen Dasar berhasil disimpan!");
+        toast.success("Asesmen Dasar berhasil disimpan!");
       }
       navigate("/risk-management/dasar");
     } catch (error) {
-      alert("Gagal menyimpan: " + (error.response?.data?.msg || "Terjadi kesalahan."));
+      toast.error("Gagal menyimpan: " + (error.response?.data?.msg || "Terjadi kesalahan."));
     } finally {
       setIsLoading(false);
     }

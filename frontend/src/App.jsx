@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 // --- PERUBAHAN: Mengimpor komponen dari lokasi baru ---
 import Layout from "./components/common/Layout";
+import { Toaster } from "sonner";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import UnauthorizedPage from "./components/common/UnauthorizedPage";
 
@@ -34,6 +35,7 @@ import PasswordSettingPage from "./features/account/PasswordSettingPage";
 function App() {
   return (
     <Router>
+      <Toaster position="bottom-right" richColors />
       <Routes>
         {/* Rute Publik */}
         <Route path="/" element={<LandingPage />} />

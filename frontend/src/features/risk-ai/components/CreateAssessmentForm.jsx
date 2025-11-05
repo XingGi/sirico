@@ -8,6 +8,7 @@ import AsyncSelect from "react-select/async";
 import { components } from "react-select";
 import { Card, Title, Text, Button, TextInput, Textarea, Select, SearchSelect, SelectItem, SearchSelectItem, ProgressBar, Dialog, DialogPanel, Switch, Icon } from "@tremor/react";
 import { FiCpu, FiArchive, FiBriefcase, FiFlag, FiCheckSquare, FiPlusSquare, FiHome, FiShield, FiDollarSign, FiTarget, FiBookOpen, FiUsers, FiClipboard, FiCheckCircle } from "react-icons/fi";
+import { toast } from "sonner";
 import NotificationModal from "../../../components/common/NotificationModal";
 
 // Data untuk kategori risiko (sekarang dengan deskripsi singkat)
@@ -161,7 +162,7 @@ function CreateAssessmentForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.risk_categories.length === 0) {
-      alert("Harap pilih minimal satu kategori risiko.");
+      toast.warning("Validasi Gagal", { description: "Harap pilih minimal satu kategori risiko." });
       return;
     }
     setIsAgreementModalOpen(true);
@@ -180,7 +181,9 @@ function CreateAssessmentForm() {
         assessmentId: response.data.assessment_id,
       });
     } catch (error) {
-      alert("Error: " + (error.response?.data?.msg || "Gagal membuat dan menganalisis asesmen."));
+      toast.error("Analisis AI Gagal", {
+        description: error.response?.data?.msg || "Gagal membuat dan menganalisis asesmen.",
+      });
     }
   };
 

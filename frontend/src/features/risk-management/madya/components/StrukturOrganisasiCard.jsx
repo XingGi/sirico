@@ -6,6 +6,7 @@ import StrukturOrganisasiTable from "./StrukturOrganisasiTable";
 import StrukturOrganisasiFormModal from "./StrukturOrganisasiFormModal";
 import ImageViewModal from "./ImageViewModal";
 import apiClient from "../../../../api/api";
+import { toast } from "sonner";
 
 const MAX_FILE_SIZE_MB = 1;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -46,9 +47,9 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
         await apiClient.delete(`/structure-entries/${entryId}`);
         const updatedEntries = entries.filter((entry) => entry.id !== entryId);
         onDataChange(updatedEntries); // Panggil handler dari parent dengan data baru
-        alert("Data berhasil dihapus.");
+        toast.success("Data berhasil dihapus.");
       } catch (error) {
-        alert("Gagal menghapus data: " + (error.response?.data?.msg || "Error"));
+        toast.error("Gagal menghapus data: " + (error.response?.data?.msg || "Error"));
       }
     }
   };
@@ -77,7 +78,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
       const response = await apiClient.post(`/madya-assessments/${assessmentId}/structure-image`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setImageUrl(response.data.image_url); // Update URL gambar
+      setImageUrl(response.data.image_url);
       alert(response.data.msg);
     } catch (error) {
       setUploadError(error.response?.data?.msg || "Gagal mengupload gambar.");
@@ -101,7 +102,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
       try {
         await apiClient.delete(`/madya-assessments/${assessmentId}/structure-image`);
         setImageUrl(null); // Hapus URL gambar dari state
-        alert("Gambar berhasil dihapus.");
+        toast.success("Gambar berhasil dihapus.");
       } catch (error) {
         setUploadError(error.response?.data?.msg || "Gagal menghapus gambar.");
         console.error("Delete error:", error);

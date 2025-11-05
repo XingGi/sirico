@@ -6,6 +6,7 @@ import { Card, Title, Text, TextInput, Select, SelectItem, Button, Switch, Grid 
 import { FiPlus, FiGrid, FiList, FiSearch, FiTrash2, FiAlertTriangle, FiLoader } from "react-icons/fi";
 import apiClient from "../../api/api";
 import AssessmentItem from "./components/AssessmentItem";
+import { toast } from "sonner";
 import NotificationModal from "../../components/common/NotificationModal";
 import ConfirmationDialog from "../../components/common/ConfirmationDialog";
 
@@ -157,13 +158,13 @@ function AssessmentListPage() {
         const response = await apiClient.post("/assessments/bulk-delete", {
           risk_ids: selectedAssessments,
         });
-        alert(response.data.msg || "Asesmen terpilih berhasil dihapus.");
+        toast.success(response.data.msg || "Asesmen terpilih berhasil dihapus.");
         closeDeleteConfirm();
         setSelectedAssessments([]); // <-- Kosongkan pilihan
         fetchAssessmentsAndLimits(); // <-- Refresh data
       } catch (error) {
         console.error("Gagal bulk delete:", error);
-        alert(error.response?.data?.msg || "Gagal menghapus asesmen.");
+        toast.error("Gagal menghapus asesmen", { description: error.response?.data?.msg || "Error" });
       }
     } else {
       if (!deleteConfirm.assessmentId) {
@@ -172,12 +173,12 @@ function AssessmentListPage() {
       }
       try {
         const response = await apiClient.delete(`/assessments/${deleteConfirm.assessmentId}`);
-        alert(response.data.msg || "Asesmen berhasil dihapus.");
+        toast.success(response.data.msg || "Asesmen berhasil dihapus.");
         closeDeleteConfirm();
         fetchAssessmentsAndLimits();
       } catch (error) {
         console.error("Gagal menghapus asesmen:", error);
-        alert(error.response?.data?.msg || "Gagal menghapus asesmen.");
+        toast.error("Gagal menghapus asesmen", { description: error.response?.data?.msg || "Error" });
       }
     }
 
