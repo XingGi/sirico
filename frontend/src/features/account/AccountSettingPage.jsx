@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Card, Title, Text, TextInput, Button, Grid, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Metric, NumberInput } from "@tremor/react";
-import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiEdit3, FiInfo } from "react-icons/fi";
+import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiEdit3, FiInfo, FiBriefcase } from "react-icons/fi";
 import apiClient from "../../api/api";
 import { useAuth } from "../../context/AuthContext"; // Import useAuth
 
@@ -13,6 +13,7 @@ function AccountSettingPage() {
     email: "",
     phone_number: "",
     institution: "",
+    department_name: "",
     assessment_limits: {
       dasar: { count: 0, limit: 0 },
       madya: { count: 0, limit: 0 },
@@ -155,6 +156,10 @@ function AccountSettingPage() {
                   onChange={handleChange}
                   placeholder="Nama PT / Universitas..." // Placeholder ditambahkan
                 />
+              </div>
+              <div>
+                <label>Departemen</label>
+                <TextInput icon={FiBriefcase} name="department" value={userData.department_name || "Belum diatur"} disabled className="mt-1" />
               </div>
             </div>
           </Card>

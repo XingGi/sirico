@@ -1,10 +1,41 @@
 # backend/app/routes/admin.py
 from flask import request, jsonify, Blueprint
-from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment
-from app import bcrypt
-from .auth import admin_required
+from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate
+from app import bcrypt, ma
+from marshmallow import fields
+from .auth import admin_required, permission_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func
+from datetime import datetime
+
+class DepartmentSchema(ma.Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str()
+    institution = fields.Str(dump_only=True)
+
+class RscaCycleSchema(ma.Schema):
+    id = fields.Int(dump_only=True)
+    nama_siklus = fields.Str()
+    tanggal_mulai = fields.Date()
+    tanggal_selesai = fields.Date()
+    status = fields.Str()
+    institution = fields.Str(dump_only=True)
+    departments = fields.Nested(DepartmentSchema, many=True)
+
+class RscaQuestionnaireSchema(ma.Schema):
+    id = fields.Int(dump_only=True)
+    pertanyaan = fields.Str()
+    kategori = fields.Str()
+    question_type = fields.Str()
+    cycle_id = fields.Int()
+    
+class RscaAnswerSchema(ma.Schema):
+    id = fields.Int()
+    jawaban = fields.Str()
+    catatan = fields.Str()
+    control_effectiveness_rating = fields.Str()
+    questionnaire = fields.Nested(RscaQuestionnaireSchema)
+    department = fields.Nested(DepartmentSchema)
 
 admin_bp = Blueprint('admin_bp', __name__)
 
@@ -164,7 +195,10 @@ def get_users():
              "email": user.email,
              "nama_lengkap": user.nama_lengkap,
              "role_ids": [role.id for role in user.roles], # Kirim ID role yang dimiliki user
-             "roles": [role.name for role in user.roles] # Kirim nama role juga bisa membantu
+             "roles": [role.name for role in user.roles], # Kirim nama role juga bisa membantu
+             "institution": user.institution, # Tambahkan institusi
+             "department_id": user.department_id,
+             "department_name": user.department.name if user.department else None
              # Jangan kirim password_hash
          })
      return jsonify(result)
@@ -178,11 +212,13 @@ def get_user_details_admin(user_id):
     count_dasar = db.session.query(func.count(BasicAssessment.id)).filter_by(user_id=user_id).scalar() or 0
     count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=user_id).scalar() or 0
     count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+    count_template_peta = db.session.query(func.count(RiskMapTemplate.id)).filter_by(user_id=user_id, is_default=False).scalar() or 0
 
     assessment_limits = {
-        "dasar": {"count": count_dasar, "limit": user.limit_dasar}, # Gunakan count asli
-        "madya": {"count": count_madya, "limit": user.limit_madya}, # Gunakan count asli
-        "ai": {"count": count_ai, "limit": user.limit_ai}          # Gunakan count asli
+        "dasar": {"count": count_dasar, "limit": user.limit_dasar},
+        "madya": {"count": count_madya, "limit": user.limit_madya},
+        "ai": {"count": count_ai, "limit": user.limit_ai},
+        "template_peta": {"count": count_template_peta, "limit": user.limit_template_peta}
     }
 
     return jsonify({
@@ -192,7 +228,8 @@ def get_user_details_admin(user_id):
         "phone_number": getattr(user, 'phone_number', None),
         "institution": getattr(user, 'institution', None),
         "role_ids": [role.id for role in user.roles], # Kirim ID roles
-        "assessment_limits": assessment_limits
+        "assessment_limits": assessment_limits,
+        "department_id": user.department_id
     }), 200
 
 # === ENDPOINT BARU: UPDATE User Detail (oleh Admin) ===
@@ -237,7 +274,8 @@ def update_user_details_admin(user_id):
         limit_fields = {
             "dasar": "limit_dasar",
             "madya": "limit_madya",
-            "ai": "limit_ai"
+            "ai": "limit_ai",
+            "template_peta": "limit_template_peta"
         }
         for key, db_field in limit_fields.items():
             if key in limits_data and 'limit' in limits_data[key]:
@@ -248,6 +286,20 @@ def update_user_details_admin(user_id):
                         updated = True
                 except (ValueError, TypeError):
                     pass # Abaikan jika limit tidak valid
+    
+    if 'department_id' in data:
+        dept_id = data.get('department_id')
+        
+        # Cek apakah departemen valid untuk institusi user ini
+        if dept_id:
+            dept = Department.query.get(dept_id)
+            if not dept or dept.institution != user.institution:
+                return jsonify({"msg": "Departemen tidak valid untuk institusi user ini."}), 400
+            user.department_id = dept_id
+        else:
+            user.department_id = None # Hapus departemen
+        
+        updated = True
 
     if updated:
         try:
@@ -255,16 +307,19 @@ def update_user_details_admin(user_id):
             count_dasar = db.session.query(func.count(BasicAssessment.id)).filter_by(user_id=user_id).scalar() or 0
             count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=user_id).scalar() or 0
             count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=user_id).scalar() or 0
+            count_template_peta = db.session.query(func.count(RiskMapTemplate.id)).filter_by(user_id=user_id, is_default=False).scalar() or 0
             updated_user_data = {
                 "id": user.id, "nama_lengkap": user.nama_lengkap, "email": user.email,
                 "phone_number": getattr(user, 'phone_number', None),
                 "institution": getattr(user, 'institution', None),
+                "department_id": user.department_id,
                 "role_ids": [role.id for role in user.roles],
                 "roles": [role.name for role in user.roles], # Kirim nama role juga
                 "assessment_limits": {
                     "dasar": {"count": count_dasar, "limit": user.limit_dasar},
                     "madya": {"count": count_madya, "limit": user.limit_madya},
-                    "ai": {"count": count_ai, "limit": user.limit_ai}
+                    "ai": {"count": count_ai, "limit": user.limit_ai},
+                    "template_peta": {"count": count_template_peta, "limit": user.limit_template_peta}
                 }
             }
             return jsonify({
@@ -303,10 +358,12 @@ def create_user_admin():
         nama_lengkap=nama_lengkap,
         phone_number=data.get('phone_number'),
         institution=data.get('institution'),
+        department_id=data.get('department_id'),
         # Set default limits (atau ambil dari request jika ada)
         limit_dasar=data.get('limit_dasar', 10),
         limit_madya=data.get('limit_madya', 5),
-        limit_ai=data.get('limit_ai', 15)
+        limit_ai=data.get('limit_ai', 15),
+        limit_template_peta=data.get('limit_template_peta', 5)
     )
     
     # Assign roles
@@ -326,12 +383,14 @@ def create_user_admin():
             "email": new_user.email,
             "phone_number": new_user.phone_number,
             "institution": new_user.institution,
+            "department_id": new_user.department_id,
             "role_ids": [role.id for role in new_user.roles],
             "roles": [role.name for role in new_user.roles],
             "assessment_limits": {
                 "dasar": {"count": 0, "limit": new_user.limit_dasar},
                 "madya": {"count": 0, "limit": new_user.limit_madya},
-                "ai": {"count": 0, "limit": new_user.limit_ai}
+                "ai": {"count": 0, "limit": new_user.limit_ai},
+                "template_peta": {"count": 0, "limit": new_user.limit_template_peta}
             }
         }
         return jsonify({"msg": "User berhasil dibuat.", "user": created_user_data}), 201
@@ -367,3 +426,303 @@ def delete_user_admin(user_id):
         db.session.rollback()
         print(f"Error deleting user {user_id}: {e}")
         return jsonify({"msg": "Gagal menghapus user. Pastikan user tidak memiliki data terkait (misal: assessment)."}), 500
+
+@admin_bp.route('/departments-list', methods=['GET'])
+@jwt_required()
+@permission_required('manage_departments')
+def get_departments_list():
+    """
+    Mengambil daftar departemen.
+    Jika ?institution=... ada, filter berdasarkan itu (untuk Super Admin).
+    Jika tidak, filter berdasarkan institusi user yang login (untuk Manajer Risiko).
+    """
+    try:
+        institution_filter = request.args.get('institution')
+        departments_query = Department.query
+
+        if institution_filter:
+            # Mode Super Admin: Filter berdasarkan parameter
+            departments_query = departments_query.filter_by(
+                institution=institution_filter
+            )
+        else:
+            # Mode Manajer Risiko: Filter berdasarkan institusi sendiri
+            current_user_id = get_jwt_identity()
+            user = User.query.get(current_user_id)
+            if not user or not user.institution:
+                # Jika Manajer Risiko tidak punya institusi, kembalikan daftar kosong
+                return jsonify([]), 200 
+            
+            departments_query = departments_query.filter_by(
+                institution=user.institution
+            )
+        
+        departments = departments_query.order_by(Department.name).all()
+        return DepartmentSchema(many=True).jsonify(departments), 200
+        
+    except Exception as e:
+        print(f"Error di get_departments_list: {e}") 
+        return jsonify({"msg": "Gagal mengambil data departemen", "error": str(e)}), 500
+    
+@admin_bp.route('/departments', methods=['GET'])
+@jwt_required()
+@permission_required('manage_departments')
+def get_departments_for_institution():
+    """Mengambil daftar departemen untuk tabel manajemen."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user or not user.institution:
+        return jsonify({"msg": "User tidak memiliki institusi."}), 400
+    departments = Department.query.filter_by(
+        institution=user.institution
+    ).order_by(Department.name).all()
+    
+    return DepartmentSchema(many=True).jsonify(departments), 200
+
+@admin_bp.route('/departments', methods=['POST'])
+@jwt_required()
+@permission_required('manage_departments')
+def create_department_for_institution():
+    """Membuat departemen baru untuk institusi user."""
+    data = request.get_json()
+    if not data or 'name' not in data:
+        return jsonify({"msg": "Nama departemen wajib diisi."}), 400
+
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user or not user.institution:
+        return jsonify({"msg": "User tidak memiliki institusi."}), 400
+        
+    # Cek duplikat HANYA di dalam institusi mereka
+    existing = Department.query.filter_by(
+        name=data['name'], 
+        institution=user.institution
+    ).first()
+    
+    if existing:
+        return jsonify({"msg": "Nama departemen sudah ada untuk institusi ini."}), 409
+        
+    new_dept = Department(
+        name=data['name'],
+        institution=user.institution
+    )
+    db.session.add(new_dept)
+    db.session.commit()
+    
+    return DepartmentSchema().jsonify(new_dept), 201
+
+@admin_bp.route('/departments/<int:dept_id>', methods=['PUT'])
+@jwt_required()
+@permission_required('manage_departments')
+def update_department_for_institution(dept_id):
+    """Update departemen (HANYA JIKA MILIK INSTITUSINYA)."""
+    dept = Department.query.get_or_404(dept_id)
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or dept.institution != user.institution:
+        return jsonify({"msg": "Akses ditolak: Anda tidak memiliki izin untuk departemen ini."}), 403
+        
+    data = request.get_json()
+    dept.name = data.get('name', dept.name)
+    db.session.commit()
+    
+    return DepartmentSchema().jsonify(dept), 200
+
+@admin_bp.route('/departments/<int:dept_id>', methods=['DELETE'])
+@jwt_required()
+@permission_required('manage_departments')
+def delete_department_for_institution(dept_id):
+    """Hapus departemen."""
+    dept = Department.query.get_or_404(dept_id)
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or dept.institution != user.institution:
+        return jsonify({"msg": "Akses ditolak: Anda tidak memiliki izin untuk departemen ini."}), 403
+        
+    db.session.delete(dept)
+    db.session.commit()
+    
+    return jsonify({"msg": "Departemen berhasil dihapus."}), 200
+    
+@admin_bp.route('/rsca-cycles', methods=['GET'])
+@jwt_required()
+@permission_required('manage_rsca_cycles')
+def get_rsca_cycles():
+    """Mengambil semua siklus RSCA untuk admin."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user or not user.institution:
+        return jsonify({"msg": "User tidak memiliki institusi."}), 400
+
+    try:
+        cycles = RscaCycle.query.filter_by(
+            institution=user.institution
+        ).order_by(RscaCycle.tanggal_mulai.desc()).all()
+        return RscaCycleSchema(many=True).jsonify(cycles), 200
+    except Exception as e:
+        print(f"Error di get_rsca_cycles: {e}")
+        return jsonify({"msg": "Gagal mengambil siklus RSCA", "error": str(e)}), 500
+
+
+@admin_bp.route('/rsca-cycles', methods=['POST'])
+@jwt_required()
+@permission_required('manage_rsca_cycles')
+def create_rsca_cycle():
+    """Membuat siklus RSCA baru UNTUK institusi user."""
+    data = request.get_json()
+    if not data or 'nama_siklus' not in data:
+        return jsonify({"msg": "Data tidak lengkap"}), 400
+
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user or not user.institution:
+        return jsonify({"msg": "User tidak memiliki institusi."}), 400
+
+    department_ids = data.get('department_ids', [])
+    
+    departments = Department.query.filter(
+        Department.id.in_(department_ids),
+        Department.institution == user.institution
+    ).all()
+    
+    new_cycle = RscaCycle(
+        nama_siklus=data['nama_siklus'],
+        tanggal_mulai=data.get('tanggal_mulai'),
+        tanggal_selesai=data.get('tanggal_selesai'),
+        status='Draft',
+        institution=user.institution
+    )
+    new_cycle.departments.extend(departments)
+    
+    db.session.add(new_cycle)
+    db.session.commit()
+    
+    return RscaCycleSchema().jsonify(new_cycle), 201
+
+@admin_bp.route('/rsca-cycles/<int:cycle_id>', methods=['PUT'])
+@jwt_required()
+@permission_required('manage_rsca_cycles')
+def update_rsca_cycle(cycle_id):
+    """
+    Update detail siklus RSCA (nama, tanggal, departemen).
+    """
+    cycle = RscaCycle.query.get_or_404(cycle_id)
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    # 1. Validasi Keamanan (Institusi)
+    if not user or not user.institution or cycle.institution != user.institution:
+        return jsonify({"msg": "Akses ditolak (Beda Institusi)."}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Data tidak boleh kosong"}), 400
+
+    # 2. Update field dasar (Nama & Tanggal)
+    if 'nama_siklus' in data:
+        cycle.nama_siklus = data['nama_siklus']
+    
+    # Update tanggal dengan penanganan string kosong atau null
+    try:
+        if 'tanggal_mulai' in data:
+            cycle.tanggal_mulai = datetime.strptime(data['tanggal_mulai'], '%Y-%m-%d').date() if data['tanggal_mulai'] else None
+        if 'tanggal_selesai' in data:
+            cycle.tanggal_selesai = datetime.strptime(data['tanggal_selesai'], '%Y-%m-%d').date() if data['tanggal_selesai'] else None
+    except ValueError:
+        return jsonify({"msg": "Format tanggal salah. Gunakan YYYY-MM-DD atau null."}), 400
+    
+    # 3. Update relasi departemen (jika dikirim)
+    if 'department_ids' in data:
+        if not isinstance(data['department_ids'], list):
+            return jsonify({"msg": "department_ids harus berupa list."}), 400
+        
+        # Ambil departemen HANYA dari institusi user
+        new_depts = Department.query.filter(
+            Department.id.in_(data['department_ids']),
+            Department.institution == user.institution
+        ).all()
+        cycle.departments = new_depts # Ganti list departemen yang lama
+
+    db.session.commit()
+    
+    # Kembalikan data siklus yang sudah di-update (termasuk departemen baru)
+    return RscaCycleSchema().dump(cycle), 200
+
+@admin_bp.route('/rsca-cycles/<int:cycle_id>/questionnaire', methods=['GET'])
+@jwt_required()
+@permission_required('manage_rsca_cycles')
+def get_cycle_questionnaire(cycle_id):
+    """Mengambil semua pertanyaan untuk satu siklus (admin)."""
+    questions = RscaQuestionnaire.query.filter_by(cycle_id=cycle_id).all()
+    return RscaQuestionnaireSchema(many=True).jsonify(questions), 200
+
+@admin_bp.route('/rsca-cycles/<int:cycle_id>/questionnaire', methods=['POST'])
+@jwt_required()
+@permission_required('manage_rsca_cycles')
+def add_question_to_cycle(cycle_id):
+    """Menambahkan pertanyaan baru ke siklus."""
+    data = request.get_json()
+    if not data or 'pertanyaan' not in data or 'question_type' not in data:
+        return jsonify({"msg": "Data pertanyaan tidak lengkap"}), 400
+        
+    new_question = RscaQuestionnaire(
+        pertanyaan=data['pertanyaan'],
+        kategori=data.get('kategori'),
+        question_type=data['question_type'], # 'text' or 'control_assessment'
+        cycle_id=cycle_id
+    )
+    db.session.add(new_question)
+    db.session.commit()
+    return RscaQuestionnaireSchema().jsonify(new_question), 201
+
+@admin_bp.route('/rsca-questionnaire/<int:question_id>', methods=['PUT'])
+@jwt_required()
+@permission_required('manage_rsca_cycles')
+def update_question(question_id):
+    """Update pertanyaan kuesioner."""
+    question = RscaQuestionnaire.query.get_or_404(question_id)
+    data = request.get_json()
+    
+    question.pertanyaan = data.get('pertanyaan', question.pertanyaan)
+    question.kategori = data.get('kategori', question.kategori)
+    question.question_type = data.get('question_type', question.question_type)
+    
+    db.session.commit()
+    return RscaQuestionnaireSchema().jsonify(question), 200
+
+@admin_bp.route('/rsca-questionnaire/<int:question_id>', methods=['DELETE'])
+@jwt_required()
+@permission_required('manage_rsca_cycles')
+def delete_question(question_id):
+    """Menghapus pertanyaan kuesioner."""
+    question = RscaQuestionnaire.query.get_or_404(question_id)
+    db.session.delete(question)
+    db.session.commit()
+    return jsonify({"msg": "Pertanyaan berhasil dihapus"}), 200
+
+@admin_bp.route('/rsca-cycles/<int:cycle_id>/results', methods=['GET'])
+@jwt_required()
+@permission_required('manage_rsca_cycles') # Amankan dengan permission yang sama
+def get_rsca_cycle_results(cycle_id):
+    """
+    Mengambil semua hasil (jawaban) untuk satu siklus RSCA,
+    hanya untuk institusi Manajer Risiko.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    cycle = RscaCycle.query.get_or_404(cycle_id)
+    
+    # Validasi Institusi (Keamanan Data)
+    if not user or not user.institution or user.institution != cycle.institution:
+        return jsonify({"msg": "Akses ditolak (Beda Institusi)."}), 403
+    
+    # Ambil semua jawaban untuk siklus ini
+    answers = RscaAnswer.query.filter_by(cycle_id=cycle_id).all()
+    
+    return jsonify({
+        "cycle": RscaCycleSchema().dump(cycle),
+        "answers": RscaAnswerSchema(many=True).dump(answers),
+        "ai_summary": cycle.ai_summary or None # Kirim juga summary AI jika ada
+    }), 200

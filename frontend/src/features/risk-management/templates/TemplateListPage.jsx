@@ -5,16 +5,22 @@ import { Card, Title, Text, Button, Badge, Grid } from "@tremor/react";
 import { FiPlus, FiShield, FiEdit, FiTrash2, FiEye } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import TemplateViewModal from "./components/TemplateViewModal";
+import ConfirmationDialog from "../../../components/common/ConfirmationDialog";
+import NotificationModal from "../../../components/common/NotificationModal";
+import { useAuth } from "../../../context/AuthContext";
 
 function TemplateListPage() {
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const { user } = useAuth();
   // State untuk mengontrol modal
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
+  const [userLimits, setUserLimits] = useState(null);
+  const [limitModal, setLimitModal] = useState({ isOpen: false, message: "" });
 
   const fetchTemplates = () => {
     setIsLoading(true);
@@ -29,6 +35,16 @@ function TemplateListPage() {
 
   useEffect(() => {
     fetchTemplates();
+
+    // Ambil data limit saat komponen dimuat
+    apiClient
+      .get("/account/details")
+      .then((response) => {
+        setUserLimits(response.data.assessment_limits);
+      })
+      .catch((err) => {
+        console.error("Gagal memuat limit user:", err);
+      });
   }, []);
 
   const handleViewClick = (templateId) => {
@@ -69,6 +85,30 @@ function TemplateListPage() {
     }
   };
 
+  const handleNewTemplateClick = () => {
+    if (user && user.role === "Admin") {
+      navigate("/risk-management/templates/new");
+      return;
+    }
+
+    if (!userLimits) {
+      toast.info("Sedang memuat data limit, silakan coba lagi sesaat.");
+      return;
+    }
+
+    const currentCount = templates.filter((t) => !t.is_default).length;
+    const limit = userLimits.template_peta?.limit;
+
+    if (limit !== null && currentCount >= limit) {
+      setLimitModal({
+        isOpen: true,
+        message: `Batas pembuatan Template Peta Risiko kustom Anda telah tercapai (${currentCount}/${limit}). Hubungi admin untuk menambah kuota.`,
+      });
+    } else {
+      navigate("/risk-management/templates/new");
+    }
+  };
+
   return (
     <>
       <div className="p-6 sm:p-10">
@@ -77,7 +117,7 @@ function TemplateListPage() {
             <Title>Template Peta Risiko</Title>
             <Text>Kelola template matriks risiko untuk digunakan dalam asesmen.</Text>
           </div>
-          <Button icon={FiPlus} onClick={() => navigate("/risk-management/templates/new")}>
+          <Button icon={FiPlus} onClick={handleNewTemplateClick} disabled={isLoading || !userLimits}>
             Buat Template Baru
           </Button>
         </div>
@@ -122,6 +162,7 @@ function TemplateListPage() {
 
       {/* --- PERUBAHAN: Render komponen modal di sini --- */}
       <TemplateViewModal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} templateData={isDetailLoading ? null : viewingTemplate} />
+      <NotificationModal isOpen={limitModal.isOpen} onClose={() => setLimitModal({ isOpen: false, message: "" })} title="Batas Kuota Tercapai" message={limitModal.message} />
     </>
   );
 }

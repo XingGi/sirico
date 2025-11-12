@@ -1008,6 +1008,15 @@ def create_risk_map_template():
     current_user_id = get_jwt_identity()
     if not data or not data.get('name'):
         return jsonify({"msg": "Nama template wajib diisi."}), 400
+    
+    user = User.query.get(current_user_id)
+    if not user:
+         return jsonify({"msg": "User tidak ditemukan"}), 404
+         
+    if user.limit_template_peta is not None:
+        current_count = RiskMapTemplate.query.filter_by(user_id=current_user_id, is_default=False).count()
+        if current_count >= user.limit_template_peta:
+            return jsonify({"msg": f"Batas pembuatan Template Peta Risiko telah tercapai ({current_count}/{user.limit_template_peta}). Hubungi admin."}), 403
 
     new_template = RiskMapTemplate(name=data['name'], description=data.get('description'), user_id=current_user_id)
     db.session.add(new_template)

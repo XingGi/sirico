@@ -1,9 +1,27 @@
 // frontend/src/features/admin/components/AddUserModal.jsx
 
-import React, { useState } from "react";
-import { Dialog, DialogPanel, Title, Text, TextInput, Button, Grid, Subtitle, MultiSelect, MultiSelectItem, Flex, Icon, Divider } from "@tremor/react";
-import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiX, FiKey, FiLock } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import { Dialog, DialogPanel, Title, Text, TextInput, Button, Grid, Subtitle, MultiSelect, MultiSelectItem, Flex, Icon, Divider, Select, SelectItem } from "@tremor/react";
+import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiX, FiKey, FiLock, FiBriefcase } from "react-icons/fi";
 import apiClient from "../../../api/api";
+import { toast } from "sonner";
+
+const fetchDepartmentsByInstitution = async (institution, setDepartments, setIsLoading) => {
+  if (!institution) {
+    setDepartments([]);
+    return;
+  }
+  setIsLoading(true);
+  try {
+    const { data } = await apiClient.get(`/admin/departments-list?institution=${encodeURIComponent(institution)}`);
+    setDepartments(data);
+  } catch (err) {
+    console.error("Gagal mengambil departemen:", err);
+    toast.error("Gagal mengambil daftar departemen.");
+    setDepartments([]);
+  }
+  setIsLoading(false);
+};
 
 function AddUserModal({ isOpen, onClose, allRoles, onSaveSuccess }) {
   const [formData, setFormData] = useState({
@@ -13,13 +31,24 @@ function AddUserModal({ isOpen, onClose, allRoles, onSaveSuccess }) {
     confirmPassword: "",
     phone_number: "",
     institution: "",
+    department_id: "",
   });
   const [selectedRoleIds, setSelectedRoleIds] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [isLoadingDepts, setIsLoadingDepts] = useState(false);
+
+  useEffect(() => {
+    fetchDepartmentsByInstitution(formData.institution, setDepartments, setIsLoadingDepts);
+  }, [formData.institution, isOpen]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSelectChange = (value, name) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleRoleChange = (values) => {
@@ -52,6 +81,7 @@ function AddUserModal({ isOpen, onClose, allRoles, onSaveSuccess }) {
       phone_number: formData.phone_number || null,
       institution: formData.institution || null,
       role_ids: selectedRoleIds.map(Number),
+      department_id: formData.department_id ? Number(formData.department_id) : null,
       // Limit akan menggunakan default di backend
     };
 
@@ -77,8 +107,10 @@ function AddUserModal({ isOpen, onClose, allRoles, onSaveSuccess }) {
       confirmPassword: "",
       phone_number: "",
       institution: "",
+      department_id: "",
     });
     setSelectedRoleIds([]);
+    setDepartments([]);
     setError("");
   };
 
@@ -119,6 +151,21 @@ function AddUserModal({ isOpen, onClose, allRoles, onSaveSuccess }) {
                   <label>Institusi</label>
                   <TextInput icon={FiHome} name="institution" value={formData.institution} onChange={handleChange} placeholder="Nama PT / Universitas..." />
                 </div>
+                <div>
+                  <label>Departemen</label>
+                  <Select icon={FiBriefcase} value={formData.department_id} onValueChange={(value) => handleSelectChange(value, "department_id")} placeholder="Pilih Departemen..." disabled={!formData.institution || isLoadingDepts}>
+                    {isLoadingDepts && (
+                      <SelectItem value="" disabled>
+                        Memuat...
+                      </SelectItem>
+                    )}
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={String(dept.id)}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
               </Grid>
             </div>
 
@@ -153,11 +200,14 @@ function AddUserModal({ isOpen, onClose, allRoles, onSaveSuccess }) {
 
             {/* Roles */}
             <div className="space-y-2">
-              <Subtitle icon={FiKey}>Roles *</Subtitle>
+              <Flex alignItems="center" className="space-x-2 w-fit">
+                <Icon icon={FiKey} variant="light" color="gray" size="sm" />
+                <Subtitle>Roles *</Subtitle>
+              </Flex>
               <MultiSelect value={selectedRoleIds} onValueChange={handleRoleChange} placeholder="Pilih satu atau lebih role..." required>
                 {allRoles.map((role) => (
                   <MultiSelectItem key={role.id} value={String(role.id)}>
-                    {role.name} {role.description && <span className="text-xs text-tremor-content italic ml-1">{`(${role.description})`}</span>}
+                    {role.name} {role.description && `(${role.description})`}
                   </MultiSelectItem>
                 ))}
               </MultiSelect>

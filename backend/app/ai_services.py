@@ -43,34 +43,43 @@ def summarize_text_with_gemini(text_to_summarize: str, api_key: str) -> str | No
         print(f"Error saat memanggil Gemini API: {e}")
         return None
     
-def analyze_rsca_answers_with_gemini(all_answers_text: str, api_key: str) -> str | None:
+def analyze_rsca_answers_with_gemini(text, api_key):
+    """Menganalisis jawaban RSCA dan mengembalikan ringkasan terstruktur dalam Markdown."""
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.5-pro')
+    
+    prompt = f"""
+    PERAN: Anda adalah seorang analis GRC (Governance, Risk, and Compliance) profesional.
+    TUGAS: Analisis jawaban kuesioner RSCA (Risk & Control Self-Assessment) dari berbagai departemen. Buatlah laporan analisis yang rapi, tersusun, dan jelas dalam format MARKDOWN.
+
+    JAWABAN KUESIONER UNTUK DIANALISIS:
+    ---
+    {text}
+    ---
+
+    INSTRUKSI LAPORAN (Harus dalam format Markdown):
+
+    ## 1. Kesimpulan Ringkas (Executive Summary)
+    (Berikan ringkasan 2-3 kalimat tentang temuan utama dan kesehatan kontrol secara keseluruhan berdasarkan jawaban.)
+
+    ## 2. Analisis Profil Risiko & Temuan Utama
+    (Identifikasi tema risiko yang muncul. Apakah ada risiko spesifik, seperti 'Risiko Keamanan Siber' atau 'Risiko Kepatuhan', yang sering dilaporkan 'Tidak Efektif' atau 'Perlu Perbaikan'? Sebutkan temuan paling kritis.)
+
+    ## 3. Prioritas Tindakan Segera
+    (Berdasarkan temuan di atas, berikan daftar 3 prioritas tindakan perbaikan yang paling mendesak.)
+
+    ## 4. Pembahasan Risiko Kritis (Jika Ada)
+    (Jelaskan secara singkat mengapa temuan 'Tidak EfektIF' atau 'Perlu Perbaikan' yang paling menonjol itu penting dan apa potensial dampaknya jika tidak ditangani.)
+
+    ## 5. Rencana Implementasi & Langkah Selanjutnya
+    (Sarankan langkah-langkah umum berikutnya untuk Manajer Risiko, seperti 'Melakukan investigasi mendalam pada Departemen IT' atau 'Menjadwalkan pelatihan kepatuhan'.)
     """
-    Menganalisis kumpulan jawaban RSCA dan mengidentifikasi 3 kelemahan kontrol teratas.
-    """
+    
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-pro')
-
-        prompt = f"""
-        Anda adalah seorang konsultan manajemen risiko senior dengan pengalaman puluhan tahun.
-        Tugas Anda adalah menganalisis kumpulan jawaban dari sebuah Risk & Control Self-Assessment (RSCA) 
-        dari berbagai departemen di sebuah perusahaan.
-
-        Berdasarkan semua data jawaban berikut, identifikasi 3 (tiga) kelemahan kontrol (control weakness) 
-        yang paling umum, signifikan, atau berulang di seluruh perusahaan.
-
-        Sajikan temuan Anda sebagai ringkasan eksekutif dalam format bullet points. 
-        Untuk setiap poin, jelaskan kelemahannya dan berikan contoh dari departemen mana saja yang menunjukkannya.
-
-        Data Jawaban RSCA:
-        ---
-        {all_answers_text}
-        ---
-        """
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        print(f"Error saat menganalisis RSCA dengan Gemini API: {e}")
+        print(f"Error saat memanggil Gemini: {e}")
         return None
     
 def suggest_risks_for_process_step(step_description: str, api_key: str) -> str | None:

@@ -291,7 +291,7 @@ function RolePermissionPage() {
                         color="blue"
                         onClick={() => handleOpenModal(role)}
                         disabled={isAdminRole} // Disable edit untuk Admin
-                        tooltip="Edit Role" // Tooltip
+                        title="Edit Role"
                       />
                       <Button
                         size="xs" // Perkecil tombol
@@ -301,7 +301,7 @@ function RolePermissionPage() {
                         onClick={() => handleDeleteRole(role.id, role.name)}
                         disabled={isAdminRole || deletingRoleId === role.id} // Disable delete untuk Admin & saat loading
                         loading={deletingRoleId === role.id} // Loading spesifik
-                        tooltip="Hapus Role" // Tooltip
+                        title="Hapus Role"
                       />
                     </TableCell>
                   </TableRow>

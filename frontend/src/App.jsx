@@ -31,6 +31,16 @@ import RolePermissionPage from "./features/admin/RolePermissionPage";
 import MemberPage from "./features/admin/MemberPage";
 import AccountSettingPage from "./features/account/AccountSettingPage";
 import PasswordSettingPage from "./features/account/PasswordSettingPage";
+import RscaAdminPage from "./features/admin/RscaAdminPage";
+import DepartmentAdminPage from "./features/admin/DepartmentAdminPage";
+import RscaResultPage from "./features/admin/RscaResultPage";
+import { Title, Text } from "@tremor/react";
+const PlaceholderComponent = ({ title }) => (
+  <div className="p-10">
+    <Title>{title}</Title>
+    <Text>Halaman ini sedang dalam pengembangan.</Text>
+  </div>
+);
 
 function App() {
   return (
@@ -78,18 +88,23 @@ function App() {
               <Route path="/risk-management/templates/edit/:templateId" element={<TemplateEditorPage />} />
             </Route>
 
-            {/* Modul Lain */}
             <Route element={<ProtectedRoute requiredPermission="view_rsca" />}>
-              <Route path="/rsca" element={<RSCAPage />} />
+              <Route path="/addons/rsca" element={<RSCAPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="submit_rsca" />}>
-              <Route path="/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
+              <Route path="/addons/rsca/cycle/:cycleId" element={<RscaQuestionnaireForm />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_bpr" />}>
-              <Route path="/bpr" element={<BPRPage />} />
+              <Route path="/addons/bpr" element={<BPRPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_bia" />}>
-              <Route path="/bia" element={<BIAPage />} />
+              <Route path="/addons/bia" element={<BIAPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="view_cba_calculator" />}>
+              <Route path="/addons/cba" element={<PlaceholderComponent title="CBA Calculator" />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="view_monte_carlo" />}>
+              <Route path="/addons/monte-carlo" element={<PlaceholderComponent title="Monte Carlo Simulator" />} />
             </Route>
 
             {/* Admin (semua route di dalamnya butuh role admin atau permission spesifik) */}
@@ -98,6 +113,9 @@ function App() {
               <Route path="/admin/regulations" element={<RegulationPage />} />
               <Route path="/admin/roles" element={<RolePermissionPage />} />
               <Route path="/admin/members" element={<MemberPage />} />
+              <Route path="/admin/departments" element={<DepartmentAdminPage />} />
+              <Route path="/admin/rsca" element={<RscaAdminPage />} />
+              <Route path="/admin/rsca/results/:cycleId" element={<RscaResultPage />} />
             </Route>
           </Route>
         </Route>

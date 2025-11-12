@@ -1,6 +1,6 @@
 # backend/app/routes/auth.py
 from flask import request, jsonify, Blueprint
-from app.models import User, Role, BasicAssessment, MadyaAssessment, RiskAssessment
+from app.models import User, Role, BasicAssessment, MadyaAssessment, RiskAssessment, RiskMapTemplate
 from app import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request, get_jwt
 from functools import wraps
@@ -29,12 +29,13 @@ def permission_required(permission_name):
         def decorator(*args, **kwargs):
             verify_jwt_in_request()
             claims = get_jwt()
-            user_permissions = claims.get("permissions", []) # Ambil permissions dari token
+            user_permissions = claims.get("permissions", [])
             is_admin = claims.get("role") == "admin"
-            if permission_name not in user_permissions and not is_admin:
-                if claims.get("role") != "admin":
-                     return jsonify(msg=f"Akses ditolak: Membutuhkan permission '{permission_name}'."), 403
-            return fn(*args, **kwargs)
+            if is_admin:
+                return fn(*args, **kwargs)
+            if permission_name in user_permissions:
+                return fn(*args, **kwargs)
+            return jsonify(msg=f"Akses ditolak: Membutuhkan permission '{permission_name}'."), 403
         return decorator
     return wrapper
 
@@ -172,11 +173,13 @@ def get_account_details():
     count_dasar = db.session.query(func.count(BasicAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
     count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
     count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+    count_template_peta = db.session.query(func.count(RiskMapTemplate.id)).filter_by(user_id=current_user_id, is_default=False).scalar() or 0
 
     assessment_limits = {
-        "dasar": {"count": count_dasar, "limit": user.limit_dasar}, # Gunakan count asli
-        "madya": {"count": count_madya, "limit": user.limit_madya}, # Gunakan count asli
-        "ai": {"count": count_ai, "limit": user.limit_ai}          # Gunakan count asli
+        "dasar": {"count": count_dasar, "limit": user.limit_dasar},
+        "madya": {"count": count_madya, "limit": user.limit_madya},
+        "ai": {"count": count_ai, "limit": user.limit_ai},
+        "template_peta": {"count": count_template_peta, "limit": user.limit_template_peta}
     }
     
     phone_number = getattr(user, 'phone_number', None) # Contoh ambil atribut
@@ -188,7 +191,9 @@ def get_account_details():
         "email": user.email,
         "phone_number": phone_number, # Kirim phone number
         "institution": institution,   # Kirim institution
-        "assessment_limits": assessment_limits # Kirim data assessment
+        "assessment_limits": assessment_limits, # Kirim data assessment
+        "department_id": user.department_id,
+        "department_name": user.department.name if user.department else None
         # Jangan kirim password_hash
     }), 200
 

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask_marshmallow import Marshmallow
 
 load_dotenv()
 
@@ -14,6 +15,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 bcrypt = Bcrypt()
 jwt = JWTManager()
+ma = Marshmallow()
 
 def create_app():
     app = Flask(__name__)
@@ -32,6 +34,8 @@ def create_app():
     migrate.init_app(app, db)
     bcrypt.init_app(app)
     jwt.init_app(app)
+    ma.init_app(app)
+    CORS(app)
 
     with app.app_context():
         # Import blueprint dari setiap file di folder routes

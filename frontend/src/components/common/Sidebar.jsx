@@ -25,7 +25,11 @@ import {
   FiMoreVertical,
   FiUser,
   FiLock,
+  FiBox,
+  FiShuffle,
+  FiFileText,
 } from "react-icons/fi";
+import { HiCalculator } from "react-icons/hi";
 import { useAuth } from "../../context/AuthContext";
 // import { motion, AnimatePresence } from "framer-motion";
 
@@ -39,7 +43,6 @@ const menuItems = [
     children: [
       { title: "Dasar", path: "/risk-management/dasar", icon: <FiArrowDownCircle />, requiredPermission: "view_risk_dasar" },
       { title: "Madya", path: "/risk-management/madya", icon: <FiArrowRightCircle />, requiredPermission: "view_risk_madya" },
-      // { title: "Utama", path: "/risk-management/utama", icon: <FiArrowUpCircle />, requiredPermission: "view_risk_utama" },
       { title: "Template Peta Risiko", path: "/risk-management/templates", icon: <FiMap />, requiredPermission: "view_risk_templates" },
     ],
   },
@@ -52,9 +55,31 @@ const menuItems = [
       { title: "Risk Register", path: "/risk-ai/risk-register", icon: <FiList />, requiredPermission: "view_risk_register_main" },
     ],
   },
-  { title: "Modul RSCA", path: "/rsca", icon: <FiBriefcase />, requiredPermission: "view_rsca" },
-  { title: "Modul BPR", path: "/bpr", icon: <FiBarChart2 />, requiredPermission: "view_bpr" },
-  { title: "Modul BIA", path: "/bia", icon: <FiAlertTriangle />, requiredPermission: "view_bia" },
+  {
+    key: "rsca",
+    title: "RSCA",
+    icon: <FiFileText />,
+    children: [
+      // 1. Untuk Staf (dari Add-ons)
+      { title: "Tugas Kuesioner", path: "/addons/rsca", icon: <FiCheckSquare />, requiredPermission: "submit_rsca" },
+      // 2. Untuk Manajer Risiko (dari Admin)
+      { title: "Manajemen Siklus", path: "/admin/rsca", icon: <FiSettings />, requiredPermission: "manage_rsca_cycles" },
+      // 3. Untuk Manajer Risiko (dari Admin)
+      { title: "Manajemen Departemen", path: "/admin/departments", icon: <FiBriefcase />, requiredPermission: "manage_departments" },
+    ],
+  },
+  {
+    key: "addons",
+    title: "Add-ons",
+    icon: <FiBox />,
+    requiredPermission: "view_addons_menu", // Permission baru untuk parent
+    children: [
+      { title: "Modul BPR", path: "/addons/bpr", icon: <FiBarChart2 />, requiredPermission: "view_bpr" },
+      { title: "Modul BIA", path: "/addons/bia", icon: <FiAlertTriangle />, requiredPermission: "view_bia" },
+      { title: "CBA Calculator", path: "/addons/cba", icon: <HiCalculator />, requiredPermission: "view_cba_calculator" },
+      { title: "Monte Carlo Simulator", path: "/addons/monte-carlo", icon: <FiShuffle />, requiredPermission: "view_monte_carlo" },
+    ],
+  },
   {
     key: "admin", // Kunci unik untuk state management
     title: "Admin",
@@ -179,9 +204,7 @@ function Sidebar({ isOpen, toggle }) {
               </button>
               {isOpen && openMenu === item.key && (
                 <div className="overflow-hidden pl-6">
-                  {/* --- PERUBAHAN 5: Map HANYA visibleChildren --- */}
                   {visibleChildren.map((child) => (
-                    // --- AKHIR PERUBAHAN 5 ---
                     <NavLink to={child.path} key={child.path} className={subMenuNavLinkClasses}>
                       <span className="w-1 h-5 mr-3">{location.pathname.startsWith(child.path) && <div className="w-1 h-full bg-blue-400 rounded-full" />}</span>
                       <div className="w-6 h-6 mr-3 flex-shrink-0 text-gray-500">{child.icon}</div>
@@ -191,12 +214,12 @@ function Sidebar({ isOpen, toggle }) {
                 </div>
               )}
             </div>
-          ) : !item.children ? ( // Render menu biasa jika tidak ada 'children' (dan punya permission)
+          ) : !item.children ? (
             <NavLink to={item.path} key={item.path} className={navLinkClasses}>
               <span className="h-6 w-6 flex-shrink-0">{item.icon}</span>
               <span className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100" : "opacity-0 w-0"}`}>{item.title}</span>
             </NavLink>
-          ) : null; // Kasus lain (parent tanpa visible children) return null
+          ) : null;
         })}
       </nav>
 

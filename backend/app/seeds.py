@@ -8,10 +8,10 @@ DEFAULT_PERMISSIONS = {
     # Risk Management AI
     'view_risk_assessment_ai': 'Melihat daftar Risk Assessment AI',
     'create_risk_assessment_ai': 'Membuat Risk Assessment AI baru',
-    'edit_risk_assessment_ai': 'Mengedit Risk Assessment AI', # Termasuk edit item risiko di dalamnya
+    'edit_risk_assessment_ai': 'Mengedit Risk Assessment AI',
     'delete_risk_assessment_ai': 'Menghapus Risk Assessment AI',
     'view_risk_register_main': 'Melihat Risk Register Utama',
-    'manage_risk_register_main': 'Tambah/Edit/Hapus item di Risk Register Utama', # Gabung
+    'manage_risk_register_main': 'Tambah/Edit/Hapus item di Risk Register Utama',
     # Risk Management Levels
     'view_risk_dasar': 'Melihat daftar Asesmen Dasar',
     'manage_risk_dasar': 'Membuat/Edit/Hapus Asesmen Dasar',
@@ -27,13 +27,17 @@ DEFAULT_PERMISSIONS = {
     'view_bia': 'Melihat halaman BIA',
     'run_bia_simulation': 'Menjalankan simulasi BIA',
     'manage_critical_assets': 'Mengelola Aset Kritis & Dependensi (BIA)',
+    'view_addons_menu': 'Melihat menu Add-ons',
+    'view_cba_calculator': 'Melihat CBA Calculator',
+    'view_monte_carlo': 'Melihat Monte Carlo Simulator',
     # Admin Area
     'view_admin_area': 'Mengakses menu Admin', # Permission umum untuk menu admin
     'manage_users': 'Melihat & Mengelola data pengguna (Admin)',
     'manage_roles': 'Melihat & Mengelola Roles & Permissions (Admin)',
     'manage_master_data': 'Mengelola Master Data (Admin)',
     'manage_regulations': 'Mengelola Master Regulasi (Admin)',
-    'manage_rsca_cycles': 'Membuat/Mengelola siklus RSCA (Admin)', # Specific admin task for RSCA
+    'manage_rsca_cycles': 'Membuat/Mengelola siklus RSCA (Admin)',
+    'manage_departments': 'Membuat/Edit/Hapus Departemen (Admin Institusi)',
 }
 
 # --- Perubahan 3: Buat fungsi seed Roles & Permissions ---
@@ -56,6 +60,16 @@ def seed_roles_permissions():
         print(f"  {created_items} new permissions created.")
     else:
         print("  All default permissions already exist.")
+        
+    all_permissions = Permission.query.all()
+    view_dashboard_perm = Permission.query.filter_by(name='view_dashboard').first()
+    view_rsca_perm = Permission.query.filter_by(name='view_rsca').first()
+    submit_rsca_perm = Permission.query.filter_by(name='submit_rsca').first()
+    view_admin_area_perm = Permission.query.filter_by(name='view_admin_area').first()
+    manage_depts_perm = Permission.query.filter_by(name='manage_departments').first()
+    manage_rsca_perm = Permission.query.filter_by(name='manage_rsca_cycles').first()
+    view_risk_dasar_perm = Permission.query.filter_by(name='view_risk_dasar').first()
+    view_risk_madya_perm = Permission.query.filter_by(name='view_risk_madya').first()
 
     # 2. Seed Role Admin
     admin_role = Role.query.filter_by(name='Admin').first()
@@ -95,6 +109,44 @@ def seed_roles_permissions():
         print("  'User' role created with basic permissions.")
     else:
         print("  'User' role already exists.")
+        
+    # 4. Seed Role Staf (Lini 1) - BARU
+    staff_role = Role.query.filter_by(name='Staf').first()
+    if not staff_role:
+        print("  Creating 'Staf' (Lini 1) role...")
+        staff_role = Role(name='Staf', description='Akses Lini 1 (Operasional): Mengisi asesmen, kuesioner, dll.')
+        
+        # Beri izin dasar Lini 1
+        if view_dashboard_perm: staff_role.permissions.append(view_dashboard_perm)
+        if view_rsca_perm: staff_role.permissions.append(view_rsca_perm)
+        if submit_rsca_perm: staff_role.permissions.append(submit_rsca_perm)
+        if view_risk_dasar_perm: staff_role.permissions.append(view_risk_dasar_perm)
+        if view_risk_madya_perm: staff_role.permissions.append(view_risk_madya_perm)
+        # Tambahkan izin 'view' atau 'submit' lainnya di sini
+        
+        db.session.add(staff_role)
+        print("  'Staf' role created with Lini 1 permissions.")
+    else:
+        print("  'Staf' role already exists.")
+
+
+    # 5. Seed Role Manajer Risiko (Lini 2) - BARU
+    manager_role = Role.query.filter_by(name='Manajer Risiko').first()
+    if not manager_role:
+        print("  Creating 'Manajer Risiko' (Lini 2) role...")
+        manager_role = Role(name='Manajer Risiko', description='Akses Lini 2: Mengelola siklus, departemen, dan meninjau hasil.')
+        
+        # Beri izin Lini 2
+        if view_dashboard_perm: manager_role.permissions.append(view_dashboard_perm)
+        if view_admin_area_perm: manager_role.permissions.append(view_admin_area_perm)
+        if manage_depts_perm: manager_role.permissions.append(manage_depts_perm)
+        if manage_rsca_perm: manager_role.permissions.append(manage_rsca_perm)
+        # (Manajer Risiko mungkin juga perlu izin 'view_risk_dasar' dll.)
+        
+        db.session.add(manager_role)
+        print("  'Manajer Risiko' role created with Lini 2 permissions.")
+    else:
+        print("  'Manajer Risiko' role already exists.")
 
     try:
         db.session.commit()

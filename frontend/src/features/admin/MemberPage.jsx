@@ -247,7 +247,7 @@ function MemberPage() {
             </div>
           </Flex>
           <Flex className="space-x-2">
-            <Button icon={FiSliders} variant="secondary" onClick={() => setIsBulkEditModalOpen(true)} disabled={selectedUserIds.size === 0} tooltip={`Edit roles for ${selectedUserIds.size} selected users`}>
+            <Button icon={FiSliders} variant="secondary" onClick={() => setIsBulkEditModalOpen(true)} disabled={selectedUserIds.size === 0} title={`Edit roles for ${selectedUserIds.size} selected users`}>
               Bulk Edit Roles ({selectedUserIds.size})
             </Button>
             <Button
@@ -301,6 +301,8 @@ function MemberPage() {
                   </TableHeaderCell>
                   <TableHeaderCell>Nama Lengkap</TableHeaderCell>
                   <TableHeaderCell>Email</TableHeaderCell>
+                  <TableHeaderCell>Institusi</TableHeaderCell>
+                  <TableHeaderCell>Departemen</TableHeaderCell>
                   <TableHeaderCell>Roles</TableHeaderCell>
                   <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
                 </TableRow>
@@ -332,6 +334,8 @@ function MemberPage() {
                       </TableCell>
                       <TableCell className="font-medium text-tremor-content-strong">{user.nama_lengkap}</TableCell>
                       <TableCell className="text-tremor-content">{user.email}</TableCell>
+                      <TableCell className="text-tremor-content">{user.institution || "N/A"}</TableCell>
+                      <TableCell className="text-tremor-content">{user.department_name || "N/A"}</TableCell>
                       <TableCell>
                         <Flex className="gap-1 flex-wrap">
                           {user.roles && user.roles.length > 0 ? (
@@ -348,14 +352,14 @@ function MemberPage() {
                         </Flex>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="xs" icon={FiEdit} variant="light" color="gray" onClick={() => handleOpenEditModal(user.id)} tooltip={`Edit user ${user.nama_lengkap}`} />
+                        <Button size="xs" icon={FiEdit} variant="light" color="gray" onClick={() => handleOpenEditModal(user.id)} title={`Edit user ${user.nama_lengkap}`} />
                         <Button
                           size="xs"
                           icon={FiTrash2}
                           variant="light"
                           color="rose"
                           onClick={() => handleOpenDeleteConfirm(user.id, user.nama_lengkap)}
-                          tooltip={`Hapus user ${user.nama_lengkap}`}
+                          title={`Hapus user ${user.nama_lengkap}`}
                           disabled={user.email.toLowerCase() === "admin@admin.com"}
                         />
                       </TableCell>

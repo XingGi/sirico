@@ -1,22 +1,62 @@
 // frontend/src/features/admin/components/EditUserModal.jsx
 
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogPanel, Title, Text, TextInput, Button, Grid, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, NumberInput, MultiSelect, MultiSelectItem, Subtitle, Card, Divider, Flex, Icon } from "@tremor/react";
-import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiX, FiInfo, FiKey, FiLoader, FiEdit } from "react-icons/fi";
+import {
+  Dialog,
+  DialogPanel,
+  Title,
+  Text,
+  TextInput,
+  Button,
+  Grid,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeaderCell,
+  TableBody,
+  TableCell,
+  NumberInput,
+  MultiSelect,
+  MultiSelectItem,
+  Subtitle,
+  Card,
+  Divider,
+  Flex,
+  Icon,
+  Select,
+  SelectItem,
+} from "@tremor/react";
+import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiX, FiInfo, FiKey, FiLoader, FiEdit, FiBriefcase } from "react-icons/fi";
 import apiClient from "../../../api/api";
+import { toast } from "sonner";
 
-function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
+const fetchDepartmentsByInstitution = async (institution) => {
+  if (!institution) return [];
+  try {
+    const { data } = await apiClient.get(`/admin/departments-list?institution=${encodeURIComponent(institution)}`);
+    return data;
+  } catch (err) {
+    console.error("Gagal mengambil departemen:", err);
+    toast.error("Gagal mengambil daftar departemen.");
+    return [];
+  }
+};
+
+function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }) {
   const [userData, setUserData] = useState(null); // Mulai dari null
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedRoleIds, setSelectedRoleIds] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [isLoadingDepts, setIsLoadingDepts] = useState(false);
 
   // Fetch data user saat modal dibuka atau userId berubah
   useEffect(() => {
     if (isOpen && userId) {
       setIsLoading(true);
       setError("");
+      setDepartments([]);
       console.log("Fetching details for userId:", userId, typeof userId);
 
       if (typeof userId === "number" && !isNaN(userId)) {
@@ -28,8 +68,19 @@ function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
             for (const key in limits) {
               limits[key].limit = limits[key].limit !== null ? Number(limits[key].limit) : null;
             }
-            setUserData({ ...fetchedUser, assessment_limits: limits });
-            setSelectedRoleIds(fetchedUser.role_ids?.map(String) || []); // Set roles awal
+            const finalUserData = {
+              ...fetchedUser,
+              assessment_limits: limits,
+              department_id: fetchedUser.department_id?.toString() || "",
+            };
+            setUserData({ ...finalUserData, assessment_limits: limits });
+            setSelectedRoleIds(fetchedUser.role_ids?.map(String) || []);
+            // if (fetchedUser.institution) {
+            //   setIsLoadingDepts(true);
+            //   fetchDepartmentsByInstitution(fetchedUser.institution)
+            //     .then(setDepartments)
+            //     .finally(() => setIsLoadingDepts(false));
+            // }
           })
           .catch((err) => {
             console.error(`Gagal fetch user ${userId}:`, err);
@@ -51,8 +102,31 @@ function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
     }
   }, [isOpen, userId]);
 
+  useEffect(() => {
+    // Jangan jalankan saat data user pertama kali dimuat (ditangani di atas)
+    if (isLoading || !userData) return;
+
+    // Hanya ambil jika user.institution ada
+    if (userData && userData.institution) {
+      setIsLoadingDepts(true);
+      fetchDepartmentsByInstitution(userData.institution)
+        .then(setDepartments)
+        .finally(() => setIsLoadingDepts(false));
+    } else {
+      setDepartments([]); // Kosongkan jika tidak ada institusi
+    }
+  }, [userData?.institution]);
+
   const handleChange = (e) => {
-    setUserData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setUserData((prev) => ({ ...prev, [name]: value }));
+    if (name === "institution") {
+      setUserData((prev) => ({ ...prev, department_id: "" }));
+    }
+  };
+
+  const handleSelectChange = (value, name) => {
+    setUserData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleLimitChange = (key, value) => {
@@ -86,6 +160,7 @@ function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
       institution: userData.institution,
       role_ids: selectedRoleIds.map(Number), // Kirim array of number IDs
       assessment_limits: userData.assessment_limits,
+      department_id: userData.department_id ? Number(userData.department_id) : null,
     };
 
     try {
@@ -141,6 +216,28 @@ function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
                   <label className="text-tremor-default text-tremor-content dark:text-dark-tremor-content">Institusi</label>
                   <TextInput icon={FiHome} name="institution" value={userData.institution ?? ""} onChange={handleChange} placeholder="Nama PT / Universitas..." className="mt-1" />
                 </div>
+                <div>
+                  <label>Departemen</label>
+                  <Select
+                    icon={FiBriefcase}
+                    value={userData.department_id}
+                    onValueChange={(value) => handleSelectChange(value, "department_id")}
+                    placeholder="Pilih Departemen..."
+                    disabled={!userData.institution || isLoadingDepts}
+                    className="mt-1"
+                  >
+                    {isLoadingDepts && (
+                      <SelectItem value="" disabled>
+                        Memuat...
+                      </SelectItem>
+                    )}
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={String(dept.id)}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
               </div>
             </Card>
             <Card decoration="left" decorationColor="indigo">
@@ -152,7 +249,7 @@ function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
               <MultiSelect value={selectedRoleIds} onValueChange={handleRoleChange} placeholder="Pilih satu atau lebih role..." required>
                 {allRoles.map((role) => (
                   <MultiSelectItem key={role.id} value={String(role.id)}>
-                    {role.name} {role.description && <span className="text-xs text-tremor-content italic ml-1">{`(${role.description})`}</span>}
+                    {role.name} {role.description && `(${role.description})`}
                   </MultiSelectItem>
                 ))}
               </MultiSelect>
@@ -185,6 +282,20 @@ function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
                     </TableRow>
                   );
                 })}
+                <TableRow>
+                  <TableCell className="capitalize font-medium text-tremor-content-strong">Template Peta</TableCell>
+                  <TableCell className="text-right text-tremor-content">{userData.assessment_limits?.template_peta?.count ?? 0}</TableCell>
+                  <TableCell className="text-right">
+                    <NumberInput
+                      className="max-w-[100px] ml-auto [&_input]:text-right"
+                      value={userData.assessment_limits?.template_peta?.limit ?? ""}
+                      onValueChange={(val) => handleLimitChange("template_peta", val)}
+                      enableStepper={false}
+                      placeholder="∞"
+                      min={0}
+                    />
+                  </TableCell>
+                </TableRow>
               </TableBody>
             </Table>
             <Text className="mt-4 text-xs text-tremor-content-emphasis">Admin dapat mengubah Batas Maksimum. Kosongkan untuk tanpa batas (unlimited).</Text>
@@ -230,10 +341,5 @@ function EditUserModal({ isOpen, onClose, userId, allRoles, onSaveSuccess }) {
     </Dialog>
   );
 }
-
-// Tambahkan id ke form agar tombol submit di luar form bisa trigger
-EditUserModal.defaultProps = {
-  allRoles: [], // Default props untuk allRoles
-};
 
 export default EditUserModal;

@@ -45,10 +45,12 @@ class User(db.Model):
     nama_lengkap = db.Column(db.String(100), nullable=False)
     phone_number = db.Column(db.String(50), nullable=True)
     institution = db.Column(db.String(200), nullable=True)
-    limit_dasar = db.Column(db.Integer, nullable=True, default=100)
-    limit_madya = db.Column(db.Integer, nullable=True, default=100)
-    limit_ai = db.Column(db.Integer, nullable=True, default=100)
+    limit_dasar = db.Column(db.Integer, nullable=True, default=10)
+    limit_madya = db.Column(db.Integer, nullable=True, default=5)
+    limit_ai = db.Column(db.Integer, nullable=True, default=15)
+    limit_template_peta = db.Column(db.Integer, nullable=True, default=5)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
+    department = db.relationship('Department', back_populates='users')
     
     kris = db.relationship('KRI', backref='owner', lazy=True, cascade="all, delete-orphan")
     assessments = db.relationship('RiskAssessment', backref='assessor', lazy=True, cascade="all, delete-orphan")
@@ -199,6 +201,10 @@ class Department(db.Model):
     __tablename__ = 'departments'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), unique=True, nullable=False)
+    institution = db.Column(db.String(255), nullable=True)
+    
+    users = db.relationship('User', back_populates='department')
+    rsca_cycles = db.relationship('RscaCycle', secondary='rsca_cycle_departments', back_populates='departments')
 
     def __repr__(self):
         return f'<Department {self.name}>'
@@ -212,12 +218,10 @@ class RscaCycle(db.Model):
     tanggal_selesai = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(50), nullable=False, default='Draft') # Draft, In Progress, Completed
     ai_summary = db.Column(db.Text, nullable=True) # Untuk menyimpan hasil analisis AI
+    institution = db.Column(db.String(255), nullable=True)
 
     # Relasi Many-to-Many ke Department
-    departments = db.relationship('Department', secondary=rsca_cycle_departments, lazy='subquery',
-                                  backref=db.backref('rsca_cycles', lazy=True))
-    
-    # Relasi One-to-Many ke Questionnaire
+    departments = db.relationship('Department', secondary=rsca_cycle_departments, back_populates='rsca_cycles')
     questionnaires = db.relationship('RscaQuestionnaire', backref='cycle', lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -229,6 +233,7 @@ class RscaQuestionnaire(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     pertanyaan = db.Column(db.Text, nullable=False)
     kategori = db.Column(db.String(100), nullable=True) # Misal: 'Risiko Operasional', 'Risiko Keuangan'
+    question_type = db.Column(db.String(50), nullable=False, default='text')
     
     cycle_id = db.Column(db.Integer, db.ForeignKey('rsca_cycles.id'), nullable=False)
 
@@ -242,6 +247,8 @@ class RscaAnswer(db.Model):
     jawaban = db.Column(db.Text, nullable=True)
     catatan = db.Column(db.Text, nullable=True)
     
+    control_effectiveness_rating = db.Column(db.String(50), nullable=True)
+    
     # Kunci asing yang menghubungkan jawaban ini ke semua elemen terkait
     cycle_id = db.Column(db.Integer, db.ForeignKey('rsca_cycles.id'), nullable=False)
     questionnaire_id = db.Column(db.Integer, db.ForeignKey('rsca_questionnaires.id'), nullable=False)
@@ -249,6 +256,8 @@ class RscaAnswer(db.Model):
     
     # Hubungan opsional ke Risk Register jika jawaban ini mengidentifikasi risiko baru
     risk_register_id = db.Column(db.Integer, db.ForeignKey('risk_register.id'), nullable=True)
+    questionnaire = db.relationship('RscaQuestionnaire')
+    department = db.relationship('Department')
 
     def __repr__(self):
         return f'<RscaAnswer {self.id}>'
