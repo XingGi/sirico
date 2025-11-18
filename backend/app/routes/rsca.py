@@ -1,7 +1,7 @@
 # backend/app/routes/rsca.py
 import os
 from flask import request, jsonify, Blueprint
-from app.models import db, User, Department, RscaCycle, RscaQuestionnaire, RscaAnswer
+from app.models import db, User, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, SubmittedRisk
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from app.ai_services import analyze_rsca_answers_with_gemini
@@ -106,6 +106,41 @@ def get_my_rsca_tasks():
     } for task in tasks]
         
     return jsonify(task_list)
+
+@rsca_bp.route('/my-submitted-risks', methods=['GET'])
+@jwt_required()
+def get_my_submitted_risks():
+    """
+    Mengambil daftar 'Ajuan Risiko' (Bottom-Up) yang telah dikirim
+    oleh pengguna yang sedang login.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user:
+        return jsonify({"msg": "User tidak ditemukan"}), 404
+
+    # Ambil semua ajuan risiko HANYA dari user ini
+    # Kita juga 'join' dengan Siklus untuk mendapatkan nama siklusnya
+    submissions = db.session.query(SubmittedRisk, RscaCycle.nama_siklus).\
+        join(RscaCycle, SubmittedRisk.cycle_id == RscaCycle.id).\
+        filter(SubmittedRisk.submitted_by_user_id == user.id).\
+        order_by(SubmittedRisk.created_at.desc()).all()
+
+    # Ubah data menjadi JSON secara manual
+    result = []
+    for risk, cycle_name in submissions:
+        result.append({
+            "id": risk.id,
+            "risk_description": risk.risk_description,
+            "potential_cause": risk.potential_cause,
+            "potential_impact": risk.potential_impact,
+            "status": risk.status,
+            "created_at": risk.created_at.isoformat(),
+            "cycle_name": cycle_name # <-- Nama siklus tempat diajukan
+        })
+        
+    return jsonify(result), 200
 
 @rsca_bp.route('/rsca-cycles/<int:cycle_id>/questionnaire', methods=['GET'])
 @jwt_required()
@@ -254,6 +289,60 @@ def submit_rsca_answers(cycle_id):
     
     db.session.commit()
     return jsonify({"msg": "Jawaban berhasil disimpan."}), 201
+
+@rsca_bp.route('/rsca-cycles/<int:cycle_id>/submit-risk', methods=['POST'])
+@jwt_required()
+def submit_new_risk(cycle_id):
+    """
+    Menerima 'Ajuan Risiko' (Bottom-Up) baru dari Staf
+    untuk siklus RSCA tertentu.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    # 1. Validasi User (Keamanan)
+    # Pastikan user, departemen, dan institusinya ada
+    if not user or not user.department_id or not user.institution:
+        return jsonify({"msg": "User tidak valid atau tidak memiliki departemen/institusi."}), 400
+
+    # 2. Validasi Siklus & Institusi (Keamanan Multi-Tenant)
+    # Pastikan siklus ada dan milik institusi yang sama dengan user
+    cycle = RscaCycle.query.get_or_404(cycle_id)
+    if cycle.institution != user.institution:
+        return jsonify({"msg": "Akses ditolak (Beda Institusi)."}), 403
+
+    # 3. Ambil Data
+    data = request.get_json()
+    if not data or not data.get('risk_description'):
+        return jsonify({"msg": "Deskripsi risiko wajib diisi."}), 400
+
+    # 4. Buat Objek Ajuan Risiko baru
+    new_submitted_risk = SubmittedRisk(
+        risk_description=data['risk_description'],
+        potential_cause=data.get('potential_cause'),  # Opsional
+        potential_impact=data.get('potential_impact'), # Opsional
+        
+        status='Menunggu Persetujuan', # Status default sesuai rencana kita
+        
+        # Tautkan ke user, departemen, institusi, dan siklus
+        submitted_by_user_id=user.id,
+        department_id=user.department_id,
+        institution=user.institution,
+        cycle_id=cycle.id
+    )
+    
+    db.session.add(new_submitted_risk)
+    db.session.commit()
+    
+    # 5. Kembalikan data yang baru dibuat (untuk feedback di frontend)
+    return jsonify({
+        "msg": "Ajuan risiko berhasil dikirim.",
+        "submitted_risk": {
+            "id": new_submitted_risk.id,
+            "risk_description": new_submitted_risk.risk_description,
+            "status": new_submitted_risk.status
+        }
+    }), 201
 
 @rsca_bp.route('/rsca-cycles/<int:cycle_id>/analyze', methods=['POST'])
 @jwt_required()

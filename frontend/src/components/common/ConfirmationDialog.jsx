@@ -3,12 +3,12 @@ import React from "react";
 import { Dialog, DialogPanel, Title, Text, Button, Icon } from "@tremor/react";
 import { FiAlertTriangle } from "react-icons/fi";
 
-function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, isLoading = false }) {
+function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, isLoading = false, confirmButtonText = "Hapus", confirmButtonColor = "rose" }) {
   return (
     <Dialog open={isOpen} onClose={() => !isLoading && onClose()} static={true} className="z-[100]">
       <DialogPanel className="max-w-md">
         <div className="text-center">
-          <Icon icon={FiAlertTriangle} size="lg" variant="light" className="mb-4 text-rose-600" />
+          <Icon icon={FiAlertTriangle} size="lg" variant="light" className="mb-4" color={confirmButtonColor} />
           <Title>{title}</Title>
           <Text className="mt-2">{message}</Text>
         </div>
@@ -16,13 +16,8 @@ function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, isLoad
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
             Batal
           </Button>
-          <Button
-            onClick={onConfirm}
-            loading={isLoading}
-            disabled={isLoading}
-            color="rose" // Menggunakan warna rose untuk konsistensi
-          >
-            Hapus
+          <Button onClick={onConfirm} loading={isLoading} disabled={isLoading} color={confirmButtonColor}>
+            {confirmButtonText}
           </Button>
         </div>
       </DialogPanel>

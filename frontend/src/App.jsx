@@ -34,6 +34,7 @@ import PasswordSettingPage from "./features/account/PasswordSettingPage";
 import RscaAdminPage from "./features/admin/RscaAdminPage";
 import DepartmentAdminPage from "./features/admin/DepartmentAdminPage";
 import RscaResultPage from "./features/admin/RscaResultPage";
+import ActionPlanMonitorPage from "./features/admin/ActionPlanMonitorPage";
 import { Title, Text } from "@tremor/react";
 const PlaceholderComponent = ({ title }) => (
   <div className="p-10">
@@ -116,6 +117,7 @@ function App() {
               <Route path="/admin/departments" element={<DepartmentAdminPage />} />
               <Route path="/admin/rsca" element={<RscaAdminPage />} />
               <Route path="/admin/rsca/results/:cycleId" element={<RscaResultPage />} />
+              <Route path="/admin/mitigation-monitor" element={<ActionPlanMonitorPage />} />
             </Route>
           </Route>
         </Route>

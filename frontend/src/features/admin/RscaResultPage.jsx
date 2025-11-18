@@ -3,10 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../../api/api";
 import { Title, Text, Card, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Button, Flex, Icon, Subtitle, Divider, Dialog, DialogPanel } from "@tremor/react";
-import { FiArrowLeft, FiCpu, FiLoader, FiAlertTriangle, FiCheckCircle } from "react-icons/fi";
+import { FiArrowLeft, FiCpu, FiLoader, FiAlertTriangle, FiCheckCircle, FiCheck, FiX, FiArchive, FiPlusSquare } from "react-icons/fi";
 import { RiRobot2Line } from "react-icons/ri";
 import { toast } from "sonner";
 import NotificationModal from "../../components/common/NotificationModal";
+import ConfirmationDialog from "../../components/common/ConfirmationDialog";
+import ActionPlanModal from "./components/rsca/ActionPlanModal";
 
 // Fetcher untuk detail hasil
 const fetchCycleResults = async (cycleId) => {
@@ -132,14 +134,33 @@ const ParsedMarkdown = ({ text }) => {
   );
 };
 
+const getStatusBadgeColor = (status) => {
+  if (status === "Disetujui") return "green";
+  if (status === "Ditolak") return "red";
+  if (status === "Menunggu Persetujuan") return "amber";
+  return "gray";
+};
+
+const updateRiskStatus = async ({ riskId, status }) => {
+  const { data } = await apiClient.put(`/admin/submitted-risks/${riskId}/status`, { status: status });
+  return data;
+};
+
 function RscaResultPage() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const queryKey = ["rscaResult", cycleId];
+  const [confirmStatusModal, setConfirmStatusModal] = useState({
+    isOpen: false,
+    risk: null,
+    newStatus: "",
+  });
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
   const [notificationModal, setNotificationModal] = useState({ isOpen: false, title: "", message: "" });
+  const [isActionPlanModalOpen, setIsActionPlanModalOpen] = useState(false);
+  const [actionPlanSource, setActionPlanSource] = useState(null);
 
   // Query untuk mengambil data
   const { data, isLoading, error } = useQuery({
@@ -190,11 +211,65 @@ function RscaResultPage() {
     }
   };
 
+  const statusMutation = useMutation({
+    mutationFn: updateRiskStatus,
+    onSuccess: (data) => {
+      toast.success(data.msg || "Status ajuan berhasil diupdate!");
+      queryClient.invalidateQueries({ queryKey: queryKey });
+      setConfirmStatusModal({ isOpen: false, risk: null, newStatus: "" });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.msg || "Gagal mengupdate status.");
+    },
+  });
+
+  const openConfirmModal = (risk, newStatus) => {
+    setConfirmStatusModal({
+      isOpen: true,
+      risk: risk,
+      newStatus: newStatus,
+    });
+  };
+
+  // 2. Fungsi ini dipanggil saat "Ya, Hapus" diklik
+  const handleConfirmStatusUpdate = () => {
+    const { risk, newStatus } = confirmStatusModal;
+    if (risk && newStatus) {
+      statusMutation.mutate({ riskId: risk.id, status: newStatus });
+    }
+  };
+
+  // 3. Fungsi ini untuk menutup modal
+  const handleCloseConfirmModal = () => {
+    // Jangan tutup jika sedang loading
+    if (statusMutation.isPending) return;
+    setConfirmStatusModal({ isOpen: false, risk: null, newStatus: "" });
+  };
+
+  const openActionPlanModal = (source) => {
+    // source akan berupa { origin_answer_id: 123 }
+    // atau { origin_submitted_risk_id: 456 }
+    setActionPlanSource(source);
+    setIsActionPlanModalOpen(true);
+  };
+
+  const handleCloseActionPlanModal = () => {
+    setIsActionPlanModalOpen(false);
+    setActionPlanSource(null);
+  };
+
+  const handleActionPlanSaveSuccess = () => {
+    // Cukup tutup modal, queryClient.invalidateQueries sudah di-handle di dalam modal
+    handleCloseActionPlanModal();
+    // Kita juga bisa refresh datanya di sini untuk jaga-jaga
+    queryClient.invalidateQueries({ queryKey: queryKey });
+  };
+
   if (isLoading) return <Text className="p-6">Memuat hasil...</Text>;
   if (error) return <Text className="p-6 text-red-500">Error: {error.response?.data?.msg || error.message}</Text>;
   if (!data) return <Text className="p-6">Tidak ada data.</Text>;
 
-  const { cycle, answers, ai_summary } = data;
+  const { cycle = {}, answers = [], ai_summary, submitted_risks = [] } = data || {};
 
   return (
     <>
@@ -247,6 +322,95 @@ function RscaResultPage() {
             )}
           </div>
         </Card>
+        <Card className="mt-6">
+          <Flex alignItems="start">
+            <Icon icon={FiArchive} size="lg" variant="light" color="amber" />
+            <div className="ml-3">
+              <Title>Ajuan Risiko Baru ({submitted_risks.length})</Title>
+              <Text>Risiko yang diajukan oleh staf departemen (bottom-up). Perlu tinjauan Anda.</Text>
+            </div>
+          </Flex>
+
+          <Table className="mt-4">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Diajukan Oleh</TableHeaderCell>
+                <TableHeaderCell>Departemen</TableHeaderCell>
+                <TableHeaderCell>Deskripsi Ajuan Risiko</TableHeaderCell>
+                <TableHeaderCell>Tanggal</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {submitted_risks.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    Belum ada ajuan risiko yang dikirim oleh staf.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                submitted_risks.map((risk) => (
+                  <TableRow key={risk.id}>
+                    <TableCell>{risk.submitter?.nama_lengkap || "N/A"}</TableCell>
+                    <TableCell>{risk.department?.name || "N/A"}</TableCell>
+                    <TableCell className="max-w-md whitespace-normal break-words">
+                      <Text className="font-medium">{risk.risk_description}</Text>
+                      <Text>
+                        <span className="font-medium">Penyebab:</span> {risk.potential_cause || "-"}
+                      </Text>
+                      <Text>
+                        <span className="font-medium">Dampak:</span> {risk.potential_impact || "-"}
+                      </Text>
+                    </TableCell>
+                    <TableCell>{risk.created_at}</TableCell>
+                    <TableCell>
+                      <Badge color={getStatusBadgeColor(risk.status)}>{risk.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {risk.status === "Menunggu Persetujuan" ? (
+                        <>
+                          <Button
+                            icon={FiCheck}
+                            variant="light"
+                            color="green"
+                            title="Setujui Ajuan"
+                            onClick={() => openConfirmModal(risk, "Disetujui")}
+                            loading={statusMutation.isPending && confirmStatusModal.risk?.id === risk.id}
+                            disabled={statusMutation.isPending}
+                          />
+                          <Button
+                            icon={FiX}
+                            variant="light"
+                            color="red"
+                            title="Tolak Ajuan"
+                            onClick={() => openConfirmModal(risk, "Ditolak")}
+                            loading={statusMutation.isPending && confirmStatusModal.risk?.id === risk.id}
+                            disabled={statusMutation.isPending}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          {risk.status === "Disetujui" && (
+                            <Button
+                              icon={FiPlusSquare} // <-- Tombol yang hilang
+                              variant="light"
+                              color="blue"
+                              title="Buat Rencana Aksi"
+                              onClick={() => openActionPlanModal({ origin_submitted_risk_id: risk.id })}
+                            />
+                          )}
+                          {/* Tampilkan teks 'Tindakan Selesai' HANYA jika ditolak */}
+                          {risk.status === "Ditolak" && <Text className="italic text-gray-500">Tindakan Selesai</Text>}
+                        </>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
         {/* Card Tabel Jawaban */}
         <Card className="mt-6">
           <Title>Jawaban Terkirim ({answers.length})</Title>
@@ -258,6 +422,7 @@ function RscaResultPage() {
                 <TableHeaderCell>Tipe Jawaban</TableHeaderCell>
                 <TableHeaderCell>Jawaban / Penilaian</TableHeaderCell>
                 <TableHeaderCell>Catatan</TableHeaderCell>
+                <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -268,21 +433,29 @@ function RscaResultPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                answers.map((ans) => (
-                  <TableRow key={ans.id}>
-                    <TableCell>{ans.department?.name || "N/A"}</TableCell>
-                    <TableCell className="max-w-xs whitespace-normal break-words">{ans.questionnaire?.pertanyaan || "N/A"}</TableCell>
-                    <TableCell>{ans.questionnaire?.question_type === "control_assessment" ? <Badge color="blue">Penilaian Kontrol</Badge> : <Badge color="gray">Teks Bebas</Badge>}</TableCell>
-                    <TableCell>
-                      {ans.questionnaire?.question_type === "control_assessment" ? (
-                        <Badge color={getEffectivenessColor(ans.control_effectiveness_rating)}>{ans.control_effectiveness_rating || "N/A"}</Badge>
-                      ) : (
-                        <Text className="max-w-xs">{ans.jawaban || "N/A"}</Text>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-sm">{ans.catatan || "N/A"}</TableCell>
-                  </TableRow>
-                ))
+                answers.map((ans) => {
+                  const isFinding = ans.questionnaire?.question_type === "control_assessment" && (ans.control_effectiveness_rating === "Tidak Efektif" || ans.control_effectiveness_rating === "Perlu Perbaikan");
+                  return (
+                    <TableRow key={ans.id}>
+                      <TableCell>{ans.department?.name || "N/A"}</TableCell>
+                      <TableCell className="max-w-xs whitespace-normal break-words">{ans.questionnaire?.pertanyaan || "N/A"}</TableCell>
+                      <TableCell>{ans.questionnaire?.question_type === "control_assessment" ? <Badge color="blue">Penilaian Kontrol</Badge> : <Badge color="gray">Teks Bebas</Badge>}</TableCell>
+                      <TableCell>
+                        {ans.questionnaire?.question_type === "control_assessment" ? (
+                          <Badge color={getEffectivenessColor(ans.control_effectiveness_rating)}>{ans.control_effectiveness_rating || "N/A"}</Badge>
+                        ) : (
+                          <Text className="max-w-xs">{ans.jawaban || "N/A"}</Text>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-sm">{ans.catatan || "N/A"}</TableCell>
+                      <TableCell className="text-right">
+                        {isFinding && ( // Tampilkan tombol HANYA jika 'isFinding' true
+                          <Button icon={FiPlusSquare} variant="light" color="blue" title="Buat Rencana Aksi" onClick={() => openActionPlanModal({ origin_answer_id: ans.id })} />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -302,6 +475,17 @@ function RscaResultPage() {
         </DialogPanel>
       </Dialog>
       <NotificationModal isOpen={notificationModal.isOpen} onClose={() => setNotificationModal({ isOpen: false, title: "", message: "" })} title={notificationModal.title} message={notificationModal.message} />
+      <ConfirmationDialog
+        isOpen={confirmStatusModal.isOpen}
+        onClose={handleCloseConfirmModal}
+        onConfirm={handleConfirmStatusUpdate}
+        title={`Konfirmasi Status: ${confirmStatusModal.newStatus}`}
+        message={`Apakah Anda yakin ingin mengubah status ajuan risiko "${confirmStatusModal.risk?.risk_description}" menjadi "${confirmStatusModal.newStatus}"?`}
+        confirmButtonText={confirmStatusModal.newStatus} // Teks tombol (misal: "Disetujui")
+        isLoading={statusMutation.isPending}
+        confirmButtonColor={confirmStatusModal.newStatus === "Disetujui" ? "green" : "rose"}
+      />
+      <ActionPlanModal isOpen={isActionPlanModalOpen} onClose={handleCloseActionPlanModal} sourceData={actionPlanSource} onSaveSuccess={handleActionPlanSaveSuccess} institution={cycle?.institution} cycleId={cycleId} />
     </>
   );
 }

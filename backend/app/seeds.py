@@ -38,6 +38,7 @@ DEFAULT_PERMISSIONS = {
     'manage_regulations': 'Mengelola Master Regulasi (Admin)',
     'manage_rsca_cycles': 'Membuat/Mengelola siklus RSCA (Admin)',
     'manage_departments': 'Membuat/Edit/Hapus Departemen (Admin Institusi)',
+    'view_mitigation_monitor': 'Melihat halaman Pemantauan Mitigasi (Rencana Aksi)',
 }
 
 # --- Perubahan 3: Buat fungsi seed Roles & Permissions ---
@@ -70,6 +71,7 @@ def seed_roles_permissions():
     manage_rsca_perm = Permission.query.filter_by(name='manage_rsca_cycles').first()
     view_risk_dasar_perm = Permission.query.filter_by(name='view_risk_dasar').first()
     view_risk_madya_perm = Permission.query.filter_by(name='view_risk_madya').first()
+    view_mitigation_perm = Permission.query.filter_by(name='view_mitigation_monitor').first()
 
     # 2. Seed Role Admin
     admin_role = Role.query.filter_by(name='Admin').first()
@@ -141,12 +143,16 @@ def seed_roles_permissions():
         if view_admin_area_perm: manager_role.permissions.append(view_admin_area_perm)
         if manage_depts_perm: manager_role.permissions.append(manage_depts_perm)
         if manage_rsca_perm: manager_role.permissions.append(manage_rsca_perm)
+        if view_mitigation_perm: manager_role.permissions.append(view_mitigation_perm)
         # (Manajer Risiko mungkin juga perlu izin 'view_risk_dasar' dll.)
         
         db.session.add(manager_role)
         print("  'Manajer Risiko' role created with Lini 2 permissions.")
     else:
         print("  'Manajer Risiko' role already exists.")
+        if view_mitigation_perm and view_mitigation_perm not in manager_role.permissions:
+            manager_role.permissions.append(view_mitigation_perm)
+            print("  Adding 'view_mitigation_monitor' to existing 'Manajer Risiko' role.")
 
     try:
         db.session.commit()

@@ -223,6 +223,7 @@ class RscaCycle(db.Model):
     # Relasi Many-to-Many ke Department
     departments = db.relationship('Department', secondary=rsca_cycle_departments, back_populates='rsca_cycles')
     questionnaires = db.relationship('RscaQuestionnaire', backref='cycle', lazy=True, cascade="all, delete-orphan")
+    submitted_risks = db.relationship('SubmittedRisk', back_populates='cycle', lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<RscaCycle {self.nama_siklus}>'
@@ -258,6 +259,7 @@ class RscaAnswer(db.Model):
     risk_register_id = db.Column(db.Integer, db.ForeignKey('risk_register.id'), nullable=True)
     questionnaire = db.relationship('RscaQuestionnaire')
     department = db.relationship('Department')
+    action_plans = db.relationship('ActionPlan', back_populates='origin_answer', lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<RscaAnswer {self.id}>'
@@ -266,6 +268,39 @@ process_step_risks = db.Table('process_step_risks',
     db.Column('process_step_id', db.Integer, db.ForeignKey('process_steps.id'), primary_key=True),
     db.Column('risk_register_id', db.Integer, db.ForeignKey('risk_register.id'), primary_key=True)
 )
+
+class SubmittedRisk(db.Model):
+    """Model untuk 'Ajuan Risiko' (Bottom-Up) dari Staf Departemen."""
+    __tablename__ = 'submitted_risks'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Data dari Staf
+    risk_description = db.Column(db.Text, nullable=False)
+    potential_cause = db.Column(db.Text, nullable=True) # (Opsional) Akar penyebab
+    potential_impact = db.Column(db.Text, nullable=True) # (Opsional) Potensi dampak
+    
+    # Workflow Status (Sesuai idemu)
+    status = db.Column(db.String(50), nullable=False, default='Menunggu Persetujuan') # 'Menunggu Persetujuan', 'Disetujui', 'Ditolak'
+    
+    # Info Penyerah (Siapa yang mengajukan)
+    submitted_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
+    institution = db.Column(db.String(255), nullable=False) # Wajib untuk multi-tenancy
+    
+    # Relasi
+    cycle_id = db.Column(db.Integer, db.ForeignKey('rsca_cycles.id'), nullable=False)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relasi untuk kemudahan query
+    submitter = db.relationship('User')
+    department = db.relationship('Department')
+    cycle = db.relationship('RscaCycle', back_populates='submitted_risks')
+    action_plans = db.relationship('ActionPlan', back_populates='origin_submitted_risk', lazy=True, cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'<SubmittedRisk {self.id} (Status: {self.status})>'
 
 class BusinessProcess(db.Model):
     """Model untuk proses bisnis."""
@@ -699,3 +734,38 @@ class RiskInputMadya(db.Model):
 
     def __repr__(self):
         return f'<RiskInputMadya {self.id} for Assessment {self.assessment_id}>'
+    
+class ActionPlan(db.Model):
+    """Model untuk 'Rencana Aksi' (Mitigation Task / Risk Treatment)."""
+    __tablename__ = 'action_plans'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Deskripsi Tugas
+    action_description = db.Column(db.Text, nullable=False) # Apa yang harus dilakukan
+    status = db.Column(db.String(50), nullable=False, default='Belum Mulai') # 'Belum Mulai', 'Sedang Dikerjakan', 'Selesai'
+    due_date = db.Column(db.Date, nullable=True) # Tenggat waktu
+    
+    # Penanggung Jawab (Siapa yang mengerjakan)
+    # Kita tugaskan ke Departemen (lebih mudah dikelola)
+    assigned_department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
+    
+    # Info Pembuat (Siapa yang membuat rencana aksi ini)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    institution = db.Column(db.String(255), nullable=False) # Wajib untuk multi-tenancy
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Sumber Masalah (Dari mana asalnya?)
+    # Ini adalah 'jembatan' kita. Keduanya 'nullable=True'
+    # karena sebuah rencana aksi bisa berasal dari salah satu.
+    origin_answer_id = db.Column(db.Integer, db.ForeignKey('rsca_answers.id'), nullable=True)
+    origin_submitted_risk_id = db.Column(db.Integer, db.ForeignKey('submitted_risks.id'), nullable=True)
+
+    # Relasi untuk kemudahan query
+    assigned_department = db.relationship('Department')
+    creator = db.relationship('User')
+    origin_answer = db.relationship('RscaAnswer', back_populates='action_plans')
+    origin_submitted_risk = db.relationship('SubmittedRisk', back_populates='action_plans')
+
+    def __repr__(self):
+        return f'<ActionPlan {self.id} (Status: {self.status})>'

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../../api/api";
-import { Title, Text, Button, Textarea, Select, SelectItem, Card, Badge, Flex, Icon, Grid, Subtitle } from "@tremor/react";
+import { Title, Text, Button, Textarea, Select, SelectItem, Card, Badge, Flex, Icon, Grid, Subtitle, Dialog, DialogPanel } from "@tremor/react";
 import { toast } from "sonner";
-import { FiCalendar, FiAlertTriangle, FiFileText, FiCheckCircle, FiClock, FiMinusCircle } from "react-icons/fi";
+import { FiCalendar, FiAlertTriangle, FiFileText, FiCheckCircle, FiClock, FiMinusCircle, FiPlus, FiSend } from "react-icons/fi";
 
 // --- KOMPONEN BARU UNTUK PERTANYAAN TIPE KONTROL ---
 const ControlAssessmentQuestion = ({ question, answerData, onChange }) => {
@@ -94,6 +94,80 @@ const formatDate = (dateString) => {
   });
 };
 
+function SubmitRiskModal({ isOpen, onClose, cycleId, onRiskSubmitted }) {
+  const [description, setDescription] = useState("");
+  const [cause, setCause] = useState("");
+  const [impact, setImpact] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!description) {
+      toast.error("Deskripsi risiko wajib diisi.");
+      return;
+    }
+    setIsSaving(true);
+
+    try {
+      const payload = {
+        risk_description: description,
+        potential_cause: cause,
+        potential_impact: impact,
+      };
+      // Panggil endpoint baru yang kita buat di Langkah 3
+      const response = await apiClient.post(`/rsca-cycles/${cycleId}/submit-risk`, payload);
+
+      toast.success(response.data.msg || "Ajuan risiko berhasil dikirim.");
+      onRiskSubmitted(response.data.submitted_risk); // Kirim data baru ke parent (opsional)
+      handleClose(); // Tutup dan reset form
+    } catch (err) {
+      console.error("Gagal mengirim ajuan risiko:", err);
+      toast.error(err.response?.data?.msg || "Gagal mengirim ajuan.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (isSaving) return; // Jangan tutup jika sedang menyimpan
+    setDescription("");
+    setCause("");
+    setImpact("");
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onClose={handleClose} static={true}>
+      <DialogPanel>
+        <Title className="mb-4">Ajukan Risiko Baru</Title>
+        <Text className="mb-4">Temukan risiko yang belum ada di kuesioner? Ajukan di sini untuk ditinjau oleh Manajer Risiko.</Text>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-tremor-default font-medium text-tremor-content-strong">Deskripsi Risiko (Wajib)</label>
+            <Textarea value={description} onValueChange={setDescription} placeholder="Jelaskan risiko yang Anda temukan..." rows={3} required disabled={isSaving} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-tremor-default font-medium text-tremor-content-strong">Akar Penyebab (Opsional)</label>
+            <Textarea value={cause} onValueChange={setCause} placeholder="Menurut Anda, apa penyebab risiko ini?" rows={2} disabled={isSaving} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-tremor-default font-medium text-tremor-content-strong">Potensi Dampak (Opsional)</label>
+            <Textarea value={impact} onValueChange={setImpact} placeholder="Apa dampak terburuk yang bisa terjadi?" rows={2} disabled={isSaving} className="mt-1" />
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="secondary" onClick={handleClose} disabled={isSaving}>
+              Batal
+            </Button>
+            <Button type="submit" icon={FiSend} loading={isSaving} disabled={isSaving}>
+              Kirim Ajuan
+            </Button>
+          </div>
+        </form>
+      </DialogPanel>
+    </Dialog>
+  );
+}
+
 function RscaQuestionnaireForm() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
@@ -101,6 +175,7 @@ function RscaQuestionnaireForm() {
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitRiskModalOpen, setIsSubmitRiskModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchQuestionnaireAndAnswers = async () => {
@@ -175,24 +250,20 @@ function RscaQuestionnaireForm() {
   const cycleStatus = getCycleStatusDisplay(cycle?.status);
 
   return (
-    <div className="p-6 sm:p-10 bg-gray-50 min-h-screen">
-      {" "}
-      {/* Tambah background abu-abu muda */}
-      {/* 1. Header Halaman yang Konsisten */}
-      <Flex alignItems="center" className="space-x-3 mb-6">
-        <Icon icon={FiFileText} size="lg" variant="light" color="blue" />
-        <div>
-          <Title>Kuesioner RSCA</Title>
-          <Text>Isi pertanyaan di bawah ini untuk departemen Anda.</Text>
-        </div>
-      </Flex>
-      {/* 2. Bungkus semua dengan <form> di luar <Grid> */}
-      <form onSubmit={handleSubmit}>
+    <>
+      <div className="p-6 sm:p-10 bg-gray-50 min-h-screen">
+        {/* 1. Header Halaman yang Konsisten */}
+        <Flex alignItems="center" className="space-x-3 mb-6">
+          <Icon icon={FiFileText} size="lg" variant="light" color="blue" />
+          <div>
+            <Title>Kuesioner RSCA</Title>
+            <Text>Isi pertanyaan di bawah ini untuk departemen Anda.</Text>
+          </div>
+        </Flex>
+        {/* 2. Bungkus semua dengan <form> di luar <Grid> */}
         <Grid numItemsLg={3} className="gap-6 items-start">
-          {" "}
-          {/* Tambah `items-start` di Grid */}
-          {/* 3. Kolom Kiri (Utama) untuk Pertanyaan */}
-          <div className="lg:col-span-2 space-y-4">
+          <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-4">
+            {/* 3. Kolom Kiri (Utama) untuk Pertanyaan */}
             {questions.length === 0 ? (
               <Card>
                 <Text>Tidak ada pertanyaan yang ditemukan untuk siklus ini. Hubungi Manajer Risiko Anda.</Text>
@@ -209,12 +280,23 @@ function RscaQuestionnaireForm() {
                 </div>
               ))
             )}
-          </div>
+            {questions.length > 0 && (
+              <Button
+                type="submit" // Ini akan men-trigger 'handleSubmit'
+                className="w-full mt-4" // Beri jarak
+                size="lg"
+                disabled={isPastDueDate || questions.length === 0}
+                title={isPastDueDate ? "Tenggat waktu sudah terlewat" : "Kirim atau perbarui jawaban Anda"}
+                color={isPastDueDate ? "gray" : "blue"}
+              >
+                {isPastDueDate ? "Tenggat Waktu Terlewat" : "Kirim Jawaban"}
+              </Button>
+            )}
+          </form>
+
           {/* 4. Kolom Kanan (Sidebar) untuk Info & Aksi */}
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-6">
-              {" "}
-              {/* <-- Membuat 'sticky' */}
               {/* Card Info Siklus */}
               <Card>
                 <Subtitle>Detail Siklus</Subtitle>
@@ -239,12 +321,21 @@ function RscaQuestionnaireForm() {
               <Card>
                 <Subtitle>Aksi</Subtitle>
 
+                <Button
+                  icon={FiPlus}
+                  variant="secondary"
+                  className="w-full mt-4"
+                  onClick={() => setIsSubmitRiskModalOpen(true)} // Ini HANYA akan membuka modal
+                  disabled={isPastDueDate}
+                  title="Ajukan risiko baru yang tidak ada di daftar"
+                >
+                  Ajukan Risiko Baru
+                </Button>
+
                 {/* Peringatan Tenggat Waktu (jika ada) */}
                 {isPastDueDate && (
                   <div className="mt-4">
                     <Card decoration="left" decorationColor="rose" className="bg-red-50">
-                      {" "}
-                      {/* Warna dekorasi & background */}
                       <Flex>
                         <Icon icon={FiAlertTriangle} color="rose" variant="light" /> {/* Warna ikon */}
                         <div className="ml-3">
@@ -257,24 +348,20 @@ function RscaQuestionnaireForm() {
                     </Card>
                   </div>
                 )}
-
-                {/* Tombol Kirim */}
-                <Button
-                  type="submit"
-                  className="w-full mt-4"
-                  size="lg"
-                  disabled={isPastDueDate || questions.length === 0}
-                  title={isPastDueDate ? "Tenggat waktu sudah terlewat" : "Kirim atau perbarui jawaban Anda"}
-                  color={isPastDueDate ? "gray" : "blue"} // Tombol abu-abu jika tenggat terlewat
-                >
-                  {isPastDueDate ? "Tenggat Waktu Terlewat" : "Kirim Jawaban"}
-                </Button>
               </Card>
             </div>
           </div>
         </Grid>
-      </form>
-    </div>
+      </div>
+      <SubmitRiskModal
+        isOpen={isSubmitRiskModalOpen}
+        onClose={() => setIsSubmitRiskModalOpen(false)}
+        cycleId={cycleId}
+        onRiskSubmitted={(newRisk) => {
+          console.log("Ajuan baru diterima:", newRisk);
+        }}
+      />
+    </>
   );
 }
 

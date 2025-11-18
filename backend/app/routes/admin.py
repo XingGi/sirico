@@ -1,6 +1,6 @@
 # backend/app/routes/admin.py
 from flask import request, jsonify, Blueprint
-from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate
+from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate, SubmittedRisk, ActionPlan
 from app import bcrypt, ma
 from marshmallow import fields
 from .auth import admin_required, permission_required
@@ -36,6 +36,38 @@ class RscaAnswerSchema(ma.Schema):
     control_effectiveness_rating = fields.Str()
     questionnaire = fields.Nested(RscaQuestionnaireSchema)
     department = fields.Nested(DepartmentSchema)
+class UserSimpleSchema(ma.Schema):
+    nama_lengkap = fields.Str()
+class SubmittedRiskSchema(ma.Schema):
+    """Skema untuk menampilkan 'Ajuan Risiko' di tabel Manajer Risiko."""
+    id = fields.Int()
+    risk_description = fields.Str()
+    potential_cause = fields.Str()
+    potential_impact = fields.Str()
+    status = fields.Str()
+    created_at = fields.DateTime(format="%d %B %Y") # Format tanggal
+    
+    # Tampilkan siapa yang mengirim dan dari departemen mana
+    submitter = fields.Nested(UserSimpleSchema)
+    department = fields.Nested(DepartmentSchema(only=("name",)))
+    
+class ActionPlanSchema(ma.Schema):
+    """Skema untuk Rencana Aksi (Mitigasi)."""
+    id = fields.Int()
+    action_description = fields.Str()
+    status = fields.Str()
+    # Format tanggal agar lebih mudah dibaca di frontend
+    due_date = fields.Date(format="%d %B %Y") 
+    institution = fields.Str()
+    created_at = fields.DateTime(format="%d %B %Y")
+    
+    # Tampilkan info relasi
+    assigned_department = fields.Nested(DepartmentSchema(only=("name",)))
+    creator = fields.Nested(UserSimpleSchema)
+    
+    # Tampilkan ID sumbernya
+    origin_answer_id = fields.Int(allow_none=True)
+    origin_submitted_risk_id = fields.Int(allow_none=True)
 
 admin_bp = Blueprint('admin_bp', __name__)
 
@@ -721,8 +753,163 @@ def get_rsca_cycle_results(cycle_id):
     # Ambil semua jawaban untuk siklus ini
     answers = RscaAnswer.query.filter_by(cycle_id=cycle_id).all()
     
+    submitted_risks = SubmittedRisk.query.filter_by(cycle_id=cycle_id).order_by(SubmittedRisk.status, SubmittedRisk.created_at.desc()).all()
+    
     return jsonify({
         "cycle": RscaCycleSchema().dump(cycle),
         "answers": RscaAnswerSchema(many=True).dump(answers),
+        "submitted_risks": SubmittedRiskSchema(many=True).dump(submitted_risks),
         "ai_summary": cycle.ai_summary or None # Kirim juga summary AI jika ada
+    }), 200
+    
+@admin_bp.route('/submitted-risks/<int:risk_id>/status', methods=['PUT'])
+@jwt_required()
+@permission_required('manage_rsca_cycles') # Amankan dengan permission yang relevan
+def update_submitted_risk_status(risk_id):
+    """
+    Menyetujui atau menolak 'Ajuan Risiko' (Bottom-Up) dari Staf.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    submitted_risk = SubmittedRisk.query.get_or_404(risk_id)
+    
+    # 1. Validasi Keamanan (Institusi)
+    if not user or not user.institution or submitted_risk.institution != user.institution:
+        return jsonify({"msg": "Akses ditolak (Beda Institusi)."}), 403
+
+    data = request.get_json()
+    new_status = data.get('status')
+
+    # 2. Validasi Status
+    if new_status not in ['Disetujui', 'Ditolak']:
+        return jsonify({"msg": "Status baru tidak valid."}), 400
+        
+    # 3. Update status
+    submitted_risk.status = new_status
+    
+    db.session.commit()
+    
+    # 4. Kembalikan data yang sudah di-update
+    return jsonify({
+        "msg": f"Status ajuan risiko berhasil diubah menjadi '{new_status}'.",
+        "submitted_risk": SubmittedRiskSchema().dump(submitted_risk) # Kirim data terbaru
+    }), 200
+    
+@admin_bp.route('/action-plans', methods=['POST'])
+@jwt_required()
+@permission_required('manage_rsca_cycles') # Kita gunakan permission yang sama
+def create_action_plan():
+    """
+    Membuat Rencana Aksi (Mitigasi) baru.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user or not user.institution:
+        return jsonify({"msg": "User tidak valid atau tidak memiliki institusi."}), 400
+
+    data = request.get_json()
+    if not data or not data.get('action_description') or not data.get('assigned_department_id'):
+        return jsonify({"msg": "Deskripsi aksi dan departemen penanggung jawab wajib diisi."}), 400
+
+    # 1. Validasi Keamanan: Cek Departemen Penanggung Jawab
+    assigned_dept_id = data.get('assigned_department_id')
+    assigned_dept = Department.query.get(assigned_dept_id)
+    if not assigned_dept or assigned_dept.institution != user.institution:
+        return jsonify({"msg": "Departemen penanggung jawab tidak valid untuk institusi Anda."}), 403
+
+    # 2. Ambil data opsional (sumber masalah)
+    origin_answer_id = data.get('origin_answer_id')
+    origin_submitted_risk_id = data.get('origin_submitted_risk_id')
+
+    # 3. Validasi Keamanan: Cek Sumber Masalah (jika ada)
+    # Ini memastikan Manajer Risiko tidak bisa "mencomot" temuan dari institusi lain
+    if origin_answer_id:
+        answer = RscaAnswer.query.get(origin_answer_id)
+        if not answer or answer.cycle.institution != user.institution:
+            return jsonify({"msg": "Jawaban (sumber) tidak valid."}), 403
+    
+    if origin_submitted_risk_id:
+        submitted_risk = SubmittedRisk.query.get(origin_submitted_risk_id)
+        if not submitted_risk or submitted_risk.institution != user.institution:
+            return jsonify({"msg": "Ajuan risiko (sumber) tidak valid."}), 403
+    
+    # 4. Ambil Tanggal (parse dengan aman)
+    due_date_obj = None
+    if data.get('due_date'): # Frontend harus mengirim format "YYYY-MM-DD"
+        try:
+            due_date_obj = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({"msg": "Format tanggal salah. Gunakan YYYY-MM-DD."}), 400
+
+    # 5. Buat ActionPlan
+    new_action_plan = ActionPlan(
+        action_description=data['action_description'],
+        status='Belum Mulai', # Default status
+        due_date=due_date_obj,
+        assigned_department_id=assigned_dept_id,
+        created_by_user_id=user.id,
+        institution=user.institution,
+        origin_answer_id=origin_answer_id,
+        origin_submitted_risk_id=origin_submitted_risk_id
+    )
+    
+    db.session.add(new_action_plan)
+    db.session.commit()
+
+    return jsonify({
+        "msg": "Rencana aksi berhasil dibuat.",
+        "action_plan": ActionPlanSchema().dump(new_action_plan)
+    }), 201
+    
+@admin_bp.route('/action-plans', methods=['GET'])
+@jwt_required()
+@permission_required('view_mitigation_monitor') # Amankan dengan permission baru
+def get_all_action_plans():
+    """
+    Mengambil SEMUA Rencana Aksi (Mitigasi) untuk institusi Manajer Risiko.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user or not user.institution:
+        return jsonify({"msg": "User tidak valid atau tidak memiliki institusi."}), 400
+
+    # Ambil semua Rencana Aksi yang institusinya cocok dengan user
+    action_plans = ActionPlan.query.filter_by(
+        institution=user.institution
+    ).order_by(ActionPlan.due_date.asc(), ActionPlan.created_at.desc()).all()
+    
+    return ActionPlanSchema(many=True).jsonify(action_plans), 200
+
+@admin_bp.route('/action-plans/<int:plan_id>/status', methods=['PUT'])
+@jwt_required()
+@permission_required('view_mitigation_monitor') # Kita gunakan permission yang sama
+def update_action_plan_status(plan_id):
+    """
+    Update status Rencana Aksi (misal: Selesai, Sedang Dikerjakan).
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    action_plan = ActionPlan.query.get_or_404(plan_id)
+
+    # 1. Validasi Keamanan (Institusi)
+    if not user or not user.institution or action_plan.institution != user.institution:
+        return jsonify({"msg": "Akses ditolak (Beda Institusi)."}), 403
+
+    data = request.get_json()
+    new_status = data.get('status')
+
+    # 2. Validasi Status (agar datanya bersih)
+    allowed_statuses = ['Belum Mulai', 'Sedang Dikerjakan', 'Selesai', 'Dibatalkan']
+    if not new_status or new_status not in allowed_statuses:
+        return jsonify({"msg": "Status baru tidak valid."}), 400
+        
+    # 3. Update status
+    action_plan.status = new_status
+    
+    db.session.commit()
+    
+    # 4. Kembalikan data yang sudah di-update
+    return jsonify({
+        "msg": f"Status Rencana Aksi berhasil diubah menjadi '{new_status}'.",
+        "action_plan": ActionPlanSchema().dump(action_plan) # Kirim data terbaru
     }), 200

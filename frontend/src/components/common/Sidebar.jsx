@@ -28,6 +28,7 @@ import {
   FiBox,
   FiShuffle,
   FiFileText,
+  FiActivity,
 } from "react-icons/fi";
 import { HiCalculator } from "react-icons/hi";
 import { useAuth } from "../../context/AuthContext";
@@ -66,6 +67,7 @@ const menuItems = [
       { title: "Manajemen Siklus", path: "/admin/rsca", icon: <FiSettings />, requiredPermission: "manage_rsca_cycles" },
       // 3. Untuk Manajer Risiko (dari Admin)
       { title: "Manajemen Departemen", path: "/admin/departments", icon: <FiBriefcase />, requiredPermission: "manage_departments" },
+      { title: "Pemantauan Mitigasi", path: "/admin/mitigation-monitor", icon: <FiActivity />, requiredPermission: "view_mitigation_monitor" },
     ],
   },
   {
