@@ -1,7 +1,7 @@
 # backend/app/routes/rsca.py
 import os
 from flask import request, jsonify, Blueprint
-from app.models import db, User, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, SubmittedRisk
+from app.models import db, User, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, SubmittedRisk, ActionPlan
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from app.ai_services import analyze_rsca_answers_with_gemini
@@ -142,6 +142,53 @@ def get_my_submitted_risks():
         
     return jsonify(result), 200
 
+@rsca_bp.route('/my-action-plan-tasks', methods=['GET'])
+@jwt_required()
+def get_my_action_plan_tasks():
+    """
+    Mengambil daftar 'Rencana Aksi' (tugas mitigasi) yang ditugaskan
+    ke departemen pengguna yang sedang login.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # 1. Validasi User & Departemen
+    if not user or not user.department_id:
+        # Jika user tidak punya departemen, kembalikan array kosong
+        return jsonify({"msg": "Data departemen pengguna tidak ditemukan."}), 404
+    
+    target_institution = user.department.institution
+    
+    if not target_institution:
+        return jsonify([]), 200
+
+    # 2. Ambil semua Rencana Aksi yang:
+    tasks = ActionPlan.query.filter_by(
+        assigned_department_id=user.department_id,
+        institution=target_institution
+    ).order_by(ActionPlan.due_date.asc()).all()
+
+    # 3. Ubah data menjadi JSON secara manual
+    result = []
+    for plan in tasks:
+        source_text = "Tidak Diketahui"
+        if plan.origin_answer_id:
+            source_text = f"Jawaban RSCA #{plan.origin_answer_id}"
+        elif plan.origin_submitted_risk_id:
+            source_text = f"Ajuan Risiko #{plan.origin_submitted_risk_id}"
+
+        result.append({
+            "id": plan.id,
+            "action_description": plan.action_description,
+            "status": plan.status,
+            "due_date": plan.due_date.isoformat() if plan.due_date else None,
+            "created_at": plan.created_at.isoformat(),
+            "source_text": source_text,
+            "creator_name": plan.creator.nama_lengkap if plan.creator else "Sistem"
+        })
+        
+    return jsonify(result), 200
+
 @rsca_bp.route('/rsca-cycles/<int:cycle_id>/questionnaire', methods=['GET'])
 @jwt_required()
 def get_rsca_questionnaire(cycle_id):
@@ -170,8 +217,6 @@ def get_rsca_questionnaire(cycle_id):
             break
 
     if not user_is_assigned:
-        # Periksa apakah user adalah admin (Super Admin boleh lihat)
-        # Ini opsional, tapi bagus untuk debugging
         is_admin = False
         for role in user.roles:
             if role.name.lower() == 'admin':
@@ -180,20 +225,17 @@ def get_rsca_questionnaire(cycle_id):
         
         if not is_admin:
             return jsonify({"msg": "Anda tidak ditugaskan untuk kuesioner ini."}), 403
-
-    # 4. Jika lolos validasi, ambil pertanyaan
+        
     questions = RscaQuestionnaire.query.filter_by(cycle_id=cycle_id).order_by(RscaQuestionnaire.id).all()
     
     # 5. Buat data list pertanyaan secara manual (sesuai pola file-mu)
-    #    PENTING: Kita tambahkan 'question_type'
     question_list = [{
         "id": q.id,
         "pertanyaan": q.pertanyaan,
         "kategori": q.kategori,
-        "question_type": q.question_type # <-- Ini penting untuk UI
+        "question_type": q.question_type
     } for q in questions]
     
-    # Buat data siklus secara manual
     cycle_data = {
         "id": cycle.id,
         "nama_siklus": cycle.nama_siklus,
@@ -233,7 +275,6 @@ def get_my_rsca_answers(cycle_id):
         department_id=user.department_id
     ).all()
     
-    # Gunakan RscaAnswerSchema untuk mengubahnya menjadi JSON
     return RscaAnswerSchema(many=True).dump(answers), 200
 
 @rsca_bp.route('/rsca-cycles/<int:cycle_id>/answers', methods=['POST'])

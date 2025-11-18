@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../../api/api";
 import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Button, Flex, Icon, Tab, TabGroup, TabList, TabPanel, TabPanels } from "@tremor/react";
-import { FiFileText, FiEye, FiCheckCircle, FiLoader, FiGrid, FiList, FiCalendar, FiArchive } from "react-icons/fi";
+import { FiFileText, FiEye, FiCheckCircle, FiLoader, FiGrid, FiList, FiCalendar, FiArchive, FiActivity } from "react-icons/fi";
 import { useQuery } from "@tanstack/react-query";
 
 // Helper untuk format tanggal (kita pinjam dari RscaAdminPage)
@@ -21,11 +21,15 @@ const formatDate = (dateString) => {
 
 // Helper untuk warna status
 const getStatusColor = (status) => {
+  // Untuk status mitigasi
   if (status === "Selesai") return "green";
+  if (status === "Sedang Dikerjakan") return "blue";
+  if (status === "Belum Mulai") return "gray";
+
+  // Untuk status siklus (fallback)
   if (status === "Draft" || status === "Berjalan") return "blue";
   return "gray";
 };
-
 const getCycleStatusColor = (status) => {
   if (status === "Selesai") return "green";
   if (status === "Draft" || status === "Berjalan") return "blue";
@@ -51,6 +55,11 @@ const fetchMySubmissions = async () => {
   return data;
 };
 
+const fetchMyActionPlans = async () => {
+  const { data } = await apiClient.get("/my-action-plan-tasks");
+  return data;
+};
+
 function RSCAPage() {
   const [viewMode, setViewMode] = useState("grid");
   const navigate = useNavigate();
@@ -64,7 +73,13 @@ function RSCAPage() {
     queryKey: ["mySubmittedRisks"],
     queryFn: fetchMySubmissions,
   });
-  const isLoading = isLoadingTasks || isLoadingSubmissions;
+
+  const { data: actionPlans, isLoading: isLoadingActionPlans } = useQuery({
+    queryKey: ["myActionPlanTasks"],
+    queryFn: fetchMyActionPlans,
+  });
+
+  const isLoading = isLoadingTasks || isLoadingSubmissions || isLoadingActionPlans;
 
   const handleViewTask = (taskId) => {
     navigate(`/addons/rsca/cycle/${taskId}`);
@@ -76,7 +91,7 @@ function RSCAPage() {
         <Icon icon={FiFileText} size="lg" variant="light" color="blue" />
         <div>
           <Title>Tugas Kuesioner RSCA</Title>
-          <Text>Daftar tugas kuesioner yang ditugaskan ke departemen Anda.</Text>
+          <Text>Daftar tugas kuesioner, ajuan risiko, dan mitigasi untuk departemen Anda.</Text>
         </div>
       </Flex>
 
@@ -87,6 +102,9 @@ function RSCAPage() {
           </Tab>
           <Tab value="2" icon={FiArchive}>
             Ajuan Risiko Saya ({submissions?.length || 0})
+          </Tab>
+          <Tab value="3" icon={FiActivity}>
+            Tugas Mitigasi Saya ({actionPlans?.length || 0})
           </Tab>
         </TabList>
         <TabPanels>
@@ -181,6 +199,55 @@ function RSCAPage() {
                         <TableCell>{formatDate(risk.created_at)}</TableCell>
                         <TableCell>
                           <Badge color={getStatusBadgeColor(risk.status)}>{risk.status}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabPanel>
+
+          <TabPanel>
+            <Card className="mt-6">
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell>Deskripsi Tugas Mitigasi</TableHeaderCell>
+                    <TableHeaderCell>Sumber Masalah</TableHeaderCell>
+                    <TableHeaderCell>Tenggat Waktu</TableHeaderCell>
+                    <TableHeaderCell>Status</TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {isLoadingActionPlans ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-10">
+                        <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
+                          <Icon icon={FiLoader} className="animate-spin" size="sm" />
+                          <Text>Memuat tugas mitigasi...</Text>
+                        </Flex>
+                      </TableCell>
+                    </TableRow>
+                  ) : actionPlans?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-10">
+                        <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
+                          <Icon icon={FiCheckCircle} size="sm" />
+                          <Text>Tidak ada tugas mitigasi yang ditugaskan ke departemen Anda.</Text>
+                        </Flex>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    actionPlans?.map((plan) => (
+                      <TableRow key={plan.id}>
+                        <TableCell className="max-w-md whitespace-normal break-words font-medium text-tremor-content-strong">{plan.action_description}</TableCell>
+                        <TableCell>{plan.source_text}</TableCell>
+                        <TableCell>
+                          <Text color={plan.due_date && new Date(plan.due_date) < new Date() ? "red" : "inherit"}>{formatDate(plan.due_date)}</Text>
+                        </TableCell>
+                        <TableCell>
+                          <Badge color={getStatusColor(plan.status)}>{plan.status}</Badge>
                         </TableCell>
                       </TableRow>
                     ))
