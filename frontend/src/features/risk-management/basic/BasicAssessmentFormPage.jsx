@@ -1,39 +1,39 @@
+// frontend/src/features/risk-management/basic/BasicAssessmentFormPage.jsx
+
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Card, Title, Text, Button, TextInput, Textarea, NumberInput, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Dialog, DialogPanel, Select, SelectItem } from "@tremor/react";
+import { Card, Title, Text, Button, TextInput, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Dialog, DialogPanel, Flex } from "@tremor/react";
 import { FiBriefcase, FiHome, FiSave, FiPlus, FiTrash2, FiEdit2, FiHelpCircle, FiMaximize, FiMinimize, FiAlertTriangle } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import { toast } from "sonner";
 
+// 🔽 Import Komponen Baru (Pastikan path-nya sesuai dengan tempat Anda menyimpan file tadi)
+import BasicContextModal from "./components/BasicContextModal";
+import BasicRiskModal from "./components/BasicRiskModal";
+import BasicAnalysisModal from "./components/BasicAnalysisModal";
+
+// --- Helper Functions ---
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return "Rp 0";
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 };
 
-const parseCurrency = (value) => {
-  return Number(String(value).replace(/[^0-9]/g, ""));
-};
-
-// Komponen Tooltip (tidak berubah)
-const Tooltip = ({ children }) => {
-  return (
-    <div className="relative flex items-center group">
-      {children}
-      {/* --- PERBAIKAN DI SINI --- */}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 p-2 bg-slate-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-50">
-        <h4 className="font-bold mb-1">Kategori Risiko:</h4>
-        <ul className="list-disc list-inside">
-          <li>Operasional</li>
-          <li>Keuangan</li>
-          <li>Kepatuhan</li>
-          <li>Strategis</li>
-        </ul>
-      </div>
+const Tooltip = ({ children }) => (
+  <div className="relative flex items-center group">
+    {children}
+    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 p-2 bg-slate-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-50">
+      <h4 className="font-bold mb-1">Kategori Risiko:</h4>
+      <ul className="list-disc list-inside">
+        <li>Operasional</li>
+        <li>Keuangan</li>
+        <li>Kepatuhan</li>
+        <li>Strategis</li>
+      </ul>
     </div>
-  );
-};
+  </div>
+);
 
-// Komponen baru untuk Popup Konfirmasi Hapus
+// Komponen Konfirmasi Hapus (Tetap disini karena kecil & spesifik)
 const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message }) => (
   <Dialog open={isOpen} onClose={onClose} static={true}>
     <DialogPanel>
@@ -57,143 +57,34 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message }) => (
 function BasicAssessmentFormPage() {
   const { assessmentId } = useParams();
   const isEditMode = Boolean(assessmentId);
-  const [formData, setFormData] = useState({ nama_unit_kerja: "", nama_perusahaan: "" });
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
 
-  // State untuk Konteks
+  // --- State Data Utama ---
+  const [formData, setFormData] = useState({ nama_unit_kerja: "", nama_perusahaan: "" });
   const [contexts, setContexts] = useState([]);
+  const [risks, setRisks] = useState([]);
+  const [analyses, setAnalyses] = useState([]);
+
+  // --- State Modal Control ---
+  // Kita HANYA perlu menyimpan index yang sedang diedit.
+  // Data formnya sendiri sekarang ada di dalam component Modal masing-masing.
   const [isContextModalOpen, setIsContextModalOpen] = useState(false);
-  const [currentContext, setCurrentContext] = useState({ external: "", internal: "" });
   const [editingContextIndex, setEditingContextIndex] = useState(null);
 
-  // State untuk Risiko
-  const [risks, setRisks] = useState([]);
   const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
-  const initialRiskState = {
-    kode_risiko: "",
-    kategori_risiko: "",
-    unit_kerja: "",
-    sasaran: "",
-    tanggal_identifikasi: new Date().toISOString().split("T")[0],
-    deskripsi_risiko: "",
-    akar_penyebab: "",
-    indikator_risiko: "",
-    internal_control: "",
-    deskripsi_dampak: "",
-  };
-  const [currentRisk, setCurrentRisk] = useState(initialRiskState);
   const [editingRiskIndex, setEditingRiskIndex] = useState(null);
 
-  // State baru untuk Analisis Risiko (Card 4)
-  const [analyses, setAnalyses] = useState([]);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
-  const initialAnalysisState = { risk_identification_id: "", probabilitas: 1, dampak: 1, probabilitas_kualitatif: 0, dampak_finansial: 0 };
-  const [currentAnalysis, setCurrentAnalysis] = useState(initialAnalysisState);
   const [editingAnalysisIndex, setEditingAnalysisIndex] = useState(null);
 
-  // State untuk Konfirmasi Hapus dan Fullscreen
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, title: "", message: "", onConfirm: null });
+
+  // Fullscreen logic
   const [isFullscreen, setIsFullscreen] = useState(false);
   const riskTableCardRef = useRef(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-
-  // Handlers untuk input form
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-  const handleContextChange = (e) => setCurrentContext({ ...currentContext, [e.target.name]: e.target.value });
-  const handleRiskChange = (e) => setCurrentRisk({ ...currentRisk, [e.target.name]: e.target.value });
-  const handleRiskSelectChange = (value) => setCurrentRisk({ ...currentRisk, kategori_risiko: value });
-
-  // --- Logika CRUD untuk Konteks (Card 2) ---
-  const handleOpenEditContext = (index) => {
-    setEditingContextIndex(index);
-    setCurrentContext(contexts[index]);
-    setIsContextModalOpen(true);
-  };
-
-  const handleSaveContext = () => {
-    if (!currentContext.external || !currentContext.internal) {
-      alert("Konteks tidak boleh kosong.");
-      return;
-    }
-    if (editingContextIndex !== null) {
-      const updatedContexts = [...contexts];
-      updatedContexts[editingContextIndex] = currentContext;
-      setContexts(updatedContexts);
-    } else {
-      setContexts([...contexts, currentContext]);
-    }
-    setCurrentContext({ external: "", internal: "" });
-    setEditingContextIndex(null);
-    setIsContextModalOpen(false);
-  };
-
-  const handleDeleteContext = (indexToDelete) => {
-    setDeleteConfirmation({
-      isOpen: true,
-      title: "Konfirmasi Hapus Konteks",
-      message: "Apakah Anda yakin ingin menghapus item konteks ini?",
-      onConfirm: () => {
-        setContexts(contexts.filter((_, index) => index !== indexToDelete));
-        setDeleteConfirmation({ isOpen: false });
-      },
-    });
-  };
-
-  // --- Logika CRUD untuk Risiko (Card 3) ---
-  const handleOpenEditRisk = (index) => {
-    setEditingRiskIndex(index);
-    setCurrentRisk(risks[index]);
-    setIsRiskModalOpen(true);
-  };
-
-  const handleSaveRisk = () => {
-    if (!currentRisk.kategori_risiko || !currentRisk.unit_kerja || !currentRisk.deskripsi_risiko) {
-      alert("Kategori, Unit Kerja, dan Deskripsi wajib diisi.");
-      return;
-    }
-    if (editingRiskIndex !== null) {
-      const updatedRisks = [...risks];
-      updatedRisks[editingRiskIndex] = currentRisk;
-      setRisks(updatedRisks);
-    } else {
-      setRisks([...risks, currentRisk]);
-    }
-    setCurrentRisk(initialRiskState);
-    setEditingRiskIndex(null);
-    setIsRiskModalOpen(false);
-  };
-
-  const handleDeleteRisk = (indexToDelete) => {
-    setDeleteConfirmation({
-      isOpen: true,
-      title: "Konfirmasi Hapus Risiko",
-      message: "Apakah Anda yakin ingin menghapus item identifikasi risiko ini?",
-      onConfirm: () => {
-        setRisks(risks.filter((_, index) => index !== indexToDelete));
-        setDeleteConfirmation({ isOpen: false });
-      },
-    });
-  };
-
-  // --- Logika Fullscreen ---
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      riskTableCardRef.current?.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-    }
-  };
-
-  React.useEffect(() => {
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) setIsFullscreen(false);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
-
+  // --- Fetch Data (Initial Load) ---
   useEffect(() => {
     if (isEditMode) {
       setIsLoading(true);
@@ -207,77 +98,142 @@ function BasicAssessmentFormPage() {
           setAnalyses(data.analyses || []);
         })
         .catch((err) => {
-          alert("Gagal memuat data asesmen untuk diedit.");
+          toast.error("Gagal memuat data asesmen.");
           console.error(err);
         })
-        .finally(() => {
-          setIsLoading(false);
-        });
+        .finally(() => setIsLoading(false));
     } else {
-      setIsLoading(false); // Mode 'new'
+      setIsLoading(false);
     }
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setIsFullscreen(false);
-      }
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-
-    // Cleanup function
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
   }, [assessmentId, isEditMode]);
 
-  // Logika CRUD baru untuk Analisis Risiko (Card 4)
-  const handleAnalysisChange = (name, value) => setCurrentAnalysis((prev) => ({ ...prev, [name]: value }));
+  // --- Handlers: Form Data Utama ---
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSaveAnalysis = () => {
-    if (currentAnalysis.risk_identification_id === "") {
-      alert("Deskripsi Risiko wajib dipilih.");
-      return;
-    }
-    if (editingAnalysisIndex !== null) {
-      const updatedAnalyses = [...analyses];
-      updatedAnalyses[editingAnalysisIndex] = currentAnalysis;
-      setAnalyses(updatedAnalyses);
+  // --- Handlers: Konteks ---
+  const handleOpenAddContext = () => {
+    setEditingContextIndex(null); // Mode tambah
+    setIsContextModalOpen(true);
+  };
+
+  const handleOpenEditContext = (index) => {
+    setEditingContextIndex(index); // Mode edit index ke-i
+    setIsContextModalOpen(true);
+  };
+
+  // Fungsi ini dipanggil oleh BasicContextModal saat tombol Simpan diklik
+  const handleSaveContext = (contextData) => {
+    if (editingContextIndex !== null) {
+      // Update
+      const updated = [...contexts];
+      updated[editingContextIndex] = contextData;
+      setContexts(updated);
     } else {
-      setAnalyses([...analyses, currentAnalysis]);
+      // Tambah baru
+      setContexts([...contexts, contextData]);
     }
-    setCurrentAnalysis(initialAnalysisState);
-    setEditingAnalysisIndex(null);
-    setIsAnalysisModalOpen(false);
+    setIsContextModalOpen(false);
   };
 
-  const handleOpenEditAnalysis = (index) => {
-    setEditingAnalysisIndex(index);
-    setCurrentAnalysis(analyses[index]);
-    setIsAnalysisModalOpen(true);
-  };
-
-  const handleDeleteAnalysis = (indexToDelete) => {
+  const handleDeleteContext = (index) => {
     setDeleteConfirmation({
       isOpen: true,
-      title: "Konfirmasi Hapus Analisis",
-      message: "Apakah Anda yakin ingin menghapus item analisis risiko ini?",
+      title: "Hapus Konteks",
+      message: "Yakin ingin menghapus item konteks ini?",
       onConfirm: () => {
-        setAnalyses(analyses.filter((_, index) => index !== indexToDelete));
+        setContexts(contexts.filter((_, i) => i !== index));
         setDeleteConfirmation({ isOpen: false });
       },
     });
   };
 
+  // --- Handlers: Risiko ---
+  const handleOpenAddRisk = () => {
+    setEditingRiskIndex(null);
+    setIsRiskModalOpen(true);
+  };
+
+  const handleOpenEditRisk = (index) => {
+    setEditingRiskIndex(index);
+    setIsRiskModalOpen(true);
+  };
+
+  // Fungsi ini dipanggil oleh BasicRiskModal
+  const handleSaveRisk = (riskData) => {
+    if (editingRiskIndex !== null) {
+      const updated = [...risks];
+      updated[editingRiskIndex] = riskData;
+      setRisks(updated);
+    } else {
+      setRisks([...risks, riskData]);
+    }
+    setIsRiskModalOpen(false);
+  };
+
+  const handleDeleteRisk = (index) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      title: "Hapus Risiko",
+      message: "Yakin ingin menghapus risiko ini? Analisis terkait mungkin akan menjadi tidak valid.",
+      onConfirm: () => {
+        setRisks(risks.filter((_, i) => i !== index));
+        // Opsional: Anda bisa menambahkan logika untuk menghapus analisis yang terkait di sini
+        setDeleteConfirmation({ isOpen: false });
+      },
+    });
+  };
+
+  // --- Handlers: Analisis ---
   const availableRisksForAnalysis = useMemo(() => {
-    const usedRiskIds = analyses.map((a) => a.risk_identification_id);
+    const usedRiskIndices = analyses.map((a) => a.risk_identification_id);
+    // Kita perlu memetakan risiko dengan index aslinya agar dropdown bisa memilih referensi yang benar
     return risks
       .map((risk, index) => ({ ...risk, originalIndex: index }))
-      .filter((risk) => !usedRiskIds.includes(risk.originalIndex) || (editingAnalysisIndex !== null && analyses[editingAnalysisIndex].risk_identification_id === risk.originalIndex));
+      .filter(
+        (risk) =>
+          // Tampilkan jika belum dipakai ATAU jika sedang diedit (biar bisa pilih dirinya sendiri)
+          !usedRiskIndices.includes(risk.originalIndex) || (editingAnalysisIndex !== null && analyses[editingAnalysisIndex].risk_identification_id === risk.originalIndex)
+      );
   }, [risks, analyses, editingAnalysisIndex]);
 
+  const handleOpenAddAnalysis = () => {
+    setEditingAnalysisIndex(null);
+    setIsAnalysisModalOpen(true);
+  };
+
+  const handleOpenEditAnalysis = (index) => {
+    setEditingAnalysisIndex(index);
+    setIsAnalysisModalOpen(true);
+  };
+
+  // Fungsi ini dipanggil oleh BasicAnalysisModal
+  const handleSaveAnalysis = (analysisData) => {
+    if (editingAnalysisIndex !== null) {
+      const updated = [...analyses];
+      updated[editingAnalysisIndex] = analysisData;
+      setAnalyses(updated);
+    } else {
+      setAnalyses([...analyses, analysisData]);
+    }
+    setIsAnalysisModalOpen(false);
+  };
+
+  const handleDeleteAnalysis = (index) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      title: "Hapus Analisis",
+      message: "Yakin ingin menghapus analisis ini?",
+      onConfirm: () => {
+        setAnalyses(analyses.filter((_, i) => i !== index));
+        setDeleteConfirmation({ isOpen: false });
+      },
+    });
+  };
+
+  // --- Submit ke API ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
     const payload = {
       ...formData,
       contexts: contexts.map((c) => ({ external: c.external, internal: c.internal })),
@@ -288,10 +244,10 @@ function BasicAssessmentFormPage() {
     try {
       if (isEditMode) {
         await apiClient.put(`/basic-assessments/${assessmentId}`, payload);
-        toast.success("Asesmen Dasar berhasil diperbarui!");
+        toast.success("Asesmen berhasil diperbarui!");
       } else {
         await apiClient.post("/basic-assessments", payload);
-        toast.success("Asesmen Dasar berhasil disimpan!");
+        toast.success("Asesmen berhasil disimpan!");
       }
       navigate("/risk-management/dasar");
     } catch (error) {
@@ -301,14 +257,28 @@ function BasicAssessmentFormPage() {
     }
   };
 
-  if (isLoading && isEditMode) {
+  // --- Fullscreen Logic ---
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      riskTableCardRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleChange);
+    return () => document.removeEventListener("fullscreenchange", handleChange);
+  }, []);
+
+  if (isLoading && isEditMode)
     return (
-      <div className="p-6 sm:p-10">
-        <Title>Memuat Data Asesmen...</Title>
-        <Text>Mohon tunggu sebentar.</Text>
+      <div className="p-10">
+        <Title>Memuat...</Title>
       </div>
     );
-  }
 
   return (
     <div className="p-6 sm:p-10">
@@ -316,6 +286,7 @@ function BasicAssessmentFormPage() {
       <Text>{isEditMode ? "Perbarui detail asesmen di bawah ini." : "Isi detail untuk asesmen dasar baru."}</Text>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+        {/* CARD 1: Identitas */}
         <Card>
           <div className="space-y-6">
             <div>
@@ -329,13 +300,14 @@ function BasicAssessmentFormPage() {
           </div>
         </Card>
 
+        {/* CARD 2: Konteks */}
         <Card>
           <div className="flex justify-between items-center">
             <div>
               <Title as="h3">Tugas 1 - Penetapan Konteks Organisasi</Title>
               <Text>Tambahkan konteks internal dan eksternal yang relevan.</Text>
             </div>
-            <Button type="button" icon={FiPlus} onClick={() => setIsContextModalOpen(true)}>
+            <Button type="button" icon={FiPlus} onClick={handleOpenAddContext}>
               Tambah Konteks
             </Button>
           </div>
@@ -354,8 +326,10 @@ function BasicAssessmentFormPage() {
                     <TableCell className="whitespace-normal">{ctx.external}</TableCell>
                     <TableCell className="whitespace-normal">{ctx.internal}</TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditContext(index)} />
-                      <Button type="button" icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteContext(index)} />
+                      <Flex justifyContent="end" className="gap-2">
+                        <Button type="button" icon={FiEdit2} size="xs" variant="light" color="blue" onClick={() => handleOpenEditContext(index)} />
+                        <Button type="button" icon={FiTrash2} size="xs" variant="light" color="red" onClick={() => handleDeleteContext(index)} />
+                      </Flex>
                     </TableCell>
                   </TableRow>
                 ))
@@ -370,6 +344,7 @@ function BasicAssessmentFormPage() {
           </Table>
         </Card>
 
+        {/* CARD 3: Identifikasi Risiko */}
         <Card className="fullscreen-card" ref={riskTableCardRef}>
           <div className="flex justify-between items-center">
             <div>
@@ -377,7 +352,7 @@ function BasicAssessmentFormPage() {
               <Text>Tambahkan daftar risiko yang teridentifikasi.</Text>
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" icon={FiPlus} onClick={() => setIsRiskModalOpen(true)}>
+              <Button type="button" icon={FiPlus} onClick={handleOpenAddRisk}>
                 Tambah Identifikasi Risiko
               </Button>
               <Button type="button" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} />
@@ -385,33 +360,33 @@ function BasicAssessmentFormPage() {
           </div>
           <div className="overflow-x-auto mt-4 pt-8">
             <Table className="min-w-[1600px]">
-              <TableHead className="sticky top-0 z-10 bg-white">
+              <TableHead className="sticky top-0 z-10 bg-white shadow-sm">
                 <TableRow>
                   <TableHeaderCell className="w-12">No</TableHeaderCell>
-                  <TableHeaderCell>Kode Risiko</TableHeaderCell>
+                  <TableHeaderCell>Kode</TableHeaderCell>
                   <TableHeaderCell>
                     <div className="flex items-center gap-1">
-                      Kategori Risiko
+                      Kategori{" "}
                       <Tooltip>
                         <FiHelpCircle className="h-4 w-4 text-gray-400" />
                       </Tooltip>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell>Unit Kerja / Fungsi</TableHeaderCell>
+                  <TableHeaderCell>Unit Kerja</TableHeaderCell>
                   <TableHeaderCell>Sasaran</TableHeaderCell>
-                  <TableHeaderCell>Tgl. Identifikasi</TableHeaderCell>
-                  <TableHeaderCell>Deskripsi atau Kejadian Risiko</TableHeaderCell>
+                  <TableHeaderCell>Tgl Identifikasi</TableHeaderCell>
+                  <TableHeaderCell>Deskripsi / Kejadian</TableHeaderCell>
                   <TableHeaderCell>Akar Penyebab</TableHeaderCell>
-                  <TableHeaderCell>Indikator Risiko</TableHeaderCell>
-                  <TableHeaderCell>Faktor Positif / Internal Control</TableHeaderCell>
-                  <TableHeaderCell>Deskripsi Dampak</TableHeaderCell>
+                  <TableHeaderCell>Indikator</TableHeaderCell>
+                  <TableHeaderCell>Internal Control</TableHeaderCell>
+                  <TableHeaderCell>Dampak</TableHeaderCell>
                   <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {risks.length > 0 ? (
                   risks.map((risk, index) => (
-                    <TableRow key={index}>
+                    <TableRow key={index} className="hover:bg-gray-50">
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{risk.kode_risiko}</TableCell>
                       <TableCell>{risk.kategori_risiko}</TableCell>
@@ -424,8 +399,10 @@ function BasicAssessmentFormPage() {
                       <TableCell className="whitespace-normal">{risk.internal_control}</TableCell>
                       <TableCell className="whitespace-normal">{risk.deskripsi_dampak}</TableCell>
                       <TableCell className="text-right">
-                        <Button type="button" icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditRisk(index)} />
-                        <Button type="button" icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteRisk(index)} />
+                        <Flex justifyContent="end" className="gap-2">
+                          <Button type="button" icon={FiEdit2} size="xs" variant="light" color="blue" onClick={() => handleOpenEditRisk(index)} />
+                          <Button type="button" icon={FiTrash2} size="xs" variant="light" color="red" onClick={() => handleDeleteRisk(index)} />
+                        </Flex>
                       </TableCell>
                     </TableRow>
                   ))
@@ -441,13 +418,14 @@ function BasicAssessmentFormPage() {
           </div>
         </Card>
 
+        {/* CARD 4: Analisis Risiko */}
         <Card>
           <div className="flex justify-between items-center">
             <div>
               <Title as="h3">Tugas 3 - Analisis Risiko</Title>
               <Text>Lakukan analisis terhadap risiko yang telah diidentifikasi.</Text>
             </div>
-            <Button type="button" icon={FiPlus} onClick={() => setIsAnalysisModalOpen(true)} disabled={availableRisksForAnalysis.length === 0 && editingAnalysisIndex === null}>
+            <Button type="button" icon={FiPlus} onClick={handleOpenAddAnalysis} disabled={availableRisksForAnalysis.length === 0 && editingAnalysisIndex === null}>
               Tambah Analisis Risiko
             </Button>
           </div>
@@ -455,13 +433,13 @@ function BasicAssessmentFormPage() {
             <Table className="min-w-[1200px]">
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>Deskripsi atau Kejadian Risiko</TableHeaderCell>
-                  <TableHeaderCell>Probabilitas (P)</TableHeaderCell>
+                  <TableHeaderCell>Deskripsi Risiko</TableHeaderCell>
+                  <TableHeaderCell>Prob (P)</TableHeaderCell>
                   <TableHeaderCell>Dampak (I)</TableHeaderCell>
-                  <TableHeaderCell>Skor Risiko Inherent (W)</TableHeaderCell>
-                  <TableHeaderCell>Probabilitas Risiko Inherent Kualitatif (%)</TableHeaderCell>
-                  <TableHeaderCell>Dampak Finansial Risiko Inherent (Rp)</TableHeaderCell>
-                  <TableHeaderCell>Nilai Bersih Risiko Inherent</TableHeaderCell>
+                  <TableHeaderCell>Skor (W)</TableHeaderCell>
+                  <TableHeaderCell>Prob Kualitatif (%)</TableHeaderCell>
+                  <TableHeaderCell>Dampak Finansial (Rp)</TableHeaderCell>
+                  <TableHeaderCell>Nilai Bersih</TableHeaderCell>
                   <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
                 </TableRow>
               </TableHead>
@@ -473,7 +451,7 @@ function BasicAssessmentFormPage() {
                     const nilaiBersih = (analysis.dampak_finansial || 0) * ((analysis.probabilitas_kualitatif || 0) / 100);
                     return (
                       <TableRow key={index}>
-                        <TableCell className="whitespace-normal">{riskInfo?.deskripsi_risiko}</TableCell>
+                        <TableCell className="whitespace-normal max-w-md">{riskInfo?.deskripsi_risiko || "(Risiko Dihapus)"}</TableCell>
                         <TableCell>{analysis.probabilitas}</TableCell>
                         <TableCell>{analysis.dampak}</TableCell>
                         <TableCell>{skor}</TableCell>
@@ -481,8 +459,10 @@ function BasicAssessmentFormPage() {
                         <TableCell>{formatCurrency(analysis.dampak_finansial)}</TableCell>
                         <TableCell>{formatCurrency(nilaiBersih)}</TableCell>
                         <TableCell className="text-right">
-                          <Button type="button" icon={FiEdit2} variant="light" color="blue" onClick={() => handleOpenEditAnalysis(index)} />
-                          <Button type="button" icon={FiTrash2} variant="light" color="red" onClick={() => handleDeleteAnalysis(index)} />
+                          <Flex justifyContent="end" className="gap-2">
+                            <Button type="button" icon={FiEdit2} size="xs" variant="light" color="blue" onClick={() => handleOpenEditAnalysis(index)} />
+                            <Button type="button" icon={FiTrash2} size="xs" variant="light" color="red" onClick={() => handleDeleteAnalysis(index)} />
+                          </Flex>
                         </TableCell>
                       </TableRow>
                     );
@@ -506,217 +486,28 @@ function BasicAssessmentFormPage() {
         </div>
       </form>
 
-      {/* Modal Konteks dengan logika reset */}
-      <Dialog
-        open={isContextModalOpen}
-        onClose={() => {
-          setIsContextModalOpen(false);
-          setEditingContextIndex(null);
-          setCurrentContext({ external: "", internal: "" });
-        }}
-        static={true}
-      >
-        <DialogPanel>
-          <Title>{editingContextIndex !== null ? "Edit" : "Tambah"} Konteks Organisasi</Title>
-          <div className="mt-6 space-y-4">
-            <div>
-              <label>Konteks Eksternal</label>
-              <Textarea name="external" value={currentContext.external} onChange={handleContextChange} rows={4} className="mt-1" />
-            </div>
-            <div>
-              <label>Konteks Internal</label>
-              <Textarea name="internal" value={currentContext.internal} onChange={handleContextChange} rows={4} className="mt-1" />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setIsContextModalOpen(false);
-                setEditingContextIndex(null);
-                setCurrentContext({ external: "", internal: "" });
-              }}
-            >
-              Batal
-            </Button>
-            <Button onClick={handleSaveContext}>OK</Button>
-          </div>
-        </DialogPanel>
-      </Dialog>
+      {/* --- MODALS --- */}
+      {/* Perhatikan betapa bersihnya bagian ini sekarang! */}
 
-      {/* Modal Risiko dengan logika reset */}
-      <Dialog open={isRiskModalOpen} onClose={() => setIsRiskModalOpen(false)} static={true}>
-        <DialogPanel className="max-w-3xl">
-          <Title>Tambah Identifikasi Risiko Baru</Title>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div>
-              <label>Kode Risiko</label>
-              <TextInput name="kode_risiko" value={currentRisk.kode_risiko} onChange={handleRiskChange} placeholder="Otomatis atau manual..." />
-            </div>
-            <div>
-              <label>Kategori Risiko *</label>
-              <Select name="kategori_risiko" value={currentRisk.kategori_risiko} onValueChange={handleRiskSelectChange} required>
-                <SelectItem value="Operasional">Operasional</SelectItem>
-                <SelectItem value="Keuangan">Keuangan</SelectItem>
-                <SelectItem value="Kepatuhan">Kepatuhan</SelectItem>
-                <SelectItem value="Strategis">Strategis</SelectItem>
-              </Select>
-            </div>
-            <div className="md:col-span-2">
-              <label>Unit Kerja / Fungsi *</label>
-              <TextInput name="unit_kerja" value={currentRisk.unit_kerja} onChange={handleRiskChange} required />
-            </div>
-            <div className="md:col-span-2">
-              <label>Sasaran</label>
-              <Textarea name="sasaran" value={currentRisk.sasaran} onChange={handleRiskChange} rows={2} />
-            </div>
-            <div>
-              <label>Tanggal Identifikasi Risiko</label>
-              <TextInput type="date" name="tanggal_identifikasi" value={currentRisk.tanggal_identifikasi} onChange={handleRiskChange} />
-            </div>
-            <div className="md:col-span-2">
-              <label>Deskripsi atau Kejadian Risiko *</label>
-              <Textarea name="deskripsi_risiko" value={currentRisk.deskripsi_risiko} onChange={handleRiskChange} required rows={3} />
-            </div>
-            <div className="md:col-span-2">
-              <label>Akar Penyebab</label>
-              <Textarea name="akar_penyebab" value={currentRisk.akar_penyebab} onChange={handleRiskChange} rows={3} />
-            </div>
-            <div className="md:col-span-2">
-              <label>Indikator Risiko</label>
-              <Textarea name="indikator_risiko" value={currentRisk.indikator_risiko} onChange={handleRiskChange} rows={3} />
-            </div>
-            <div className="md:col-span-2">
-              <label>Faktor Positif / Internal Control Yang Ada Saat Ini</label>
-              <Textarea name="internal_control" value={currentRisk.internal_control} onChange={handleRiskChange} rows={3} />
-            </div>
-            <div className="md:col-span-2">
-              <label>Deskripsi Dampak</label>
-              <Textarea name="deskripsi_dampak" value={currentRisk.deskripsi_dampak} onChange={handleRiskChange} rows={3} />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setIsRiskModalOpen(false)}>
-              Batal
-            </Button>
-            <Button onClick={handleSaveRisk}>OK</Button>
-          </div>
-        </DialogPanel>
-      </Dialog>
+      <BasicContextModal isOpen={isContextModalOpen} onClose={() => setIsContextModalOpen(false)} onSave={handleSaveContext} initialData={editingContextIndex !== null ? contexts[editingContextIndex] : null} />
 
-      {/* Modal untuk Analisis Risiko */}
-      <Dialog
-        open={isAnalysisModalOpen}
-        onClose={() => {
-          setIsAnalysisModalOpen(false);
-          setEditingAnalysisIndex(null);
-          setCurrentAnalysis(initialAnalysisState);
-        }}
-        static={true}
-      >
-        <DialogPanel className="max-w-2xl">
-          <Title>{editingAnalysisIndex !== null ? "Edit" : "Tambah"} Analisis Risiko</Title>
-          <div className="mt-6 space-y-4">
-            <div>
-              <label>Deskripsi atau Kejadian Risiko *</label>
-              <Select value={String(currentAnalysis.risk_identification_id)} onValueChange={(val) => handleAnalysisChange("risk_identification_id", Number(val))} required>
-                <SelectItem value="">Pilih Risiko...</SelectItem>
-                {availableRisksForAnalysis.map((risk) => (
-                  <SelectItem key={risk.originalIndex} value={String(risk.originalIndex)}>
-                    {risk.deskripsi_risiko}
-                  </SelectItem>
-                ))}
-              </Select>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label>Probabilitas (1-5)</label>
-                <NumberInput value={currentAnalysis.probabilitas} onValueChange={(val) => handleAnalysisChange("probabilitas", val)} min={1} max={5} />
-              </div>
-              <div>
-                <label>Dampak (1-5)</label>
-                <NumberInput value={currentAnalysis.dampak} onValueChange={(val) => handleAnalysisChange("dampak", val)} min={1} max={5} />
-              </div>
-              <div>
-                <label>Skor Risiko (W)</label>
-                <TextInput value={(currentAnalysis.probabilitas || 0) * (currentAnalysis.dampak || 0)} disabled />
-              </div>
-            </div>
-            <Card className="p-3 bg-slate-50">
-              <Text className="font-semibold text-tremor-content">Referensi Probabilitas Risiko</Text>
-              <Table className="mt-2 text-xs">
-                <TableHead>
-                  <TableRow>
-                    <TableHeaderCell>Level</TableHeaderCell>
-                    <TableHeaderCell>Kualitatif (%)</TableHeaderCell>
-                    <TableHeaderCell>Frekuensi</TableHeaderCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>1 - Sangat Rendah</TableCell>
-                    <TableCell>&lt;10%</TableCell>
-                    <TableCell>&lt; 2 kali/tahun</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>2 - Rendah</TableCell>
-                    <TableCell>10 - 40%</TableCell>
-                    <TableCell>2 - 3 kali/tahun</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>3 - Sedang</TableCell>
-                    <TableCell>41 - 60%</TableCell>
-                    <TableCell>4 - 6 kali/tahun</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>4 - Tinggi</TableCell>
-                    <TableCell>61 - 80%</TableCell>
-                    <TableCell>7 - 9 kali/tahun</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>5 - Sangat Tinggi</TableCell>
-                    <TableCell>&gt;81%</TableCell>
-                    <TableCell>&gt; 9 kali/tahun</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </Card>
-            <div>
-              <label>Probabilitas Kualitatif (%)</label>
-              <NumberInput icon={() => <span>%</span>} value={currentAnalysis.probabilitas_kualitatif} onValueChange={(val) => handleAnalysisChange("probabilitas_kualitatif", val)} min={0} max={100} />
-            </div>
-            <div>
-              <label>Dampak Finansial (Rp)</label>
-              <TextInput
-                icon={() => <span className="text-gray-500">Rp</span>}
-                value={currentAnalysis.dampak_finansial.toLocaleString("id-ID")}
-                onChange={(e) => handleAnalysisChange("dampak_finansial", parseCurrency(e.target.value))}
-                placeholder="1.000.000"
-              />
-            </div>
-            <div>
-              <label>Nilai Bersih Risiko</label>
-              <TextInput icon={() => <span className="text-gray-500">Rp</span>} value={formatCurrency((currentAnalysis.dampak_finansial || 0) * ((currentAnalysis.probabilitas_kualitatif || 0) / 100)).replace("Rp", "")} disabled />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setIsAnalysisModalOpen(false);
-                setEditingAnalysisIndex(null);
-                setCurrentAnalysis(initialAnalysisState);
-              }}
-            >
-              Batal
-            </Button>
-            <Button onClick={handleSaveAnalysis}>OK</Button>
-          </div>
-        </DialogPanel>
-      </Dialog>
+      <BasicRiskModal isOpen={isRiskModalOpen} onClose={() => setIsRiskModalOpen(false)} onSave={handleSaveRisk} initialData={editingRiskIndex !== null ? risks[editingRiskIndex] : null} />
 
-      {/* Dialog Konfirmasi Hapus */}
-      <ConfirmationDialog isOpen={deleteConfirmation.isOpen} onClose={() => setDeleteConfirmation({ isOpen: false })} onConfirm={deleteConfirmation.onConfirm} title={deleteConfirmation.title} message={deleteConfirmation.message} />
+      <BasicAnalysisModal
+        isOpen={isAnalysisModalOpen}
+        onClose={() => setIsAnalysisModalOpen(false)}
+        onSave={handleSaveAnalysis}
+        initialData={editingAnalysisIndex !== null ? analyses[editingAnalysisIndex] : null}
+        availableRisks={availableRisksForAnalysis}
+      />
+
+      <ConfirmationDialog
+        isOpen={deleteConfirmation.isOpen}
+        onClose={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}
+        onConfirm={deleteConfirmation.onConfirm}
+        title={deleteConfirmation.title}
+        message={deleteConfirmation.message}
+      />
     </div>
   );
 }

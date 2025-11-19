@@ -74,21 +74,18 @@ function MadyaAssessmentFormPage() {
         console.log("Filters saved successfully.");
       } catch (error) {
         console.error("Gagal menyimpan filter:", error);
-        // Mungkin tampilkan notifikasi error kecil ke user
       }
     },
     [assessmentId]
   );
 
   useEffect(() => {
-    debouncedSaveFilters.current = debounce((currentFilters) => saveFilters(currentFilters), 1500); // Simpan setelah 1.5 detik tidak ada perubahan
+    debouncedSaveFilters.current = debounce((currentFilters) => saveFilters(currentFilters), 1500);
   }, [saveFilters]);
 
-  // Handler untuk menerima perubahan filter dari child
   const handleFilterChange = useCallback((name, value) => {
     setFilters((prevFilters) => {
       const newFilters = { ...prevFilters, [name]: value };
-      // Panggil fungsi debounced save
       debouncedSaveFilters.current(newFilters);
       return newFilters;
     });
@@ -102,19 +99,11 @@ function MadyaAssessmentFormPage() {
       console.log("Risk Input data fetched/refreshed:", riskResponse.data);
     } catch (error) {
       console.error("Gagal memuat data Risk Input:", error);
-      setRiskInputEntries([]); // Reset jika error
+      setRiskInputEntries([]);
     } finally {
       setIsRiskInputLoading(false);
     }
-  }, []); // Dependency kosong karena assessmentId didapat dari state
-
-  // Fungsi refresh yang bisa dipanggil dari child RiskInputCard
-  // const refreshRiskInputsAndSasaran = () => {
-  //   if (assessmentId) {
-  //     fetchRiskInputs(assessmentId);
-  //     refreshSasaranKPI();
-  //   }
-  // };
+  }, []);
 
   const handleSasaranChange = (data, action) => {
     setSasaranKPIEntries((prevEntries) => {
@@ -130,33 +119,32 @@ function MadyaAssessmentFormPage() {
         toast.success("Sasaran/KPI berhasil dihapus.");
         return prevEntries.filter((item) => item.id !== data.id);
       }
-      return prevEntries; // Default
+      return prevEntries;
     });
     console.log(`State Sasaran di-update secara manual (action: ${action})`);
   };
 
   useEffect(() => {
     const loadAssessmentData = async () => {
-      setIsLoading(true); // Loading utama ON
+      setIsLoading(true);
       const parsedId = parseInt(idParam, 10);
 
       if (isNaN(parsedId)) {
         console.error("ID Asesmen tidak valid di URL:", idParam);
         alert("ID Asesmen tidak valid.");
-        navigate("/risk-management/madya"); // Kembali ke daftar jika ID salah
+        navigate("/risk-management/madya");
         setIsLoading(false);
         return;
       }
-      setAssessmentId(parsedId); // Set ID asesmen
-      await fetchData(parsedId); // Panggil fetchData untuk load data
+      setAssessmentId(parsedId);
+      await fetchData(parsedId);
     };
 
     const fetchData = async (id) => {
-      // setIsLoading(true); // Loading sudah di set di loadAssessmentData
       try {
         const [assessmentRes] = await Promise.all([apiClient.get(`/madya-assessments/${id}`)]);
         setAssessmentData(assessmentRes.data);
-        setCurrentStructureEntries(assessmentRes.data.structure_entries || []); // Pastikan array
+        setCurrentStructureEntries(assessmentRes.data.structure_entries || []);
 
         setProbabilityCriteria(assessmentRes.data.probability_criteria || []);
         setImpactCriteria(assessmentRes.data.impact_criteria || []);
@@ -171,7 +159,6 @@ function MadyaAssessmentFormPage() {
           departemen: assessmentRes.data.filter_departemen || "",
         });
 
-        // Dapatkan ID template dari data asesmen yang baru di-fetch
         const templateIdFromAssessment = assessmentRes.data.risk_map_template_id;
         if (templateIdFromAssessment) {
           await fetchTemplateDetails(templateIdFromAssessment);
@@ -187,20 +174,17 @@ function MadyaAssessmentFormPage() {
         setSasaranKPIEntries([]);
         setCurrentStructureEntries([]);
         setSelectedTemplateData(null);
-        // Pertimbangkan navigasi kembali jika fetch gagal total
-        // navigate("/risk-management/madya");
       } finally {
-        setIsLoading(false); // Loading utama OFF
+        setIsLoading(false);
       }
     };
 
-    loadAssessmentData(); // Panggil fungsi utama saat komponen mount/idParam berubah
-  }, [idParam, navigate, fetchTemplateDetails, fetchRiskInputs]); // Dependencies useEffect
+    loadAssessmentData();
+  }, [idParam, navigate, fetchTemplateDetails, fetchRiskInputs]);
 
   const refreshCriteriaData = async () => {
     if (!assessmentId) return;
     try {
-      // Ambil ulang data asesmen lengkap, yang berisi kriteria terbaru
       const assessmentRes = await apiClient.get(`/madya-assessments/${assessmentId}`);
       setProbabilityCriteria(assessmentRes.data.probability_criteria || []);
       setImpactCriteria(assessmentRes.data.impact_criteria || []);
@@ -238,13 +222,9 @@ function MadyaAssessmentFormPage() {
   };
 
   const handleRiskInputSave = (responseData, isUpdate) => {
-    // responseData = { entry: {...risk_input...}, updated_sasaran: {...sasaran_kpi...} }
-
     if (!responseData || !responseData.entry) {
-      // console.error("Save success dipanggil tanpa data, melakukan refresh total...");
-      // Fallback: jika terjadi error, lakukan refresh manual
       fetchRiskInputs(assessmentId);
-      fetchSasaranKPI(assessmentId); // Pastikan fetchSasaranKPI masih ada
+      fetchSasaranKPI(assessmentId);
       toast.success(isUpdate ? "Risk Input berhasil diperbarui." : "Risk Input berhasil ditambahkan.");
       return;
     }
@@ -255,10 +235,8 @@ function MadyaAssessmentFormPage() {
     // 1. Update state Risk Inputs secara manual
     setRiskInputEntries((prevEntries) => {
       if (isUpdate) {
-        // Ganti item yang diedit
         return prevEntries.map((item) => (item.id === savedEntry.id ? savedEntry : item));
       } else {
-        // Tambah item baru
         return [...prevEntries, savedEntry];
       }
     });
@@ -285,12 +263,6 @@ function MadyaAssessmentFormPage() {
     }
   }, []);
 
-  // const refreshSasaranKPI = () => {
-  //   if (assessmentId) {
-  //     fetchSasaranKPI(assessmentId);
-  //   }
-  // };
-
   // Kondisi loading gabungan
   const isPageLoading = isLoading || isTemplateDetailLoading || isRiskInputLoading;
 
@@ -299,12 +271,10 @@ function MadyaAssessmentFormPage() {
     return (
       <div className="p-10 text-center">
         <Text>Memuat asesmen madya dan data template...</Text>
-        {/* Opsional: Tambahkan spinner */}
       </div>
     );
   }
 
-  // Tampilan Error jika data asesmen gagal dimuat
   if (!assessmentData) {
     return (
       <div className="p-10 text-center">
@@ -336,12 +306,7 @@ function MadyaAssessmentFormPage() {
       </div>
 
       {/* Card 1: Struktur Organisasi */}
-      <StrukturOrganisasiCard
-        assessmentId={assessmentId}
-        initialData={currentStructureEntries} // Gunakan state lokal
-        initialImageUrl={assessmentData?.structure_image_url}
-        onDataChange={handleStructureEntriesChange} // Kirim handler update state lokal
-      />
+      <StrukturOrganisasiCard assessmentId={assessmentId} initialData={currentStructureEntries} initialImageUrl={assessmentData?.structure_image_url} onDataChange={handleStructureEntriesChange} />
 
       {/* Card 2: Kriteria Risiko */}
       <Card ref={criteriaCardRef} className="fullscreen-card">
@@ -362,46 +327,29 @@ function MadyaAssessmentFormPage() {
             {isCriteriaFullscreen ? "Exit Fullscreen" : "Fullscreen"}
           </Button>
         </div>
-        <MadyaCriteriaReference
-          probabilityCriteria={probabilityCriteria} // <-- Kirim state kriteria
-          impactCriteria={impactCriteria} // <-- Kirim state kriteria
-          onCriteriaSave={refreshCriteriaData} // <-- Kirim fungsi refresh
-          readOnly={false} // <-- Buat BISA diedit
-        />
+        <MadyaCriteriaReference probabilityCriteria={probabilityCriteria} impactCriteria={impactCriteria} onCriteriaSave={refreshCriteriaData} readOnly={false} />
       </Card>
 
       {/* Card 3: Sasaran/KPI */}
-      {assessmentId && (
-        <SasaranKPIAppetiteCard
-          assessmentId={assessmentId}
-          initialData={sasaranKPIEntries || []} // Pastikan array
-          onSasaranChange={handleSasaranChange}
-        />
-      )}
+      {assessmentId && <SasaranKPIAppetiteCard assessmentId={assessmentId} initialData={sasaranKPIEntries || []} onSasaranChange={handleSasaranChange} />}
 
       {/* Card 4: Risk Input */}
       {assessmentId && (
         <RiskInputCard
           assessmentId={assessmentId}
-          structureEntries={currentStructureEntries} // Kirim state lokal struktur
-          sasaranKPIEntries={sasaranKPIEntries || []} // Kirim state lokal sasaran
-          templateScores={selectedTemplateData?.scores || []} // Kirim scores dari detail template
+          structureEntries={currentStructureEntries}
+          sasaranKPIEntries={sasaranKPIEntries || []}
+          templateScores={selectedTemplateData?.scores || []}
           onRiskInputSaveSuccess={handleRiskInputSave}
           initialFilters={filters}
           onFilterChange={handleFilterChange}
-          initialRiskInputData={riskInputEntries} // Prop baru untuk data awal tabel
+          initialRiskInputData={riskInputEntries}
           isDataLoading={isRiskInputLoading}
         />
       )}
 
       {/* Card 5: Peta Risiko */}
-      {assessmentId &&
-        !isPageLoading && ( // Tampilkan jika tidak loading dan ID ada
-          <RiskMapCard
-            risks={riskInputEntries} // Gunakan state dari halaman ini
-            templateData={selectedTemplateData}
-          />
-        )}
+      {assessmentId && !isPageLoading && <RiskMapCard risks={riskInputEntries} templateData={selectedTemplateData} />}
 
       {/* Tombol Aksi Bawah */}
       <div className="flex justify-end gap-2 mt-6">
@@ -411,7 +359,6 @@ function MadyaAssessmentFormPage() {
         <Button
           onClick={() => {
             console.log("Tombol 'Simpan & Lanjutkan' diklik, user tetap di halaman.");
-            // alert("Progress per bagian tersimpan otomatis. Anda tetap di halaman ini.");
             toast.success("Progress per bagian tersimpan otomatis. Anda tetap di halaman ini.");
           }}
         >

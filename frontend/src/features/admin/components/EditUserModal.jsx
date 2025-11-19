@@ -270,8 +270,15 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
                 </TableRow>
               </TableHead>
               <TableBody>
-                {["dasar", "madya", "ai"].map((key) => {
+                {["dasar", "madya", "ai", "template_peta", "horizon"].map((key) => {
                   const value = userData.assessment_limits?.[key] || { count: 0, limit: null };
+                  const labels = {
+                    dasar: "Asesmen Dasar",
+                    madya: "Asesmen Madya",
+                    ai: "Risk AI",
+                    template_peta: "Template Peta Risiko",
+                    horizon: "Horizon Scanner",
+                  };
                   return (
                     <TableRow key={key}>
                       <TableCell className="capitalize font-medium text-tremor-content-strong">{key}</TableCell>
@@ -282,26 +289,11 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
                     </TableRow>
                   );
                 })}
-                <TableRow>
-                  <TableCell className="capitalize font-medium text-tremor-content-strong">Template Peta</TableCell>
-                  <TableCell className="text-right text-tremor-content">{userData.assessment_limits?.template_peta?.count ?? 0}</TableCell>
-                  <TableCell className="text-right">
-                    <NumberInput
-                      className="max-w-[100px] ml-auto [&_input]:text-right"
-                      value={userData.assessment_limits?.template_peta?.limit ?? ""}
-                      onValueChange={(val) => handleLimitChange("template_peta", val)}
-                      enableStepper={false}
-                      placeholder="∞"
-                      min={0}
-                    />
-                  </TableCell>
-                </TableRow>
               </TableBody>
             </Table>
             <Text className="mt-4 text-xs text-tremor-content-emphasis">Admin dapat mengubah Batas Maksimum. Kosongkan untuk tanpa batas (unlimited).</Text>
           </Card>
         </Grid>
-        {/* Tombol Aksi TIDAK PERLU di dalam form ini lagi */}
       </form>
     );
   } else {
@@ -329,11 +321,9 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
                 <Button variant="secondary" onClick={onClose} disabled={isSaving}>
                   Batal
                 </Button>
-                {/* === TAMBAHKAN form="id-form" DI SINI === */}
                 <Button type="submit" form="edit-user-form" loading={isSaving} disabled={isSaving || isLoading}>
                   Simpan Perubahan
                 </Button>
-                {/* === AKHIR TAMBAHAN === */}
               </Flex>
             </div>
           )}

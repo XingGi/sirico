@@ -279,3 +279,79 @@ def generate_detailed_risk_analysis_with_gemini(risks: list, api_key: str) -> di
     except Exception as e:
         print(f"Error saat membuat analisis detail dengan Gemini API: {e}")
         return None
+    
+def summarize_horizon_scan(sector, news_list, api_key):
+    """
+    Menganalisis daftar berita dan membuat laporan intelijen risiko profesional.
+    """
+    if not api_key:
+        return None, None
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.5-pro')
+
+    # Siapkan data berita untuk prompt
+    news_text = ""
+    for idx, news in enumerate(news_list[:12]): # Ambil max 12 berita teratas agar prompt tidak kepanjangan
+        news_text += f"{idx+1}. [{news['source']}] {news['title']} - {news['summary']}\n"
+
+    prompt = f"""
+    Anda adalah Chief Risk Officer (CRO) profesional yang sedang membuat laporan intelijen pasar.
+    
+    TUGAS: 
+    Analisis data berita terbaru di sektor '{sector}' berikut ini dan buatlah laporan risiko strategis.
+    
+    Data Berita:
+    {news_text}
+
+    INSTRUKSI STRUKTUR LAPORAN (Gunakan format HTML yang rapi dengan jarak antar bagian):
+    
+    Berikan respon HANYA dalam format JSON berikut:
+    {{
+        "title": "Buat Judul Pendek & Menarik (Maksimal 4 Kata, Contoh: 'Gejolak Pasar Energi')",
+        "report_html": "HTML Content di sini..."
+    }}
+
+    Panduan Isi 'report_html':
+    Gunakan tag <div>, <h3>, <p>, <ul>, <ol>, <li>. 
+    JANGAN gunakan Markdown (```html).
+    Berikan jarak antar section dengan <br/> atau style margin.
+
+    Struktur HTML yang Wajib Ada:
+    
+    1. **Executive Summary**: 
+       Ringkasan singkat situasi makro saat ini dalam 1-2 paragraf.
+       
+    2. **Key Emerging Risks**: 
+       Sebutkan minimal 3 risiko baru yang muncul dalam bentuk bullet points (<ul>).
+       
+    3. **Top 2 Critical Risks** (PENTING):
+       Pilih 2 risiko paling kritis/berbahaya dari daftar. Jelaskan dampaknya.
+       
+    4. **Strategic Opportunities**:
+       Identifikasi peluang bisnis yang bisa diambil dari situasi ini (bullet points).
+       
+    5. **Priority Mitigation Steps**:
+       Daftar 4 langkah implementasi mitigasi paling konkret dan penting (gunakan <ol>).
+       
+    6. **Strategic Recommendation**:
+       Satu paragraf penutup berisi rekomendasi langkah selanjutnya yang bersifat umum dan strategis (High-level view).
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        # Bersihkan markdown json jika ada
+        text_resp = response.text.strip()
+        if text_resp.startswith("```json"):
+            text_resp = text_resp.replace("```json", "", 1)
+        if text_resp.startswith("```"):
+            text_resp = text_resp.replace("```", "", 1)
+        if text_resp.endswith("```"):
+            text_resp = text_resp[:-3]
+            
+        data = json.loads(text_resp)
+        return data.get('title'), data.get('report_html')
+    except Exception as e:
+        print(f"AI Error: {e}")
+        # Fallback jika AI gagal
+        return f"Laporan {sector}", "<p>Gagal memproses analisis AI. Data mentah tersedia.</p>"

@@ -72,23 +72,22 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
 
   const handleTemplatePreviewClick = (templateId) => {
     setIsDetailLoading(true);
-    setIsViewModalOpen(true); // Buka modal preview
-    setViewingTemplate(null); // Reset data lama
-    // --- PERBAIKAN: Gunakan URL tanpa /api ---
+    setIsViewModalOpen(true);
+    setViewingTemplate(null);
+
     apiClient
-      .get(`/risk-maps/${templateId}`) // Hapus /api
+      .get(`/risk-maps/${templateId}`)
       .then((response) => {
         setViewingTemplate(response.data);
       })
       .catch((error) => {
         console.error("Gagal memuat detail template untuk preview:", error);
         alert("Gagal memuat detail template.");
-        setIsViewModalOpen(false); // Tutup jika gagal
+        setIsViewModalOpen(false);
       })
       .finally(() => {
         setIsDetailLoading(false);
       });
-    // --- AKHIR PERBAIKAN ---
   };
 
   useEffect(() => {
@@ -140,8 +139,6 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
               </Card>
             ) : (
               <Grid numItemsSm={1} numItemsMd={2} className="gap-4 m-10">
-                {" "}
-                {/* Coba 2 kolom */}
                 {templates.map((template) => (
                   <Card key={template.id} className="flex flex-col">
                     <div className="flex-grow">
@@ -156,11 +153,7 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
                           Default Sistem
                         </Badge>
                       )}
-                      <Text className="mt-2 text-sm h-12 overflow-hidden text-ellipsis">
-                        {" "}
-                        {/* Batasi tinggi deskripsi */}
-                        {template.description || "Tidak ada deskripsi."}
-                      </Text>
+                      <Text className="mt-2 text-sm h-12 overflow-hidden text-ellipsis">{template.description || "Tidak ada deskripsi."}</Text>
                     </div>
                     <div className="mt-4 pt-4 border-t flex justify-end gap-2">
                       <Button icon={FiEye} variant="secondary" size="xs" onClick={() => handleTemplatePreviewClick(template.id)} disabled={isCreating}>
@@ -188,16 +181,15 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
     </>
   );
 }
-// --- Akhir Komponen Modal ---
 
 function MadyaAssessmentListPage() {
   const navigate = useNavigate();
-  const [assessments, setAssessments] = useState([]); // State untuk menyimpan daftar asesmen
+  const [assessments, setAssessments] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [userLimits, setUserLimits] = useState(null);
   const [limitModal, setLimitModal] = useState({ isOpen: false, message: "" });
   const [isSelectTemplateModalOpen, setIsSelectTemplateModalOpen] = useState(false);
-  const [isCreatingAssessment, setIsCreatingAssessment] = useState(false); // Loading global
+  const [isCreatingAssessment, setIsCreatingAssessment] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
@@ -236,16 +228,14 @@ function MadyaAssessmentListPage() {
   const handleViewClick = async (assessmentId) => {
     setIsViewLoading(true);
     setIsViewModalOpen(true);
-    setViewingAssessmentData(null); // Reset data lama
+    setViewingAssessmentData(null);
     setViewingTemplateData(null);
     setViewingRiskInputs([]);
     try {
-      // Fetch data asesmen, template, dan risk input secara paralel
       const [assessmentRes, riskInputRes] = await Promise.all([apiClient.get(`/madya-assessments/${assessmentId}`), apiClient.get(`/madya-assessments/${assessmentId}/risk-inputs`)]);
       setViewingAssessmentData(assessmentRes.data);
       setViewingRiskInputs(riskInputRes.data || []);
 
-      // Fetch detail template jika ID-nya ada
       const templateId = assessmentRes.data.risk_map_template_id;
       if (templateId) {
         try {
@@ -253,13 +243,13 @@ function MadyaAssessmentListPage() {
           setViewingTemplateData(templateRes.data);
         } catch (templateError) {
           console.error("Gagal memuat detail template untuk view:", templateError);
-          setViewingTemplateData(null); // Tetap null jika gagal
+          setViewingTemplateData(null);
         }
       }
     } catch (error) {
       console.error("Gagal memuat detail asesmen untuk view:", error);
       alert("Gagal memuat detail asesmen.");
-      setIsViewModalOpen(false); // Tutup modal jika fetch gagal
+      setIsViewModalOpen(false);
     } finally {
       setIsViewLoading(false);
     }
@@ -309,7 +299,7 @@ function MadyaAssessmentListPage() {
 
   useEffect(() => {
     fetchAssessments();
-    setIsLoadingList(true); // Pastikan loading total aktif
+    setIsLoadingList(true);
     apiClient
       .get("/account/details")
       .then((response) => {
@@ -318,9 +308,7 @@ function MadyaAssessmentListPage() {
       .catch((err) => {
         console.error("Gagal memuat limit user:", err);
       })
-      .finally(() => {
-        // (loading di-false-kan oleh fetchAssessments, jadi tidak perlu di sini)
-      });
+      .finally(() => {});
   }, []);
 
   // Handler untuk membuka modal
@@ -341,7 +329,6 @@ function MadyaAssessmentListPage() {
       return;
     }
 
-    // Jika lolos, baru buka modal
     setIsSelectTemplateModalOpen(true);
   };
 
@@ -355,9 +342,8 @@ function MadyaAssessmentListPage() {
       };
       const response = await apiClient.post("/madya-assessments", payload);
       const newAssessmentId = response.data.id;
-      setIsSelectTemplateModalOpen(false); // Tutup modal pemilihan
-      navigate(`/risk-management/madya/form/${newAssessmentId}`); // Navigasi ke form
-      // Tidak perlu matikan loading karena sudah pindah halaman
+      setIsSelectTemplateModalOpen(false);
+      navigate(`/risk-management/madya/form/${newAssessmentId}`);
     } catch (error) {
       console.error("Gagal memulai asesmen madya baru:", error);
       alert("Gagal memulai asesmen baru: " + (error.response?.data?.message || "Silakan coba lagi."));
@@ -377,11 +363,10 @@ function MadyaAssessmentListPage() {
     if (!deleteConfirmation.assessmentId) return;
     setIsDeleting(true);
     try {
-      // Panggil endpoint DELETE baru di backend
       await apiClient.delete(`/madya-assessments/${deleteConfirmation.assessmentId}`);
       alert(`Asesmen #${deleteConfirmation.assessmentId} berhasil dihapus.`);
       closeDeleteConfirm();
-      fetchAssessments(); // Muat ulang daftar
+      fetchAssessments();
     } catch (error) {
       console.error("Gagal menghapus asesmen madya:", error);
       toast.error("Gagal menghapus asesmen", {
@@ -401,12 +386,7 @@ function MadyaAssessmentListPage() {
             <Text>Daftar asesmen risiko tingkat madya.</Text>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              icon={viewMode === "list" ? FiGrid : FiList} // Tampilkan ikon sesuai mode
-              variant="light"
-              onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} // Toggle state
-              aria-label={viewMode === "list" ? "Switch to grid view" : "Switch to list view"}
-            />
+            <Button icon={viewMode === "list" ? FiGrid : FiList} variant="light" onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} aria-label={viewMode === "list" ? "Switch to grid view" : "Switch to list view"} />
             <Button icon={FiPlus} onClick={handleOpenSelectTemplateModal} loading={isCreatingAssessment} disabled={isLoadingList || !userLimits}>
               Asesmen Baru
             </Button>
@@ -422,14 +402,9 @@ function MadyaAssessmentListPage() {
           ) : assessments.length > 0 ? (
             assessments.map((assessment) => (
               <Card key={assessment.id} className="p-4 hover:shadow-lg transition-shadow duration-200">
-                {" "}
-                {/* Hapus flex flex-col & p-0 */}
                 <div className="flex justify-between items-start">
-                  {" "}
-                  {/* Container utama: Info kiri, Aksi kanan */}
                   {/* Bagian Info (Kiri) */}
                   <div className="flex-grow group mr-4">
-                    {" "}
                     {/* Beri margin kanan */}
                     <Link to={`/risk-management/madya/form/${assessment.id}`} className="block mb-1 group">
                       <p className="font-bold text-tremor-content-strong group-hover:text-blue-600">{assessment.nama_asesmen || `Asesmen #${assessment.id}`}</p>
@@ -438,8 +413,6 @@ function MadyaAssessmentListPage() {
                   </div>
                   {/* Bagian Aksi (Kanan) */}
                   <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    {" "}
-                    {/* Susun tombol vertikal */}
                     {/* Grup Tombol Atas: View, Edit, Delete */}
                     <div className="flex items-center gap-1">
                       <Button
@@ -462,7 +435,7 @@ function MadyaAssessmentListPage() {
                           e.stopPropagation();
                           navigate(`/risk-management/madya/form/${assessment.id}`);
                         }}
-                        aria-label="Edit" // Tambah aria-label
+                        aria-label="Edit"
                       />
                       <Button
                         variant="light"
@@ -475,19 +448,19 @@ function MadyaAssessmentListPage() {
                         }}
                         loading={isDeleting && deleteConfirmation.assessmentId === assessment.id}
                         disabled={isDeleting}
-                        aria-label="Delete" // Tambah aria-label
+                        aria-label="Delete"
                       />
                     </div>
                     {/* Tombol Export di Bawah */}
                     <Button
                       size="xs"
-                      variant="light" // Ubah jadi light agar mirip Asesmen Dasar
+                      variant="light"
                       icon={FiDownload}
                       loading={isExportingId === assessment.id}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleExportClick(assessment.id, assessment.nama_asesmen);
-                      }} // Tambah stopPropagation
+                      }}
                     >
                       Export
                     </Button>
@@ -536,7 +509,6 @@ function MadyaAssessmentListPage() {
                 </div>
 
                 <div ref={viewContentRef} className="flex-grow overflow-y-auto pr-2 view-fullscreen-content">
-                  {" "}
                   {/* Konten Scrollable */}
                   <MadyaAssessmentView assessmentData={viewingAssessmentData} templateData={viewingTemplateData} riskInputEntries={viewingRiskInputs} />
                 </div>

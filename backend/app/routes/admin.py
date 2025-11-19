@@ -1,6 +1,6 @@
 # backend/app/routes/admin.py
 from flask import request, jsonify, Blueprint
-from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate, SubmittedRisk, ActionPlan
+from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate, SubmittedRisk, ActionPlan, HorizonScanResult
 from app import bcrypt, ma
 from marshmallow import fields
 from .auth import admin_required, permission_required
@@ -245,12 +245,14 @@ def get_user_details_admin(user_id):
     count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=user_id).scalar() or 0
     count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=user_id).scalar() or 0
     count_template_peta = db.session.query(func.count(RiskMapTemplate.id)).filter_by(user_id=user_id, is_default=False).scalar() or 0
+    count_horizon = db.session.query(func.count(HorizonScanResult.id)).filter_by(user_id=user_id).scalar() or 0
 
     assessment_limits = {
         "dasar": {"count": count_dasar, "limit": user.limit_dasar},
         "madya": {"count": count_madya, "limit": user.limit_madya},
         "ai": {"count": count_ai, "limit": user.limit_ai},
-        "template_peta": {"count": count_template_peta, "limit": user.limit_template_peta}
+        "template_peta": {"count": count_template_peta, "limit": user.limit_template_peta},
+        "horizon": {"count": count_horizon, "limit": user.limit_horizon}
     }
 
     return jsonify({
@@ -307,7 +309,8 @@ def update_user_details_admin(user_id):
             "dasar": "limit_dasar",
             "madya": "limit_madya",
             "ai": "limit_ai",
-            "template_peta": "limit_template_peta"
+            "template_peta": "limit_template_peta",
+            "horizon": "limit_horizon"
         }
         for key, db_field in limit_fields.items():
             if key in limits_data and 'limit' in limits_data[key]:

@@ -3,7 +3,7 @@ import React from "react";
 import { Dialog, DialogPanel, Title, Text, Button, Icon } from "@tremor/react";
 import { FiAlertTriangle } from "react-icons/fi";
 
-function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, isLoading = false, confirmButtonText = "Hapus", confirmButtonColor = "rose" }) {
+function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, isLoading = false, confirmButtonText = "Hapus", confirmButtonColor = "red" }) {
   return (
     <Dialog open={isOpen} onClose={() => !isLoading && onClose()} static={true} className="z-[100]">
       <DialogPanel className="max-w-md">

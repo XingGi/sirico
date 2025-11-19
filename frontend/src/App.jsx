@@ -35,6 +35,9 @@ import RscaAdminPage from "./features/admin/RscaAdminPage";
 import DepartmentAdminPage from "./features/admin/DepartmentAdminPage";
 import RscaResultPage from "./features/admin/RscaResultPage";
 import ActionPlanMonitorPage from "./features/admin/ActionPlanMonitorPage";
+import HorizonScannerPage from "./features/addons/horizon/HorizonScannerPage";
+import UnderConstructionPage from "./components/common/UnderConstructionPage";
+import { FiActivity, FiCpu, FiPieChart } from "react-icons/fi";
 import { Title, Text } from "@tremor/react";
 const PlaceholderComponent = ({ title }) => (
   <div className="p-10">
@@ -99,13 +102,19 @@ function App() {
               <Route path="/addons/bpr" element={<BPRPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_bia" />}>
-              <Route path="/addons/bia" element={<BIAPage />} />
+              <Route
+                path="/addons/bia"
+                element={<UnderConstructionPage title="Business Impact Analysis" description="Analisis dampak bisnis mendalam untuk mengidentifikasi proses kritis dan waktu pemulihan (RTO/RPO)." icon={FiActivity} />}
+              />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="view_horizon_scanner" />}>
+              <Route path="/addons/horizon-scanner" element={<HorizonScannerPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_cba_calculator" />}>
-              <Route path="/addons/cba" element={<PlaceholderComponent title="CBA Calculator" />} />
+              <Route path="/addons/cba" element={<UnderConstructionPage title="CBA Calculator" description="Kalkulator Cost-Benefit Analysis untuk menghitung ROI dari setiap mitigasi risiko yang Anda ajukan." icon={FiPieChart} />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_monte_carlo" />}>
-              <Route path="/addons/monte-carlo" element={<PlaceholderComponent title="Monte Carlo Simulator" />} />
+              <Route path="/addons/monte-carlo" element={<UnderConstructionPage title="Monte Carlo Simulator" description="Simulasi probabilistik tingkat lanjut untuk memprediksi berbagai skenario risiko di masa depan." icon={FiCpu} />} />
             </Route>
 
             {/* Admin (semua route di dalamnya butuh role admin atau permission spesifik) */}

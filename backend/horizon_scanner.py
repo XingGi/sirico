@@ -1,76 +1,164 @@
-import os
-import feedparser
-from datetime import datetime
+# backend/horizon_scanner.py
+import requests
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from deep_translator import GoogleTranslator
+import urllib.parse
+import os
 
-# Setup untuk bisa mengakses database Flask
-from app import create_app, db
-from app.models import HorizonScanEntry
-from app.ai_services import summarize_text_with_gemini
-
-# Inisialisasi aplikasi Flask untuk mendapatkan konteks database
-app = create_app()
-
-def clean_html(raw_html):
-    """Membersihkan tag HTML dari teks."""
-    soup = BeautifulSoup(raw_html, "html.parser")
-    return soup.get_text()
-
-def run_scanner():
-    """Fungsi utama untuk menjalankan pemindaian berita."""
-    print("--- Memulai Horizon Scanner ---")
+# Mapping Sektor ke Keyword Pencarian
+SECTOR_KEYWORDS = {
+    # --- GENERAL ---
+    "General": ["ekonomi indonesia", "bisnis", "global economy"],
     
-    load_dotenv()
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-
-    if not gemini_api_key:
-        print("Error: GEMINI_API_KEY tidak ditemukan. Hentikan scanner.")
-        return
-
-    # Kita akan menggunakan RSS Feed dari CNBC Indonesia sebagai sumber berita
-    RSS_URL = "https://www.cnbcindonesia.com/news/rss"
+    # --- KEUANGAN ---
+    "banking": ["perbankan", "kredit macet", "suku bunga", "banking crisis"],
+    "insurance": ["asuransi", "klaim asuransi", "jiwasraya", "insurance risk"],
+    "capital_market": ["pasar modal", "IHSG", "saham gorengan", "stock market"],
+    "fintech": ["fintech", "pinjol", "p2p lending", "digital payment"],
     
-    feed = feedparser.parse(RSS_URL)
+    # --- ENERGI & SDA ---
+    "mining": ["pertambangan", "batu bara", "nikel", "mining policy"],
+    "oil_gas": ["migas", "minyak dunia", "bbm", "oil price"],
+    "energy": ["energi terbarukan", "pln", "listrik", "energy crisis"],
+    "agriculture": ["pertanian", "pangan", "pupuk", "agriculture"],
+    "plantation": ["perkebunan", "kelapa sawit", "cpo", "palm oil"],
     
-    # Ambil 5 berita teratas
-    for entry in feed.entries[:5]:
-        with app.app_context(): # <-- Butuh konteks aplikasi untuk akses DB
-            # Cek apakah berita sudah ada di DB berdasarkan URL
-            exists = HorizonScanEntry.query.filter_by(source_url=entry.link).first()
-            if exists:
-                print(f"-> Berita '{entry.title}' sudah ada, dilewati.")
-                continue
+    # --- TEKNOLOGI ---
+    "it": ["teknologi informasi", "startup", "tech winter", "layoff"],
+    "telecom": ["telekomunikasi", "5g indonesia", "satelit", "telco"],
+    "ecommerce": ["e-commerce", "tokopedia", "shopee", "tiktok shop"],
+    
+    # --- LAINNYA ---
+    "manufacturing": ["manufaktur", "pabrik tutup", "industri pengolahan"],
+    "healthcare": ["kesehatan", "rumah sakit", "bpjs", "pharma"],
+    "construction": ["konstruksi", "bumn karya", "infrastruktur"],
+    "property": ["properti", "perumahan", "apartemen", "property market"],
+    "transportation": ["transportasi", "logistik", "pelabuhan", "bandara"],
+    "retail": ["ritel", "pusat perbelanjaan", "daya beli", "retail"],
+    "government": ["kebijakan pemerintah", "apbn", "fiskal", "regulasi"],
+}
 
-            print(f"\nMemproses berita: {entry.title}")
+# Keyword Fallback jika industri tidak ditemukan di list spesifik
+DEFAULT_KEYWORDS = ["bisnis", "ekonomi", "risiko usaha"]
+
+def translate_text(text, target_lang='id'):
+    """Menerjemahkan teks ke Bahasa Indonesia."""
+    try:
+        return GoogleTranslator(source='auto', target=target_lang).translate(text[:1000]) 
+    except Exception as e:
+        return text
+
+class NewsScraper:
+    def __init__(self, sector_key="General"):
+        self.sector = sector_key
+        self.keywords = SECTOR_KEYWORDS.get(sector_key, DEFAULT_KEYWORDS)
+        self.main_keyword = self.keywords[0]
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+
+    def _scrape_google_rss(self, site_query, source_label, lang='id', needs_translation=False):
+        """
+        Fungsi Generik untuk mengambil berita via Google News RSS.
+        Metode ini jauh lebih stabil & cepat daripada scraping HTML website langsung.
+        """
+        results = []
+        try:
+            # Query format: "site:namamedia.com keyword"
+            query = f"{site_query} {self.main_keyword}"
+            encoded_query = urllib.parse.quote(query)
             
-            # Membersihkan deskripsi dari HTML
-            cleaned_summary = clean_html(entry.summary)
-            
-            # Minta AI untuk meringkas
-            print("   Mengirim ke AI untuk diringkas...")
-            ai_summary = summarize_text_with_gemini(cleaned_summary, gemini_api_key)
-
-            if ai_summary:
-                print("   Ringkasan AI diterima.")
-                # Konversi tanggal berita ke format yang benar
-                published_dt = datetime.strptime(entry.published, '%a, %d %b %Y %H:%M:%S %z')
-
-                # Buat entri baru untuk disimpan ke database
-                new_entry = HorizonScanEntry(
-                    title=entry.title,
-                    source_url=entry.link,
-                    published_date=published_dt,
-                    original_summary=cleaned_summary,
-                    ai_summary=ai_summary
-                )
-                db.session.add(new_entry)
-                db.session.commit()
-                print(f"   SUKSES: Berita '{entry.title}' disimpan ke database.")
+            # URL Google News RSS
+            if lang == 'id':
+                rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=id-ID&gl=ID&ceid=ID:id"
             else:
-                print(f"   GAGAL: Tidak bisa mendapatkan ringkasan AI untuk '{entry.title}'.")
+                rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
 
-    print("\n--- Horizon Scanner Selesai ---")
+            response = requests.get(rss_url, headers=self.headers, timeout=8)
+            
+            # Parsing XML Response
+            # Gunakan 'lxml' jika ada, atau 'xml' built-in parser
+            try:
+                soup = BeautifulSoup(response.content, features='xml')
+            except Exception:
+                soup = BeautifulSoup(response.content, features='html.parser') # Fallback
 
-if __name__ == "__main__":
-    run_scanner()
+            items = soup.findAll('item')[:5] # Ambil 5 berita terbaru per sumber
+
+            for item in items:
+                title = item.title.text if item.title else "No Title"
+                link = item.link.text if item.link else "#"
+                pub_date = item.pubDate.text if item.pubDate else str(datetime.now())
+                
+                # Bersihkan judul dari nama media (biasanya Google nambahin " - Detikcom")
+                if " - " in title:
+                    title = title.rsplit(" - ", 1)[0]
+
+                # Terjemahkan jika sumber asing (seperti Reuters)
+                if needs_translation:
+                    original_title = title
+                    title = translate_text(title, 'id')
+                else:
+                    original_title = None
+
+                results.append({
+                    "source": source_label,
+                    "title": title,
+                    "original_title": original_title,
+                    "url": link,
+                    "image": None, # RSS tidak menyediakan gambar, biarkan null (frontend handle placeholder)
+                    "summary": f"Berita terkini dari {source_label} mengenai {self.main_keyword}.",
+                    "published_at": pub_date,
+                    "language": "en-translated" if needs_translation else "id"
+                })
+                
+        except Exception as e:
+            print(f"Error scraping {source_label}: {e}")
+        
+        return results
+
+    def scrape_cnbc_indonesia(self):
+        return self._scrape_google_rss("site:cnbcindonesia.com", "CNBC Indonesia", 'id')
+
+    def scrape_cnn_indonesia(self):
+        return self._scrape_google_rss("site:cnnindonesia.com", "CNN Indonesia", 'id')
+
+    def scrape_detik_finance(self):
+        return self._scrape_google_rss("site:finance.detik.com", "Detik Finance", 'id')
+
+    def scrape_reuters_global(self):
+        return self._scrape_google_rss("site:reuters.com", "Reuters (Global)", 'en', needs_translation=True)
+    
+    def scrape_kompas(self):
+        # Bonus: Tambahan sumber Kompas
+        return self._scrape_google_rss("site:kompas.com", "Kompas Ekonomi", 'id')
+
+def run_horizon_scan(sector="General"):
+    """
+    Menjalankan semua scraper secara paralel agar cepat.
+    """
+    scraper = NewsScraper(sector)
+    all_news = []
+    
+    # Daftar fungsi scraper yang akan dijalankan
+    tasks = [
+        scraper.scrape_cnbc_indonesia,
+        scraper.scrape_cnn_indonesia,
+        scraper.scrape_detik_finance,
+        scraper.scrape_reuters_global,
+        scraper.scrape_kompas
+    ]
+
+    # Eksekusi Paralel
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_url = {executor.submit(task): task for task in tasks}
+        for future in as_completed(future_to_url):
+            try:
+                data = future.result()
+                all_news.extend(data)
+            except Exception as exc:
+                print(f'Scraper generated an exception: {exc}')
+
+    return all_news

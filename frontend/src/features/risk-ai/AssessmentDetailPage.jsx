@@ -2,25 +2,25 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Grid, Col, Badge, Button, Switch } from "@tremor/react";
 import { FiDownload, FiFileText, FiMaximize, FiMinimize, FiAlertTriangle, FiInfo, FiZap } from "react-icons/fi";
-import apiClient from "../../api/api"; // <-- PERUBAHAN: path diperbarui
-import RiskCriteriaReference from "./components/RiskCriteriaReference"; // <-- PERUBAHAN: path diperbarui
-import RiskResultsTable from "./components/RiskResultsTable"; // <-- PERUBAHAN: path diperbarui
-import EditRiskItemSidebar from "./components/EditRiskItemSidebar"; // <-- PERUBAHAN: path diperbarui
-import RiskMatrix from "./components/RiskMatrix"; // <-- PERUBAHAN: path diperbarui
-import RiskSummary from "./components/RiskSummary"; // <-- PERUBAHAN: path diperbarui
+import apiClient from "../../api/api";
+import RiskCriteriaReference from "./components/RiskCriteriaReference";
+import RiskResultsTable from "./components/RiskResultsTable";
+import EditRiskItemSidebar from "./components/EditRiskItemSidebar";
+import RiskMatrix from "./components/RiskMatrix";
+import RiskSummary from "./components/RiskSummary";
 import AIGeneratedAnalysis from "./components/AIGeneratedAnalysis";
-// import { useAuth } from "../context/AuthContext";
+import { toast } from "sonner";
 
 function AssessmentDetailPage() {
   const { assessmentId } = useParams();
   const [assessment, setAssessment] = useState(null);
-  const [assetOptions, setAssetOptions] = useState([]); // State untuk menyimpan pilihan asset
+  const [assetOptions, setAssetOptions] = useState([]);
   const [industryOptions, setIndustryOptions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  // const { user } = useAuth();
-  const [selectedRisks, setSelectedRisks] = useState([]); // Menyimpan ID risiko yang dipilih
+
+  const [selectedRisks, setSelectedRisks] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const tableCardRef = useRef(null); // Referensi ke Card tabel
+  const tableCardRef = useRef(null);
   const [isEditSidebarOpen, setIsEditSidebarOpen] = useState(false);
   const [editingRisk, setEditingRisk] = useState(null);
 
@@ -28,7 +28,6 @@ function AssessmentDetailPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Ambil data asesmen dan data master aset secara bersamaan
         const [assessmentRes, assetsRes, industryRes] = await Promise.all([apiClient.get(`/assessments/${assessmentId}`), apiClient.get("/master-data?category=COMPANY_ASSETS"), apiClient.get("/master-data?category=INDUSTRY")]);
         setAssessment(assessmentRes.data);
         setAssetOptions(assetsRes.data);
@@ -50,19 +49,16 @@ function AssessmentDetailPage() {
   }, [assessmentId]);
 
   const handleEditClick = (risk) => {
-    setEditingRisk(risk); // Set data risiko yang akan di-pass ke sidebar
-    setIsEditSidebarOpen(true); // Buka sidebar
+    setEditingRisk(risk);
+    setIsEditSidebarOpen(true);
   };
 
-  // ↓↓↓ 4. Buat fungsi untuk menutup sidebar ↓↓↓
   const handleCloseSidebar = () => {
     setIsEditSidebarOpen(false);
-    setEditingRisk(null); // Kosongkan data
+    setEditingRisk(null);
   };
 
-  // ↓↓↓ 5. Buat fungsi untuk mengupdate state setelah menyimpan ↓↓↓
   const handleSaveRisk = (updatedRisk) => {
-    // Cari dan ganti data risiko yang lama dengan yang baru di state `assessment`
     setAssessment((prev) => ({
       ...prev,
       risks: prev.risks.map((r) => (r.id === updatedRisk.id ? updatedRisk : r)),
@@ -72,7 +68,7 @@ function AssessmentDetailPage() {
   const handleSummaryLoaded = (newAnalysisData) => {
     setAssessment((prevData) => ({
       ...prevData,
-      ...newAnalysisData, // Gabungkan data asesmen lama dengan data summary baru
+      ...newAnalysisData,
     }));
   };
 
@@ -81,7 +77,6 @@ function AssessmentDetailPage() {
 
   const formatNumber = (num) => (num ? new Intl.NumberFormat("id-ID").format(num) : "-");
 
-  // Cari nilai 'value' yang sesuai untuk 'key' yang tersimpan di database
   const assetValueDisplay = assetOptions.find((opt) => opt.key === assessment.company_assets)?.value || assessment.company_assets;
   const industryDisplay = industryOptions.find((opt) => opt.key === assessment.company_industry)?.value || assessment.company_industry || "-";
 
@@ -101,10 +96,10 @@ function AssessmentDetailPage() {
     if (selectedRisks.length === 0) return;
     try {
       await apiClient.post("/risk-register/import", { risk_ids: selectedRisks });
-      alert(`Sukses! ${selectedRisks.length} risiko telah ditambahkan ke Risk Register Utama.`);
-      setSelectedRisks([]); // Kosongkan pilihan setelah berhasil
+      toast.success(`Sukses! ${selectedRisks.length} risiko telah ditambahkan ke Risk Register Utama.`);
+      setSelectedRisks([]);
     } catch (error) {
-      alert("Gagal menambahkan risiko ke register.");
+      toast.error("Gagal menambahkan risiko ke register.");
       console.error("Import error:", error);
     }
   };
@@ -256,7 +251,6 @@ function AssessmentDetailPage() {
               <Title>Risk Assessment Results</Title>
               <Text>Detailed analysis of identified risks. Total: {assessment.risks?.length || 0} risks.</Text>
             </div>
-            {/* === TOMBOL AKSI BARU DI SINI === */}
             <div className="flex items-center gap-4">
               <div className="flex items-center space-x-2">
                 <Switch id="select-all" checked={isAllSelected} onChange={handleSelectAll} />

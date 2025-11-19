@@ -4,33 +4,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Button, Badge, MultiSelect, MultiSelectItem, Dialog, DialogPanel, TextInput, Flex, Icon } from "@tremor/react";
 import apiClient from "../../api/api";
 import { FiUsers, FiEdit, FiSliders, FiSave, FiX, FiSearch, FiLoader, FiPlus, FiTrash2, FiAlertTriangle } from "react-icons/fi";
+import AppResourceTable from "../../components/common/AppResourceTable";
+import ConfirmationDialog from "../../components/common/ConfirmationDialog";
 import EditUserModal from "./components/EditUserModal";
 import AddUserModal from "./components/AddUserModal";
-
-const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message, isLoading = false }) => (
-  <Dialog open={isOpen} onClose={() => !isLoading && onClose()} static={true} className="z-50">
-    <DialogPanel>
-      <div className="text-center">
-        <Icon icon={FiAlertTriangle} size="lg" variant="light" className="mb-4 text-rose-600" />
-        <Title>{title}</Title>
-        <Text className="mt-2">{message}</Text>
-      </div>
-      <div className="mt-6 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-          Batal
-        </Button>
-        <Button
-          onClick={onConfirm}
-          loading={isLoading}
-          disabled={isLoading}
-          className="bg-rose-500 border-rose-500 text-white hover:bg-rose-600 hover:border-rose-600 dark:bg-rose-500 dark:border-rose-500 dark:text-white dark:hover:bg-rose-600 dark:hover:border-rose-600"
-        >
-          Hapus
-        </Button>
-      </div>
-    </DialogPanel>
-  </Dialog>
-);
 
 // Komponen Modal Bulk Edit Roles
 const BulkEditRolesModal = ({ isOpen, onClose, selectedUsers, allRoles, onSave, isLoading }) => {
@@ -116,14 +93,12 @@ function MemberPage() {
     fetchData();
   }, []);
 
-  // Filter user berdasarkan searchTerm
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return users;
     const lowerSearchTerm = searchTerm.toLowerCase();
     return users.filter((user) => user.nama_lengkap.toLowerCase().includes(lowerSearchTerm) || user.email.toLowerCase().includes(lowerSearchTerm));
   }, [users, searchTerm]);
 
-  // Handler untuk checkbox per baris
   const handleSelectUser = (userId, checked) => {
     setSelectedUserIds((prev) => {
       const newSet = new Set(prev);
@@ -136,7 +111,6 @@ function MemberPage() {
     });
   };
 
-  // Handler untuk checkbox "Select All"
   const handleSelectAll = (checked) => {
     if (checked) {
       setSelectedUserIds(new Set(filteredUsers.map((u) => u.id)));
@@ -145,7 +119,6 @@ function MemberPage() {
     }
   };
 
-  // Cek apakah semua user (yang terfilter) terpilih
   const isAllSelected = filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.length;
 
   const handleOpenEditModal = (userIdToEdit) => {
@@ -165,7 +138,6 @@ function MemberPage() {
   };
 
   const handleAddUserSuccess = (newUserData) => {
-    // Tambahkan user baru di paling atas daftar
     setUsers((prevUsers) => [newUserData, ...prevUsers]);
   };
 
@@ -183,7 +155,6 @@ function MemberPage() {
 
     try {
       await apiClient.delete(`/admin/users/${deleteConfirm.userId}`);
-      // Hapus user dari state
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== deleteConfirm.userId));
       alert(`User "${deleteConfirm.userName}" berhasil dihapus.`);
       handleCloseDeleteConfirm();
@@ -195,7 +166,6 @@ function MemberPage() {
     }
   };
 
-  // Handler simpan role untuk BANYAK user (bulk)
   const handleBulkSaveRoles = async (userIds, newRoleIds) => {
     setModalError("");
     setIsSubmittingBulk(true);
@@ -203,7 +173,6 @@ function MemberPage() {
     let successCount = 0;
     let firstError = null;
 
-    // Kirim request update satu per satu (atau buat endpoint bulk di backend)
     for (const userId of userIds) {
       try {
         const response = await apiClient.put(`/admin/users/${userId}/roles`, payload);
@@ -220,14 +189,85 @@ function MemberPage() {
     setIsSubmittingBulk(false);
     if (firstError) {
       setModalError(`Sebagian (${successCount}/${userIds.length}) berhasil. Error pertama: ${firstError}`);
-      // Jangan tutup modal jika ada error
     } else {
       alert(`Roles berhasil diperbarui untuk ${successCount} pengguna.`);
       handleCloseModal();
-      setSelectedUserIds(new Set()); // Kosongkan pilihan setelah bulk edit
-      // fetchData();
+      setSelectedUserIds(new Set());
     }
   };
+
+  const columns = [
+    {
+      key: "select",
+      // Kita bisa mengirim JSX ke header!
+      header: (
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            checked={isAllSelected}
+            onChange={(e) => handleSelectAll(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            disabled={filteredUsers.length === 0}
+          />
+        </div>
+      ),
+      cell: (user) => (
+        <input type="checkbox" checked={selectedUserIds.has(user.id)} onChange={(e) => handleSelectUser(user.id, e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+      ),
+      className: "w-12", // Class untuk header cell
+    },
+    {
+      key: "name",
+      header: "Nama Lengkap",
+      cell: (user) => <Text className="font-medium text-tremor-content-strong">{user.nama_lengkap}</Text>,
+    },
+    {
+      key: "email",
+      header: "Email",
+      cell: (user) => <Text>{user.email}</Text>,
+    },
+    {
+      key: "institution",
+      header: "Institusi",
+      cell: (user) => <Text>{user.institution || "N/A"}</Text>,
+    },
+    {
+      key: "department",
+      header: "Departemen",
+      cell: (user) => <Text>{user.department_name || "N/A"}</Text>,
+    },
+    {
+      key: "roles",
+      header: "Roles",
+      cell: (user) => (
+        <Flex className="gap-1 flex-wrap">
+          {user.roles && user.roles.length > 0 ? (
+            user.roles.map((roleName) => (
+              <Badge key={roleName} color={roleName.toLowerCase() === "admin" ? "rose" : "blue"} size="xs" className="whitespace-nowrap">
+                {roleName}
+              </Badge>
+            ))
+          ) : (
+            <Badge color="gray" size="xs">
+              No Roles
+            </Badge>
+          )}
+        </Flex>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Aksi",
+      cell: (user) => (
+        <div className="flex justify-end gap-2">
+          <Button size="xs" icon={FiEdit} variant="light" color="gray" onClick={() => handleOpenEditModal(user.id)} title="Edit user" />
+          <Button size="xs" icon={FiTrash2} variant="light" color="rose" onClick={() => handleOpenDeleteConfirm(user.id, user.nama_lengkap)} title="Hapus user" disabled={user.email.toLowerCase() === "admin@admin.com"} />
+        </div>
+      ),
+      className: "text-right",
+      cellClassName: "text-right",
+    },
+  ];
 
   if (isLoading) {
     return <Text className="p-6">Memuat daftar member...</Text>;
@@ -250,131 +290,24 @@ function MemberPage() {
             <Button icon={FiSliders} variant="secondary" onClick={() => setIsBulkEditModalOpen(true)} disabled={selectedUserIds.size === 0} title={`Edit roles for ${selectedUserIds.size} selected users`}>
               Bulk Edit Roles ({selectedUserIds.size})
             </Button>
-            <Button
-              icon={FiPlus}
-              onClick={() => setIsAddModalOpen(true)} // <-- Buka modal tambah
-            >
+            <Button icon={FiPlus} onClick={() => setIsAddModalOpen(true)}>
               Tambah User
             </Button>
           </Flex>
         </Flex>
+
         {/* --- Filter Bar --- */}
         <Card>
-          {" "}
-          {/* Filter bar sekarang di dalam Card terpisah */}
           <Flex className="space-x-4">
-            <TextInput
-              icon={FiSearch}
-              placeholder={`Cari nama atau email...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-grow max-w-lg" // Biarkan bisa memanjang
-            />
-            {/* Placeholder filter tambahan */}
-            {/* <Select placeholder="Filter by Role...">...</Select> */}
+            <TextInput icon={FiSearch} placeholder={`Cari nama atau email...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-grow max-w-lg" />
             <Text className="whitespace-nowrap">{filteredUsers.length} pengguna ditemukan</Text>
           </Flex>
         </Card>
+
         {/* --- Tabel User --- */}
-        <Card>
-          {/* !!! Hapus div "Pilih Semua" dari sini !!! */}
+        <Card className="p-0 overflow-hidden">
           <div className="overflow-x-auto">
-            <Table>
-              <TableHead>
-                {/* === PERBAIKAN: Pindahkan Checkbox ke TableHeaderCell === */}
-                <TableRow>
-                  <TableHeaderCell className="w-12">
-                    {/* Checkbox Select All dipindah ke sini */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="select-all-checkbox"
-                        checked={isAllSelected}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        aria-label="Select all users"
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                        disabled={filteredUsers.length === 0}
-                      />
-                      {/* Opsional: Tampilkan count di sini jika muat */}
-                      {/* <span className="ml-2 text-xs">({selectedUserIds.size})</span> */}
-                    </div>
-                  </TableHeaderCell>
-                  <TableHeaderCell>Nama Lengkap</TableHeaderCell>
-                  <TableHeaderCell>Email</TableHeaderCell>
-                  <TableHeaderCell>Institusi</TableHeaderCell>
-                  <TableHeaderCell>Departemen</TableHeaderCell>
-                  <TableHeaderCell>Roles</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
-                </TableRow>
-                {/* === AKHIR PERBAIKAN === */}
-              </TableHead>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    {/* ... (Loading state) ... */}
-                    <TableCell colSpan={5} className="text-center py-10">
-                      <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
-                        <Icon icon={FiLoader} className="animate-spin" size="sm" />
-                        <Text>Memuat data...</Text>
-                      </Flex>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id} className={`hover:bg-slate-50 ${selectedUserIds.has(user.id) ? "bg-blue-50" : ""}`}>
-                      {/* ... (Isi row: checkbox, nama, email, roles, tombol aksi) ... */}
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          checked={selectedUserIds.has(user.id)}
-                          onChange={(e) => handleSelectUser(user.id, e.target.checked)}
-                          aria-label={`Select user ${user.nama_lengkap}`}
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium text-tremor-content-strong">{user.nama_lengkap}</TableCell>
-                      <TableCell className="text-tremor-content">{user.email}</TableCell>
-                      <TableCell className="text-tremor-content">{user.institution || "N/A"}</TableCell>
-                      <TableCell className="text-tremor-content">{user.department_name || "N/A"}</TableCell>
-                      <TableCell>
-                        <Flex className="gap-1 flex-wrap">
-                          {user.roles && user.roles.length > 0 ? (
-                            user.roles.map((roleName) => (
-                              <Badge key={roleName} color={roleName.toLowerCase() === "admin" ? "rose" : "blue"} size="xs" className="whitespace-nowrap">
-                                {roleName}
-                              </Badge>
-                            ))
-                          ) : (
-                            <Badge color="gray" size="xs">
-                              No Roles
-                            </Badge>
-                          )}
-                        </Flex>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="xs" icon={FiEdit} variant="light" color="gray" onClick={() => handleOpenEditModal(user.id)} title={`Edit user ${user.nama_lengkap}`} />
-                        <Button
-                          size="xs"
-                          icon={FiTrash2}
-                          variant="light"
-                          color="rose"
-                          onClick={() => handleOpenDeleteConfirm(user.id, user.nama_lengkap)}
-                          title={`Hapus user ${user.nama_lengkap}`}
-                          disabled={user.email.toLowerCase() === "admin@admin.com"}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    {/* ... (No data state) ... */}
-                    <TableCell colSpan={5} className="text-center py-10">
-                      <Text className="text-tremor-content">Tidak ada pengguna ditemukan {searchTerm && `dengan filter "${searchTerm}"`}.</Text>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <AppResourceTable data={filteredUsers} isLoading={isLoading} columns={columns} emptyMessage={`Tidak ada pengguna ditemukan ${searchTerm ? `dengan filter "${searchTerm}"` : ""}.`} />
           </div>
         </Card>
       </div>
@@ -383,26 +316,10 @@ function MemberPage() {
       <AddUserModal isOpen={isAddModalOpen} onClose={handleCloseModal} allRoles={roles} onSaveSuccess={handleAddUserSuccess} />
 
       {/* --- Modal Edit User --- */}
-      <EditUserModal
-        isOpen={isEditModalOpen}
-        onClose={handleCloseModal}
-        userId={editingUserId}
-        allRoles={roles}
-        onSaveSuccess={handleSaveUserSuccess}
-        // State loading & error sekarang dikelola di dalam modal
-      />
+      <EditUserModal isOpen={isEditModalOpen} onClose={handleCloseModal} userId={editingUserId} allRoles={roles} onSaveSuccess={handleSaveUserSuccess} />
 
       {/* --- Modal Bulk Edit Roles --- */}
-      {selectedUsersData.length > 0 && (
-        <BulkEditRolesModal
-          isOpen={isBulkEditModalOpen}
-          onClose={handleCloseModal}
-          selectedUsers={selectedUsersData}
-          allRoles={roles}
-          onSave={handleBulkSaveRoles}
-          isLoading={isSubmittingBulk} // Gunakan state loading khusus bulk
-        />
-      )}
+      {selectedUsersData.length > 0 && <BulkEditRolesModal isOpen={isBulkEditModalOpen} onClose={handleCloseModal} selectedUsers={selectedUsersData} allRoles={roles} onSave={handleBulkSaveRoles} isLoading={isSubmittingBulk} />}
 
       <ConfirmationDialog
         isOpen={deleteConfirm.isOpen}

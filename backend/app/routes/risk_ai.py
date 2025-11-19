@@ -18,6 +18,13 @@ risk_ai_bp = Blueprint('risk_ai_bp', __name__)
 def create_assessment():
     """Endpoint untuk membuat proyek risk assessment baru."""
     current_user_id = get_jwt_identity()
+    
+    user = User.query.get(current_user_id)
+    if user.limit_ai is not None:
+        current_count = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
+        if current_count >= user.limit_ai:
+            return jsonify({"msg": f"Kuota Asesmen AI penuh ({current_count}/{user.limit_ai})."}), 403
+    
     data = request.get_json()
 
     # Validasi input
@@ -217,7 +224,7 @@ def bulk_delete_assessments():
         print(f"Error during bulk delete assessments: {e}") 
         return jsonify({"msg": "Gagal menghapus asesmen. Terjadi kesalahan internal pada database."}), 500
     
-# === ENDPOINT BARU UNTUK ANALISIS AI ===
+# === ENDPOINT ANALISIS AI ===
 @risk_ai_bp.route('/assessments/analyze', methods=['POST'])
 @jwt_required()
 def analyze_assessment():
@@ -248,7 +255,6 @@ def analyze_assessment():
     new_assessment = RiskAssessment(
         nama_asesmen=form_data.get('nama_asesmen'),
         tanggal_mulai=datetime.utcnow().date(),
-        # (Salin semua field lain dari form_data seperti di endpoint create_assessment)
         company_industry=form_data.get('company_industry'),
         company_type=form_data.get('company_type'),
         company_assets=form_data.get('company_assets'),
@@ -304,36 +310,19 @@ def analyze_assessment():
                 mitigation_plan=risk.get('mitigation_plan'),
                 assessment_id=assessment_id,
                 
-                # Gunakan helper 'safe_int' untuk memastikan tipe datanya benar
                 inherent_likelihood=safe_int(risk.get('inherent_likelihood')),
                 inherent_impact=safe_int(risk.get('inherent_impact')),
                 residual_likelihood=safe_int(risk.get('residual_likelihood')),
                 residual_impact=safe_int(risk.get('residual_impact')),
             )
             db.session.add(new_risk_entry)
-            # 4. Panggil Layanan AI untuk analisis detail
-            # print("Membuat ringkasan dan rekomendasi dari risiko yang teridentifikasi...")
-            # analysis_content = generate_detailed_risk_analysis_with_gemini(identified_risks, gemini_api_key)
-            
-            # if analysis_content:
-            #     new_assessment.ai_executive_summary = analysis_content.get("executive_summary")
-            #     new_assessment.ai_risk_profile_analysis = json.dumps(analysis_content.get("risk_profile_analysis"))
-            #     new_assessment.ai_immediate_priorities = json.dumps(analysis_content.get("immediate_priorities"))
-            #     new_assessment.ai_critical_risks_discussion = json.dumps(analysis_content.get("critical_risks_discussion"))
-            #     new_assessment.ai_implementation_plan = json.dumps(analysis_content.get("implementation_plan"))
-            #     new_assessment.ai_next_steps = analysis_content.get("next_steps")
-            #     print("Analisis detail berhasil dibuat.")
     else:
         db.session.rollback() # Batalkan jika AI gagal membuat risiko
         return jsonify({"msg": "Asesmen gagal dibuat, analisis AI tidak mengembalikan risiko.", "assessment_id": assessment_id}), 500
-    
-        # db.session.commit()
-        # return jsonify({"msg": "Asesmen berhasil dibuat, namun analisis AI gagal.", "assessment_id": assessment_id}), 500
 
     db.session.commit()
     return jsonify({"msg": "Analisis risiko AI berhasil dan disimpan.", "assessment_id": assessment_id}), 201
 
-# --- HIGHLIGHT: TAMBAHKAN ENDPOINT BARU UNTUK PANGGILAN AI KE-2 ---
 @risk_ai_bp.route('/assessments/<int:assessment_id>/generate-summary', methods=['POST'])
 @jwt_required()
 def generate_summary_for_assessment(assessment_id):

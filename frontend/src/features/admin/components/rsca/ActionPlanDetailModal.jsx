@@ -6,18 +6,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../../../../api/api";
 import { toast } from "sonner";
 import { FiSave, FiClock, FiCheckCircle, FiMinusCircle } from "react-icons/fi";
+import { getStatusColor } from "../../../../utils/formatters";
 
-// Mutator untuk update status
 const updateStatus = ({ planId, status }) => {
   return apiClient.put(`/admin/action-plans/${planId}/status`, { status });
-};
-
-// Helper
-const getStatusColor = (status) => {
-  if (status === "Selesai") return "green";
-  if (status === "Sedang Dikerjakan") return "blue";
-  if (status === "Belum Mulai") return "gray";
-  return "gray";
 };
 
 function ActionPlanDetailModal({ isOpen, onClose, plan, onSaveSuccess }) {

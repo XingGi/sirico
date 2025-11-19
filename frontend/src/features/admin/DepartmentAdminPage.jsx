@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../../api/api";
 import { toast } from "sonner";
 import ConfirmationDialog from "../../components/common/ConfirmationDialog";
+import AppResourceTable from "../../components/common/AppResourceTable";
 import AddEditDepartmentModal from "./components/dept/AddEditDepartmentModal";
 
 // Fetcher
@@ -22,7 +23,7 @@ function DepartmentAdminPage() {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [selectedDept, setSelectedDept] = useState(null); // Untuk edit atau hapus
+  const [selectedDept, setSelectedDept] = useState(null);
 
   const queryKey = "adminDepartments";
 
@@ -59,12 +60,12 @@ function DepartmentAdminPage() {
 
   // Handlers
   const openAddModal = () => {
-    setSelectedDept(null); // Pastikan null untuk mode 'Tambah'
+    setSelectedDept(null);
     setModalOpen(true);
   };
 
   const openEditModal = (dept) => {
-    setSelectedDept(dept); // Set data untuk mode 'Edit'
+    setSelectedDept(dept);
     setModalOpen(true);
   };
 
@@ -81,6 +82,36 @@ function DepartmentAdminPage() {
     deleteMutation.mutate(selectedDept.id);
   };
 
+  const columns = [
+    {
+      key: "name",
+      header: "Nama Departemen",
+      cell: (dept) => <Text className="font-medium text-tremor-content-strong">{dept.name}</Text>,
+    },
+    {
+      key: "institution",
+      header: "Institusi",
+      cell: (dept) => (
+        <Flex alignItems="center" className="gap-2 w-fit">
+          <Icon icon={FiHome} size="sm" color="gray" />
+          <Text>{dept.institution || "Global"}</Text>
+        </Flex>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Aksi",
+      cell: (dept) => (
+        <div className="flex justify-end gap-2">
+          <Button icon={FiEdit} variant="light" color="blue" title="Edit" onClick={() => openEditModal(dept)} />
+          <Button icon={FiTrash2} variant="light" color="rose" title="Hapus" onClick={() => openDeleteConfirm(dept)} />
+        </div>
+      ),
+      className: "text-right",
+      cellClassName: "text-right",
+    },
+  ];
+
   return (
     <div className="p-6 sm:p-10">
       <Flex alignItems="center" className="space-x-3 mb-6">
@@ -95,53 +126,8 @@ function DepartmentAdminPage() {
         </Button>
       </Flex>
 
-      <Card>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell>Nama Departemen</TableHeaderCell>
-              <TableHeaderCell>Institusi</TableHeaderCell>
-              <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center py-10">
-                  <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
-                    <Icon icon={FiLoader} className="animate-spin" size="sm" />
-                    <Text>Memuat departemen...</Text>
-                  </Flex>
-                </TableCell>
-              </TableRow>
-            ) : departments?.length > 0 ? (
-              departments.map((dept) => (
-                <TableRow key={dept.id}>
-                  <TableCell className="font-medium text-tremor-content-strong">{dept.name}</TableCell>
-                  <TableCell>
-                    <Flex alignItems="center" className="gap-2 w-fit">
-                      <Icon icon={FiHome} size="sm" color="gray" />
-                      <Text>{dept.institution || "Global"}</Text>
-                    </Flex>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button icon={FiEdit} variant="light" color="blue" title="Edit" onClick={() => openEditModal(dept)} />
-                    <Button icon={FiTrash2} variant="light" color="rose" title="Hapus" onClick={() => openDeleteConfirm(dept)} />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              // Tampilan Kosong (Empty State)
-              <TableRow>
-                <TableCell colSpan={3} className="text-center py-10">
-                  <Icon icon={FiBriefcase} className="mx-auto h-10 w-10 text-gray-400 mb-2" />
-                  <Text className="font-medium">Belum ada departemen.</Text>
-                  <Text>Klik tombol "Tambah Departemen" untuk memulai.</Text>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      <Card className="p-0 overflow-hidden">
+        <AppResourceTable data={departments} isLoading={isLoading} columns={columns} emptyMessage="Belum ada departemen. Klik tombol 'Tambah Departemen' untuk memulai." />
       </Card>
 
       {/* Modal untuk Tambah/Edit */}

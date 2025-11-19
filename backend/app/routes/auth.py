@@ -1,6 +1,6 @@
 # backend/app/routes/auth.py
 from flask import request, jsonify, Blueprint
-from app.models import User, Role, BasicAssessment, MadyaAssessment, RiskAssessment, RiskMapTemplate
+from app.models import User, Role, BasicAssessment, MadyaAssessment, RiskAssessment, RiskMapTemplate, HorizonScanResult
 from app import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request, get_jwt
 from functools import wraps
@@ -65,16 +65,9 @@ def register():
             new_user.roles.append(user_role)
             print(f"Assigning default 'User' role to new user: {new_user.email}")
         else:
-            # Ini seharusnya tidak terjadi jika seeder berjalan benar
             print(f"WARNING: Default 'User' role not found in database during registration for {new_user.email}. User created without roles.")
-            # Pertimbangkan: return error atau biarkan user tanpa role?
-            # Untuk sekarang, kita biarkan user dibuat tanpa role jika role 'User' tidak ada.
-            # return jsonify({"msg": "Registrasi gagal: Role default 'User' tidak ditemukan."}), 500
     except Exception as e:
          print(f"Error finding or assigning default 'User' role: {e}")
-         # Mungkin rollback? Tergantung kebutuhan.
-         # db.session.rollback()
-         # return jsonify({"msg": "Terjadi kesalahan saat assign role default."}), 500
          
     db.session.add(new_user)
     db.session.commit()
@@ -174,24 +167,26 @@ def get_account_details():
     count_madya = db.session.query(func.count(MadyaAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
     count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
     count_template_peta = db.session.query(func.count(RiskMapTemplate.id)).filter_by(user_id=current_user_id, is_default=False).scalar() or 0
+    count_horizon = db.session.query(func.count(HorizonScanResult.id)).filter_by(user_id=current_user_id).scalar() or 0
 
     assessment_limits = {
         "dasar": {"count": count_dasar, "limit": user.limit_dasar},
         "madya": {"count": count_madya, "limit": user.limit_madya},
         "ai": {"count": count_ai, "limit": user.limit_ai},
-        "template_peta": {"count": count_template_peta, "limit": user.limit_template_peta}
+        "template_peta": {"count": count_template_peta, "limit": user.limit_template_peta},
+        "horizon": {"count": count_horizon, "limit": user.limit_horizon}
     }
     
-    phone_number = getattr(user, 'phone_number', None) # Contoh ambil atribut
-    institution = getattr(user, 'institution', None)   # Contoh ambil atribut
+    phone_number = getattr(user, 'phone_number', None)
+    institution = getattr(user, 'institution', None)
 
     return jsonify({
         "id": user.id,
         "nama_lengkap": user.nama_lengkap,
         "email": user.email,
-        "phone_number": phone_number, # Kirim phone number
-        "institution": institution,   # Kirim institution
-        "assessment_limits": assessment_limits, # Kirim data assessment
+        "phone_number": phone_number,
+        "institution": institution,   
+        "assessment_limits": assessment_limits,
         "department_id": user.department_id,
         "department_name": user.department.name if user.department else None
         # Jangan kirim password_hash
@@ -229,7 +224,6 @@ def update_account_details():
             setattr(user, field, data[field])
             updated = True
 
-    # --- TAMBAHAN: Update Limit jika Admin ---
     if is_admin and 'assessment_limits' in data:
         limits_data = data['assessment_limits']
         limit_fields = {
@@ -283,10 +277,6 @@ def change_password():
     # 1. Verifikasi password lama
     if not bcrypt.check_password_hash(user.password_hash, old_password):
         return jsonify({"msg": "Password lama salah."}), 401 # Unauthorized
-
-    # 2. (Opsional) Validasi kompleksitas password baru di sini jika perlu
-    # if len(new_password) < 8:
-    #     return jsonify({"msg": "Password baru minimal 8 karakter."}), 400
 
     # 3. Hash password baru
     new_hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')

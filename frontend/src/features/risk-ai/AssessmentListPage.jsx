@@ -67,22 +67,6 @@ function AssessmentListPage() {
     fetchAssessmentsAndLimits();
   }, []);
 
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       const [assessmentRes, industryRes, limitsRes] = await Promise.all([apiClient.get("/assessments"), apiClient.get("/master-data?category=INDUSTRY"), apiClient.get("/account/details")]);
-  //       setAssessments(assessmentRes.data);
-  //       setIndustryOptions(industryRes.data);
-  //       setUserLimits(limitsRes.data.assessment_limits);
-  //     } catch (error) {
-  //       console.error("Gagal memuat data:", error);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
-  //   fetchData();
-  // }, []);
-
   // --- LOGIKA FILTER DIPERBARUI ---
   const filteredAssessments = useMemo(() => {
     // Fungsi untuk menghitung level risiko tertinggi dari sebuah assessment

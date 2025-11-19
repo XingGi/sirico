@@ -1,48 +1,12 @@
 // frontend/src/features/rsca/RSCAPage.jsx
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../../api/api";
 import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Button, Flex, Icon, Tab, TabGroup, TabList, TabPanel, TabPanels } from "@tremor/react";
 import { FiFileText, FiEye, FiCheckCircle, FiLoader, FiGrid, FiList, FiCalendar, FiArchive, FiActivity } from "react-icons/fi";
 import { useQuery } from "@tanstack/react-query";
-
-// Helper untuk format tanggal (kita pinjam dari RscaAdminPage)
-const formatDate = (dateString) => {
-  if (!dateString) return "N/A";
-  const date = new Date(dateString + "T00:00:00");
-  if (isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-};
-
-// Helper untuk warna status
-const getStatusColor = (status) => {
-  // Untuk status mitigasi
-  if (status === "Selesai") return "green";
-  if (status === "Sedang Dikerjakan") return "blue";
-  if (status === "Belum Mulai") return "gray";
-
-  // Untuk status siklus (fallback)
-  if (status === "Draft" || status === "Berjalan") return "blue";
-  return "gray";
-};
-const getCycleStatusColor = (status) => {
-  if (status === "Selesai") return "green";
-  if (status === "Draft" || status === "Berjalan") return "blue";
-  return "gray";
-};
-
-// Helper untuk warna status Ajuan
-const getStatusBadgeColor = (status) => {
-  if (status === "Disetujui") return "green";
-  if (status === "Ditolak") return "red";
-  if (status === "Menunggu Persetujuan") return "amber";
-  return "gray";
-};
+import { formatDate, getStatusColor, getStatusBadgeColor } from "../../utils/formatters";
+import AppResourceTable from "../../components/common/AppResourceTable";
 
 const fetchMyTasks = async () => {
   const { data } = await apiClient.get("/my-rsca-tasks");
@@ -50,7 +14,6 @@ const fetchMyTasks = async () => {
 };
 
 const fetchMySubmissions = async () => {
-  // Panggil endpoint baru yang kita buat di Langkah 8A
   const { data } = await apiClient.get("/my-submitted-risks");
   return data;
 };
@@ -58,6 +21,12 @@ const fetchMySubmissions = async () => {
 const fetchMyActionPlans = async () => {
   const { data } = await apiClient.get("/my-action-plan-tasks");
   return data;
+};
+
+const getCycleStatusColor = (status) => {
+  if (status === "Selesai") return "green";
+  if (status === "Draft" || status === "Berjalan") return "blue";
+  return "gray";
 };
 
 function RSCAPage() {
@@ -84,6 +53,58 @@ function RSCAPage() {
   const handleViewTask = (taskId) => {
     navigate(`/addons/rsca/cycle/${taskId}`);
   };
+
+  const submissionColumns = [
+    {
+      key: "cycle",
+      header: "Siklus",
+      cell: (risk) => <Text>{risk.cycle_name}</Text>,
+    },
+    {
+      key: "description",
+      header: "Ajuan Risiko",
+      cell: (risk) => (
+        <div className="max-w-md whitespace-normal break-words">
+          <Text className="font-medium text-tremor-content-strong">{risk.risk_description}</Text>
+          <Text className="italic text-gray-500">Penyebab: {risk.potential_cause || "-"}</Text>
+        </div>
+      ),
+    },
+    {
+      key: "date",
+      header: "Tanggal Diajukan",
+      cell: (risk) => <Text>{formatDate(risk.created_at)}</Text>,
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: (risk) => <Badge color={getStatusBadgeColor(risk.status)}>{risk.status}</Badge>,
+    },
+  ];
+
+  // Definisi Kolom untuk TAB 3 (Tugas Mitigasi)
+  const actionPlanColumns = [
+    {
+      key: "description",
+      header: "Deskripsi Tugas Mitigasi",
+      cell: (plan) => <Text className="max-w-md whitespace-normal break-words font-medium text-tremor-content-strong">{plan.action_description}</Text>,
+    },
+    {
+      key: "source",
+      header: "Sumber Masalah",
+      cell: (plan) => <Text>{plan.source_text}</Text>,
+    },
+    {
+      key: "due_date",
+      header: "Tenggat Waktu",
+      cell: (plan) => <Text color={plan.due_date && new Date(plan.due_date) < new Date() ? "red" : "inherit"}>{formatDate(plan.due_date)}</Text>,
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: (plan) => <Badge color={getStatusColor(plan.status)}>{plan.status}</Badge>,
+    },
+  ];
 
   return (
     <div className="p-6 sm:p-10">
@@ -114,7 +135,6 @@ function RSCAPage() {
               <Button icon={viewMode === "list" ? FiGrid : FiList} variant="light" onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} aria-label={viewMode === "list" ? "Switch to grid view" : "Switch to list view"} />
             </Flex>
 
-            {/* Ini adalah kode layout grid/list milikmu, tidak diubah */}
             <div className={`mt-6 ${viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}`}>
               {isLoadingTasks ? (
                 <div className="col-span-full flex justify-center items-center p-10">
@@ -160,100 +180,14 @@ function RSCAPage() {
           {/* --- PANEL 2: AJUAN RISIKO SAYA (BARU) --- */}
           <TabPanel>
             <Card className="mt-6">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableHeaderCell>Siklus</TableHeaderCell>
-                    <TableHeaderCell>Ajuan Risiko</TableHeaderCell>
-                    <TableHeaderCell>Tanggal Diajukan</TableHeaderCell>
-                    <TableHeaderCell>Status</TableHeaderCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {isLoadingSubmissions ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10">
-                        <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
-                          <Icon icon={FiLoader} className="animate-spin" size="sm" />
-                          <Text>Memuat ajuan...</Text>
-                        </Flex>
-                      </TableCell>
-                    </TableRow>
-                  ) : submissions?.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10">
-                        <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
-                          <Icon icon={FiCheckCircle} size="sm" />
-                          <Text>Anda belum pernah mengajukan risiko baru.</Text>
-                        </Flex>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    submissions.map((risk) => (
-                      <TableRow key={risk.id}>
-                        <TableCell>{risk.cycle_name}</TableCell>
-                        <TableCell className="max-w-md whitespace-normal break-words">
-                          <Text className="font-medium text-tremor-content-strong">{risk.risk_description}</Text>
-                          <Text className="italic text-gray-500">Penyebab: {risk.potential_cause || "-"}</Text>
-                        </TableCell>
-                        <TableCell>{formatDate(risk.created_at)}</TableCell>
-                        <TableCell>
-                          <Badge color={getStatusBadgeColor(risk.status)}>{risk.status}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <AppResourceTable data={submissions} isLoading={isLoadingSubmissions} columns={submissionColumns} emptyMessage="Anda belum pernah mengajukan risiko baru." />
             </Card>
           </TabPanel>
 
+          {/* --- PANEL 3: TUGAS MITIGASI --- */}
           <TabPanel>
             <Card className="mt-6">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableHeaderCell>Deskripsi Tugas Mitigasi</TableHeaderCell>
-                    <TableHeaderCell>Sumber Masalah</TableHeaderCell>
-                    <TableHeaderCell>Tenggat Waktu</TableHeaderCell>
-                    <TableHeaderCell>Status</TableHeaderCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {isLoadingActionPlans ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10">
-                        <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
-                          <Icon icon={FiLoader} className="animate-spin" size="sm" />
-                          <Text>Memuat tugas mitigasi...</Text>
-                        </Flex>
-                      </TableCell>
-                    </TableRow>
-                  ) : actionPlans?.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10">
-                        <Flex justifyContent="center" alignItems="center" className="space-x-2 text-tremor-content">
-                          <Icon icon={FiCheckCircle} size="sm" />
-                          <Text>Tidak ada tugas mitigasi yang ditugaskan ke departemen Anda.</Text>
-                        </Flex>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    actionPlans?.map((plan) => (
-                      <TableRow key={plan.id}>
-                        <TableCell className="max-w-md whitespace-normal break-words font-medium text-tremor-content-strong">{plan.action_description}</TableCell>
-                        <TableCell>{plan.source_text}</TableCell>
-                        <TableCell>
-                          <Text color={plan.due_date && new Date(plan.due_date) < new Date() ? "red" : "inherit"}>{formatDate(plan.due_date)}</Text>
-                        </TableCell>
-                        <TableCell>
-                          <Badge color={getStatusColor(plan.status)}>{plan.status}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <AppResourceTable data={actionPlans} isLoading={isLoadingActionPlans} columns={actionPlanColumns} emptyMessage="Tidak ada tugas mitigasi yang ditugaskan ke departemen Anda." />
             </Card>
           </TabPanel>
         </TabPanels>

@@ -7,27 +7,12 @@ import apiClient from "../../api/api";
 import CreateCycleModal from "./components/rsca/CreateCycleModal";
 import QuestionnaireEditor from "./components/rsca/QuestionnaireEditor";
 import EditCycleModal from "./components/rsca/EditCycleModal";
+import CycleCard from "./components/rsca/CycleCard";
 
 // Fungsi fetcher untuk mengambil siklus
 const fetchRscaCycles = async () => {
   const { data } = await apiClient.get("/admin/rsca-cycles");
   return data;
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return "N/A";
-
-  const date = new Date(dateString + "T00:00:00");
-
-  if (isNaN(date.getTime())) {
-    return dateString; // Kembalikan string asli jika formatnya tidak bisa diparsing
-  }
-
-  return date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 };
 
 function RscaAdminPage() {
@@ -65,7 +50,6 @@ function RscaAdminPage() {
   };
 
   const handleEditSaveSuccess = (updatedCycle) => {
-    // Update data di cache React Query secara manual
     queryClient.setQueryData(["rscaCyclesAdmin"], (oldData) => oldData.map((cycle) => (cycle.id === updatedCycle.id ? updatedCycle : cycle)));
   };
 
@@ -74,11 +58,9 @@ function RscaAdminPage() {
   };
 
   const handleViewResults = (cycle) => {
-    // Ini navigasi ke halaman hasil baru
     navigate(`/admin/rsca/results/${cycle.id}`);
   };
 
-  // Jika ada siklus dipilih, tampilkan editor kuesioner
   if (cycleForQuestions) {
     return <QuestionnaireEditor cycle={cycleForQuestions} onBack={() => setCycleForQuestions(null)} />;
   }
@@ -106,38 +88,8 @@ function RscaAdminPage() {
             <Text>Memuat siklus...</Text>
           </div>
         ) : cycles?.length > 0 ? (
-          cycles.map((cycle) => (
-            <Card key={cycle.id} className="p-0 overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col">
-              {/* Bagian Konten Utama */}
-              <div className="p-4 flex-grow">
-                <Flex>
-                  <Title className="mb-2">{cycle.nama_siklus}</Title>
-                  <Badge color={cycle.status === "Draft" ? "gray" : "blue"}>{cycle.status}</Badge>
-                </Flex>
-
-                {/* Metadata */}
-                <div className="space-y-2 mt-2 text-tremor-content">
-                  <span className="flex items-center gap-2 text-sm">
-                    <Icon icon={FiCalendar} size="sm" />
-                    {formatDate(cycle.tanggal_mulai)} - {formatDate(cycle.tanggal_selesai)}
-                  </span>
-                  <span className="flex items-center gap-2 text-sm">
-                    <Icon icon={FiBriefcase} size="sm" />
-                    {cycle.departments?.map((dep) => dep.name).join(", ") || "Belum ada departemen"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Bagian Footer Aksi */}
-              <div className="border-t p-2 flex justify-end gap-1 bg-tremor-background-muted">
-                <Button icon={FiEye} variant="light" color="blue" onClick={() => handleViewResults(cycle)} title="Lihat Hasil & Jawaban" />
-                <Button icon={FiEdit} variant="light" color="gray" onClick={() => handleOpenEditModal(cycle)} title="Edit Nama, Tanggal & Departemen" disabled={cycle.status !== "Draft"} />
-                <Button icon={FiSettings} variant="light" color="gray" onClick={() => handleEditQuestions(cycle)} title="Edit Pertanyaan & Kuesioner" disabled={cycle.status !== "Draft"} />
-              </div>
-            </Card>
-          ))
+          cycles.map((cycle) => <CycleCard key={cycle.id} cycle={cycle} onViewResults={handleViewResults} onEdit={handleOpenEditModal} onEditQuestions={handleEditQuestions} />)
         ) : (
-          // Tampilan Kosong (Empty State)
           <Card className="col-span-full text-center p-8 border-dashed border-gray-300">
             <FiPlus className="mx-auto h-10 w-10 text-gray-400 mb-2" />
             <Text className="font-medium">Belum ada siklus RSCA.</Text>

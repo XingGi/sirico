@@ -6,7 +6,6 @@ import RiskMapCard from "./RiskMapCard";
 import apiClient from "../../../../api/api";
 import MadyaCriteriaReference from "./MadyaCriteriaReference";
 
-// Helper format (jika belum ada, salin dari BasicAssessmentView atau Form)
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return "Rp 0";
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
@@ -21,7 +20,7 @@ const formatDate = (dateString) => {
       day: "numeric",
     });
   } catch (e) {
-    return "-"; // Return strip jika format tidak valid
+    return "-";
   }
 };
 
@@ -47,9 +46,7 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
   if (!assessmentData) return <Text>Data asesmen tidak tersedia.</Text>;
 
   const API_BASE_URL_FOR_IMAGE = apiClient.defaults.baseURL; // Ambil baseURL (misal: http://127.0.0.1:5000/api)
-  const imageUrlFull = assessmentData.structure_image_url
-    ? `${API_BASE_URL_FOR_IMAGE.replace("/api", "")}${assessmentData.structure_image_url.startsWith("/") ? "" : "/"}${assessmentData.structure_image_url}` // Hapus /api, tambahkan path relatif
-    : null;
+  const imageUrlFull = assessmentData.structure_image_url ? `${API_BASE_URL_FOR_IMAGE.replace("/api", "")}${assessmentData.structure_image_url.startsWith("/") ? "" : "/"}${assessmentData.structure_image_url}` : null;
 
   const getSasaranText = (sasaranId) => {
     const found = assessmentData?.sasaran_kpi_entries?.find((s) => s.id === sasaranId);
@@ -141,7 +138,6 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
           <TableBody>
             {assessmentData.sasaran_kpi_entries && assessmentData.sasaran_kpi_entries.length > 0 ? (
               assessmentData.sasaran_kpi_entries.map((item, index) => {
-                // Ambil style warna berdasarkan skor
                 const inherentStyle = getCellColor(item.inherent_risk_score);
                 const residualStyle = getCellColor(item.residual_risk_score);
                 const targetStyleClass = riskLevelMapSimple[item.target_level] || "bg-gray-200 text-gray-500";

@@ -29,6 +29,7 @@ import {
   FiShuffle,
   FiFileText,
   FiActivity,
+  FiGlobe,
 } from "react-icons/fi";
 import { HiCalculator } from "react-icons/hi";
 import { useAuth } from "../../context/AuthContext";
@@ -78,6 +79,7 @@ const menuItems = [
     children: [
       { title: "Modul BPR", path: "/addons/bpr", icon: <FiBarChart2 />, requiredPermission: "view_bpr" },
       { title: "Modul BIA", path: "/addons/bia", icon: <FiAlertTriangle />, requiredPermission: "view_bia" },
+      { title: "Horizon Scanner", path: "/addons/horizon-scanner", icon: <FiGlobe />, requiredPermission: "view_horizon_scanner" },
       { title: "CBA Calculator", path: "/addons/cba", icon: <HiCalculator />, requiredPermission: "view_cba_calculator" },
       { title: "Monte Carlo Simulator", path: "/addons/monte-carlo", icon: <FiShuffle />, requiredPermission: "view_monte_carlo" },
     ],

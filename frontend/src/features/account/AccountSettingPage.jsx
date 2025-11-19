@@ -18,6 +18,8 @@ function AccountSettingPage() {
       dasar: { count: 0, limit: 0 },
       madya: { count: 0, limit: 0 },
       ai: { count: 0, limit: 0 },
+      template_peta: { count: 0, limit: 0 },
+      horizon: { count: 0, limit: 0 },
     },
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -179,26 +181,35 @@ function AccountSettingPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {Object.entries(userData.assessment_limits || {}).map(([key, value]) => (
-                  <TableRow key={key}>
-                    <TableCell className="capitalize font-medium">{key}</TableCell>
-                    <TableCell className="text-right">{value.count}</TableCell>
-                    <TableCell className="text-right">
-                      {isAdmin ? (
-                        <NumberInput
-                          className="max-w-[100px] ml-auto" // Atur lebar dan posisi
-                          value={value.limit ?? ""} // Gunakan state userData, handle null/undefined
-                          onValueChange={(val) => handleLimitChange(key, val)} // Gunakan handler baru
-                          enableStepper={false}
-                          placeholder="Batas"
-                          min={0} // Batas minimal 0
-                        />
-                      ) : (
-                        value.limit ?? "N/A" // Tampilkan 'N/A' jika null/undefined
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {["dasar", "madya", "ai", "template_peta", "horizon"].map((key) => {
+                  const value = userData.assessment_limits?.[key] || { count: 0, limit: null };
+
+                  // Label Mapping agar tampil cantik di UI
+                  const labels = {
+                    dasar: "Asesmen Dasar",
+                    madya: "Asesmen Madya",
+                    ai: "Risk AI",
+                    template_peta: "Template Peta Risiko",
+                    horizon: "Horizon Scanner",
+                  };
+
+                  return (
+                    <TableRow key={key}>
+                      <TableCell className="capitalize font-medium">{labels[key] || key}</TableCell>
+                      <TableCell className="text-right">{value.count}</TableCell>
+                      <TableCell className="text-right">
+                        {isAdmin ? (
+                          <NumberInput className="max-w-[100px] ml-auto" value={value.limit ?? ""} onValueChange={(val) => handleLimitChange(key, val)} enableStepper={false} placeholder="∞" min={0} />
+                        ) : // Tampilkan 'Unlimited' jika null, atau angkanya
+                        value.limit === null ? (
+                          "Unlimited"
+                        ) : (
+                          value.limit
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
             <div className="mt-4 text-xs text-gray-500">

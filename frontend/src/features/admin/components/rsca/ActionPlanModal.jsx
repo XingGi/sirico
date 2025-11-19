@@ -6,26 +6,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../../../../api/api";
 import { toast } from "sonner";
 import { FiSave } from "react-icons/fi";
+import { toLocalISODate } from "../../../../utils/formatters";
 
-// Fungsi fetcher untuk mengambil departemen
-// (Kita panggil endpoint 'list' yang sudah kita amankan per institusi)
 const fetchDepartments = async () => {
   const { data } = await apiClient.get("/admin/departments-list");
   return data;
 };
 
-// Fungsi mutator untuk menyimpan
 const createActionPlan = (planData) => {
   return apiClient.post("/admin/action-plans", planData);
-};
-
-// Helper untuk format tanggal (menghindari bug UTC)
-const toLocalISODate = (date) => {
-  if (!date) return null;
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const day = date.getDate().toString().padStart(2, "0");
-  return `${year}-${month}-${day}`; // Format YYYY-MM-DD
 };
 
 function ActionPlanModal({ isOpen, onClose, sourceData, onSaveSuccess, cycleId }) {
@@ -34,20 +23,19 @@ function ActionPlanModal({ isOpen, onClose, sourceData, onSaveSuccess, cycleId }
   const [assignedDeptId, setAssignedDeptId] = useState("");
   const [dueDate, setDueDate] = useState(null);
 
-  // Ambil data departemen (untuk dropdown)
   const { data: departments, isLoading: isLoadingDepts } = useQuery({
-    queryKey: ["allDepartments"], // Manajer Risiko hanya akan dapat dept institusinya
+    queryKey: ["allDepartments"],
     queryFn: fetchDepartments,
-    enabled: isOpen, // Hanya fetch saat modal dibuka
+    enabled: isOpen,
   });
 
   const mutation = useMutation({
     mutationFn: createActionPlan,
     onSuccess: (data) => {
       toast.success(data.msg || "Rencana aksi berhasil dibuat!");
-      queryClient.invalidateQueries({ queryKey: ["rscaResult", cycleId] }); // Refresh tabel hasil
-      onSaveSuccess(); // Panggil handler sukses dari parent
-      handleClose(); // Tutup modal
+      queryClient.invalidateQueries({ queryKey: ["rscaResult", cycleId] });
+      onSaveSuccess();
+      handleClose();
     },
     onError: (error) => {
       toast.error("Gagal membuat rencana aksi: " + (error.response?.data?.msg || error.message));
@@ -65,7 +53,7 @@ function ActionPlanModal({ isOpen, onClose, sourceData, onSaveSuccess, cycleId }
       ...sourceData,
       action_description: description,
       assigned_department_id: Number(assignedDeptId),
-      due_date: toLocalISODate(dueDate), // Format YYYY-MM-DD
+      due_date: toLocalISODate(dueDate),
     });
   };
 

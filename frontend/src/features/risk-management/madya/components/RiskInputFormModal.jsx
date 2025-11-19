@@ -16,17 +16,7 @@ const strategiOptions = [
   "Mempertahankan (Retain) Risiko",
   "Mengubah Kemungkinan dan Dampak",
 ];
-const kategoriRisikoOptions = [
-  "Risiko Kredit",
-  "Risiko Pasar",
-  "Risiko Likuiditas",
-  "Risiko Operasional",
-  "Risiko Kepatuhan",
-  "Risiko Hukum",
-  "Risiko Strategik",
-  "Risiko Reputasi",
-  "Risiko Lainnya", // Nanti akan jadi 'Lainnya'
-];
+const kategoriRisikoOptions = ["Risiko Kredit", "Risiko Pasar", "Risiko Likuiditas", "Risiko Operasional", "Risiko Kepatuhan", "Risiko Hukum", "Risiko Strategik", "Risiko Reputasi", "Risiko Lainnya"];
 
 const formatDateForInput = (date) => {
   if (!date) return "";
@@ -35,11 +25,10 @@ const formatDateForInput = (date) => {
     if (typeof date === "string" && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return date;
     }
-    // Jika objek Date atau string format lain, coba format
     const d = new Date(date);
     return d.toISOString().split("T")[0];
   } catch (e) {
-    return ""; // Return string kosong jika format tidak valid
+    return "";
   }
 };
 
@@ -47,7 +36,7 @@ const parseFloatSafely = (value) => {
   if (value === null || value === undefined || value === "") return null;
   const cleaned = String(value)
     .replace(/[^0-9.,]/g, "")
-    .replace(",", "."); // Handle koma desimal
+    .replace(",", ".");
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
 };
@@ -65,11 +54,11 @@ const parseRupiah = (value) => {
   return isNaN(num) ? null : num;
 };
 
-// --- Helper BARU untuk clamping nilai P & I ---
+// --- Helper clamping nilai P & I ---
 const clampValue = (value, min = 1, max = 5) => {
   const num = parseInt(value, 10);
   if (value === "" || value === undefined || value === null || isNaN(num)) {
-    return ""; // Memungkinkan user menghapus isi field
+    return "";
   }
   return Math.max(min, Math.min(num, max));
 };
@@ -111,16 +100,7 @@ const getDefaultFormState = () => ({
   tanggal_review: "",
 });
 
-function RiskInputFormModal({
-  isOpen,
-  onClose,
-  onSaveSuccess,
-  assessmentId,
-  initialData = null, // Data untuk mode edit
-  sasaranOptions = [], // Opsi dari Card 3
-  unitKerjaOptions = [], // Opsi dari Card 1
-  templateScores = [],
-}) {
+function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, initialData = null, sasaranOptions = [], unitKerjaOptions = [], templateScores = [] }) {
   const isEditMode = Boolean(initialData?.id);
   const [formData, setFormData] = useState(getDefaultFormState);
   const [isLoading, setIsLoading] = useState(false);
@@ -149,7 +129,7 @@ function RiskInputFormModal({
       } else {
         setFormData(defaultState);
       }
-      setError(""); // Reset error
+      setError("");
     }
   }, [isOpen, initialData, assessmentId, isEditMode]);
 
@@ -186,7 +166,7 @@ function RiskInputFormModal({
   };
 
   const handleClampedNumberChange = (name, value) => {
-    const clamped = clampValue(value, 1, 5); // Clamp antara 1 dan 5, atau '' jika input kosong/invalid
+    const clamped = clampValue(value, 1, 5);
     setFormData((prev) => ({ ...prev, [name]: clamped }));
   };
 
@@ -203,7 +183,6 @@ function RiskInputFormModal({
     setIsLoading(true);
     setError("");
     if (formData.kategori_risiko === "Risiko Lainnya" && !formData.kategori_risiko_lainnya?.trim()) {
-      /*...validasi...*/
       setError("Harap isi nama Kategori Risiko Lainnya.");
       setIsLoading(false);
       return;
@@ -224,7 +203,6 @@ function RiskInputFormModal({
       return;
     }
 
-    // Siapkan payload, pastikan tipe data angka benar
     const payload = {
       ...formData,
       inherent_probabilitas: inherentP,
@@ -243,11 +221,6 @@ function RiskInputFormModal({
       tanggal_review: formData.tanggal_review || null,
     };
 
-    // for (const dateField of ["tanggal_identifikasi", "jadwal_mulai_penanganan", "jadwal_selesai_penanganan", "tanggal_review"]) {
-    //   if (!payload[dateField]) {
-    //     payload[dateField] = null;
-    //   }
-    // }
     delete payload.inherent_skor_display;
     delete payload.residual_skor_display;
     delete payload.inherent_nilai_bersih_display;
@@ -262,8 +235,8 @@ function RiskInputFormModal({
       } else {
         response = await apiClient.post(`/madya-assessments/${assessmentId}/risk-inputs`, payload);
       }
-      onSaveSuccess(response.data, isEditMode); // Kirim data hasil save/update ke parent
-      onClose(); // Tutup modal jika sukses
+      onSaveSuccess(response.data, isEditMode);
+      onClose();
     } catch (err) {
       setError(err.response?.data?.msg || `Gagal ${isEditMode ? "memperbarui" : "menyimpan"} Risk Input.`);
       console.error("Save/Update error:", err);
@@ -382,7 +355,7 @@ function RiskInputFormModal({
 
     if (p === null || isNaN(p) || p < 1 || p > 5 || i === null || isNaN(i) || i < 1 || i > 5) {
       console.log("--> Invalid or empty P/I residual, returning empty string.");
-      return ""; // Tampilkan string kosong jika P atau I residual tidak valid/kosong
+      return "";
     }
 
     if (!Array.isArray(templateScores)) {
@@ -404,7 +377,6 @@ function RiskInputFormModal({
     console.log(`--> Found scoreData for residual P=${p}, I=${i}:`, scoreData);
 
     return scoreData ? String(scoreData.score) : "";
-    // Alternatif fallback: return scoreData ? scoreData.score : p * i;
   }, [formData.residual_probabilitas, formData.residual_dampak, templateScores]);
 
   return (
@@ -419,7 +391,6 @@ function RiskInputFormModal({
         <form onSubmit={handleSubmit} className="mt-6 max-h-[75vh] overflow-y-auto pr-4 -mr-4 space-y-6">
           {/* --- BAGIAN IDENTIFIKASI --- */}
           <Card className="border border-gray-200 shadow-sm">
-            {/* ... field identifikasi ... */}
             <div className="flex items-center gap-3 mb-4 border-b pb-2">
               <FiClipboard className="w-5 h-5 text-gray-500" />
               <Title order={5} className="text-tremor-content-strong">
@@ -501,7 +472,6 @@ function RiskInputFormModal({
 
           {/* --- BAGIAN PENANGANAN --- */}
           <Card className="border border-green-300 shadow-sm">
-            {/* ... field penanganan ... */}
             <div className="flex items-center gap-3 mb-4 border-b border-green-300 pb-2">
               <FiTool className="w-5 h-5 text-green-600" />
               <Title order={5} className="text-tremor-content-strong text-green-700">
@@ -519,7 +489,6 @@ function RiskInputFormModal({
 
           {/* --- BAGIAN ANALISIS RESIDUAL --- */}
           <Card className="border border-red-200 shadow-sm">
-            {/* ... field residual ... */}
             <div className="flex items-center gap-3 mb-4 border-b border-red-200 pb-2">
               <FiCheckCircle className="w-5 h-5 text-red-500" />
               <Title order={5} className="text-tremor-content-strong text-red-700">
@@ -531,13 +500,7 @@ function RiskInputFormModal({
               {renderNumberField("Dampak (I)", "residual_dampak", false, { min: 1, max: 5, placeholder: "1-5" })}
               <div>
                 <label className="text-sm font-medium text-tremor-content">Skor Risiko</label>
-                <TextInput
-                  name="residual_skor_display"
-                  value={residualSkor} // <-- Langsung gunakan variabel hasil useMemo
-                  disabled
-                  placeholder={templateScores.length > 0 ? "Otomatis" : "Pilih P & I"}
-                  className="mt-1"
-                />
+                <TextInput name="residual_skor_display" value={residualSkor} disabled placeholder={templateScores.length > 0 ? "Otomatis" : "Pilih P & I"} className="mt-1" />
               </div>
               {renderNumberField("Probabilitas Kualitatif (%)", "residual_prob_kualitatif", false, { icon: FiInfo, placeholder: "0 - 100", min: 0, max: 100 })}
               <div>

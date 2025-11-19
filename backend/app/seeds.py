@@ -30,6 +30,7 @@ DEFAULT_PERMISSIONS = {
     'view_addons_menu': 'Melihat menu Add-ons',
     'view_cba_calculator': 'Melihat CBA Calculator',
     'view_monte_carlo': 'Melihat Monte Carlo Simulator',
+    'view_horizon_scanner': 'Melihat Horizon Scanner',
     # Admin Area
     'view_admin_area': 'Mengakses menu Admin', # Permission umum untuk menu admin
     'manage_users': 'Melihat & Mengelola data pengguna (Admin)',
@@ -72,6 +73,7 @@ def seed_roles_permissions():
     view_risk_dasar_perm = Permission.query.filter_by(name='view_risk_dasar').first()
     view_risk_madya_perm = Permission.query.filter_by(name='view_risk_madya').first()
     view_mitigation_perm = Permission.query.filter_by(name='view_mitigation_monitor').first()
+    view_horizon_perm = Permission.query.filter_by(name='view_horizon_scanner').first()
 
     # 2. Seed Role Admin
     admin_role = Role.query.filter_by(name='Admin').first()
@@ -144,6 +146,7 @@ def seed_roles_permissions():
         if manage_depts_perm: manager_role.permissions.append(manage_depts_perm)
         if manage_rsca_perm: manager_role.permissions.append(manage_rsca_perm)
         if view_mitigation_perm: manager_role.permissions.append(view_mitigation_perm)
+        if view_horizon_perm: manager_role.permissions.append(view_horizon_perm)
         # (Manajer Risiko mungkin juga perlu izin 'view_risk_dasar' dll.)
         
         db.session.add(manager_role)
@@ -153,6 +156,10 @@ def seed_roles_permissions():
         if view_mitigation_perm and view_mitigation_perm not in manager_role.permissions:
             manager_role.permissions.append(view_mitigation_perm)
             print("  Adding 'view_mitigation_monitor' to existing 'Manajer Risiko' role.")
+        
+        if view_horizon_perm and view_horizon_perm not in manager_role.permissions:
+            manager_role.permissions.append(view_horizon_perm)
+            print("  Adding 'view_horizon_scanner' to existing 'Manajer Risiko' role.")
 
     try:
         db.session.commit()

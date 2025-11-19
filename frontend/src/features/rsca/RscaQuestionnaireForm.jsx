@@ -27,19 +27,11 @@ const ControlAssessmentQuestion = ({ question, answerData, onChange }) => {
 
   return (
     <Card className="mb-4 bg-white shadow-sm border-l-4" decorationColor={selectedColor}>
-      {" "}
-      {/* Tambah shadow dan border */}
       <label className="block font-semibold text-gray-800">{question.pertanyaan}</label>
       <Text className="text-sm text-gray-500 mb-2">Kategori: {question.kategori} (Penilaian Kontrol)</Text>
       <div className="mt-2">
         <Text className="font-medium">Penilaian Efektivitas Kontrol:</Text>
-        <Select
-          value={answerData?.control_effectiveness_rating || ""}
-          onValueChange={handleSelectChange}
-          placeholder="Pilih Efektivitas..."
-          className="mt-1"
-          color={selectedColor} // Terapkan warna ke Tremor Select
-        >
+        <Select value={answerData?.control_effectiveness_rating || ""} onValueChange={handleSelectChange} placeholder="Pilih Efektivitas..." className="mt-1" color={selectedColor}>
           {effectivenessOptions.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
               {opt.text}
@@ -55,7 +47,6 @@ const ControlAssessmentQuestion = ({ question, answerData, onChange }) => {
   );
 };
 
-// --- KOMPONEN LAMA UNTUK PERTANYAAN TIPE TEKS ---
 const TextQuestion = ({ question, answerData, onChange }) => {
   return (
     <Card className="mb-4 bg-white shadow-sm border-l-4" decorationColor="blue">
@@ -85,7 +76,7 @@ const mapAnswersToState = (answersList) => {
 // Fungsi helper untuk memformat tanggal
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
-  const date = new Date(dateString + "T00:00:00"); // Penting untuk zona waktu
+  const date = new Date(dateString + "T00:00:00");
   if (isNaN(date.getTime())) return dateString;
   return date.toLocaleDateString("id-ID", {
     day: "numeric",
@@ -114,12 +105,11 @@ function SubmitRiskModal({ isOpen, onClose, cycleId, onRiskSubmitted }) {
         potential_cause: cause,
         potential_impact: impact,
       };
-      // Panggil endpoint baru yang kita buat di Langkah 3
       const response = await apiClient.post(`/rsca-cycles/${cycleId}/submit-risk`, payload);
 
       toast.success(response.data.msg || "Ajuan risiko berhasil dikirim.");
-      onRiskSubmitted(response.data.submitted_risk); // Kirim data baru ke parent (opsional)
-      handleClose(); // Tutup dan reset form
+      onRiskSubmitted(response.data.submitted_risk);
+      handleClose();
     } catch (err) {
       console.error("Gagal mengirim ajuan risiko:", err);
       toast.error(err.response?.data?.msg || "Gagal mengirim ajuan.");
@@ -129,7 +119,7 @@ function SubmitRiskModal({ isOpen, onClose, cycleId, onRiskSubmitted }) {
   };
 
   const handleClose = () => {
-    if (isSaving) return; // Jangan tutup jika sedang menyimpan
+    if (isSaving) return;
     setDescription("");
     setCause("");
     setImpact("");
@@ -171,7 +161,7 @@ function SubmitRiskModal({ isOpen, onClose, cycleId, onRiskSubmitted }) {
 function RscaQuestionnaireForm() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
-  const [cycle, setCycle] = useState(null); // State untuk nama siklus
+  const [cycle, setCycle] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -181,10 +171,7 @@ function RscaQuestionnaireForm() {
     const fetchQuestionnaireAndAnswers = async () => {
       try {
         // 1. Ambil pertanyaan DAN jawaban yang sudah ada secara bersamaan
-        const [questionRes, answerRes] = await Promise.all([
-          apiClient.get(`/rsca-cycles/${cycleId}/questionnaire`),
-          apiClient.get(`/rsca-cycles/${cycleId}/my-answers`), // <-- Panggil endpoint baru
-        ]);
+        const [questionRes, answerRes] = await Promise.all([apiClient.get(`/rsca-cycles/${cycleId}/questionnaire`), apiClient.get(`/rsca-cycles/${cycleId}/my-answers`)]);
 
         setQuestions(questionRes.data.questions || []);
         setCycle(questionRes.data.cycle || {});
@@ -205,7 +192,7 @@ function RscaQuestionnaireForm() {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: {
-        ...(prev[questionId] || {}), // Ambil data jawaban lama jika ada
+        ...(prev[questionId] || {}),
         [field]: value,
       },
     }));
@@ -215,17 +202,17 @@ function RscaQuestionnaireForm() {
     e.preventDefault();
     const formattedAnswers = Object.entries(answers).map(([questionId, answerData]) => ({
       questionnaire_id: parseInt(questionId),
-      jawaban: answerData.jawaban || null, // Kirim null jika tidak ada
-      catatan: answerData.catatan || null, // Kirim null jika tidak ada
-      control_effectiveness_rating: answerData.control_effectiveness_rating || null, // Kirim data baru
-      risk_register_id: answerData.risk_register_id || null, // Kirim data baru
+      jawaban: answerData.jawaban || null,
+      catatan: answerData.catatan || null,
+      control_effectiveness_rating: answerData.control_effectiveness_rating || null,
+      risk_register_id: answerData.risk_register_id || null,
     }));
 
     apiClient
       .post(`/rsca-cycles/${cycleId}/answers`, { answers: formattedAnswers })
       .then(() => {
         toast.success("Jawaban berhasil dikirim!");
-        navigate("/addons/rsca"); // Arahkan kembali ke rute add-ons
+        navigate("/addons/rsca");
       })
       .catch((error) => toast.error("Gagal mengirim jawaban. " + error.message));
   };
@@ -282,8 +269,8 @@ function RscaQuestionnaireForm() {
             )}
             {questions.length > 0 && (
               <Button
-                type="submit" // Ini akan men-trigger 'handleSubmit'
-                className="w-full mt-4" // Beri jarak
+                type="submit"
+                className="w-full mt-4"
                 size="lg"
                 disabled={isPastDueDate || questions.length === 0}
                 title={isPastDueDate ? "Tenggat waktu sudah terlewat" : "Kirim atau perbarui jawaban Anda"}
@@ -297,23 +284,20 @@ function RscaQuestionnaireForm() {
           {/* 4. Kolom Kanan (Sidebar) untuk Info & Aksi */}
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-6">
-              {/* Card Info Siklus */}
               <Card>
                 <Subtitle>Detail Siklus</Subtitle>
                 <Title className="mt-1 mb-3">{cycle?.nama_siklus || "Memuat..."}</Title>
 
-                {/* --- UBAH BADGE STATUS --- */}
                 <Badge color={cycleStatus.color} icon={cycleStatus.icon}>
                   {cycleStatus.text}
                 </Badge>
-                {/* --- AKHIR UBAHAN --- */}
 
                 <Flex className="mt-4 space-x-2 text-tremor-content" alignItems="center">
-                  <Icon icon={FiCalendar} size="sm" color="gray" variant="solid" /> {/* Warna ikon Calendar */}
+                  <Icon icon={FiCalendar} size="sm" color="gray" variant="solid" />
                   <Text>Mulai: {formatDate(cycle?.tanggal_mulai)}</Text>
                 </Flex>
                 <Flex className="mt-2 space-x-2" alignItems="center">
-                  <Icon icon={FiCalendar} size="sm" color={isPastDueDate ? "rose" : "gray"} variant="solid" /> {/* Warna ikon Calendar */}
+                  <Icon icon={FiCalendar} size="sm" color={isPastDueDate ? "rose" : "gray"} variant="solid" />
                   <Text color={isPastDueDate ? "rose" : "inherit"}>Selesai: {formatDate(cycle?.tanggal_selesai)}</Text>
                 </Flex>
               </Card>
@@ -321,14 +305,7 @@ function RscaQuestionnaireForm() {
               <Card>
                 <Subtitle>Aksi</Subtitle>
 
-                <Button
-                  icon={FiPlus}
-                  variant="secondary"
-                  className="w-full mt-4"
-                  onClick={() => setIsSubmitRiskModalOpen(true)} // Ini HANYA akan membuka modal
-                  disabled={isPastDueDate}
-                  title="Ajukan risiko baru yang tidak ada di daftar"
-                >
+                <Button icon={FiPlus} variant="secondary" className="w-full mt-4" onClick={() => setIsSubmitRiskModalOpen(true)} disabled={isPastDueDate} title="Ajukan risiko baru yang tidak ada di daftar">
                   Ajukan Risiko Baru
                 </Button>
 
@@ -337,7 +314,7 @@ function RscaQuestionnaireForm() {
                   <div className="mt-4">
                     <Card decoration="left" decorationColor="rose" className="bg-red-50">
                       <Flex>
-                        <Icon icon={FiAlertTriangle} color="rose" variant="light" /> {/* Warna ikon */}
+                        <Icon icon={FiAlertTriangle} color="rose" variant="light" />
                         <div className="ml-3">
                           <Text color="rose" className="font-semibold">
                             Tenggat Waktu Terlewat
