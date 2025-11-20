@@ -2,12 +2,13 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Card, Title, Text, Button, TextInput, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Dialog, DialogPanel, Flex } from "@tremor/react";
-import { FiBriefcase, FiHome, FiSave, FiPlus, FiTrash2, FiEdit2, FiHelpCircle, FiMaximize, FiMinimize, FiAlertTriangle } from "react-icons/fi";
+import { Card, Title, Text, Button, TextInput, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Dialog, DialogPanel, Flex, Badge, Icon } from "@tremor/react";
+import { FiBriefcase, FiHome, FiSave, FiPlus, FiTrash2, FiEdit2, FiHelpCircle, FiMaximize, FiMinimize, FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiLayers, FiList, FiBarChart2, FiLoader } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import { toast } from "sonner";
+import { formatDate } from "../../../utils/formatters";
 
-// 🔽 Import Komponen Baru (Pastikan path-nya sesuai dengan tempat Anda menyimpan file tadi)
+// Import Komponen Modal Baru
 import BasicContextModal from "./components/BasicContextModal";
 import BasicRiskModal from "./components/BasicRiskModal";
 import BasicAnalysisModal from "./components/BasicAnalysisModal";
@@ -33,21 +34,23 @@ const Tooltip = ({ children }) => (
   </div>
 );
 
-// Komponen Konfirmasi Hapus (Tetap disini karena kecil & spesifik)
+// Komponen Konfirmasi Hapus
 const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message }) => (
   <Dialog open={isOpen} onClose={onClose} static={true}>
-    <DialogPanel>
-      <div className="text-center">
-        <FiAlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <Title>{title}</Title>
-        <Text className="mt-2">{message}</Text>
+    <DialogPanel className="max-w-sm">
+      <div className="text-center p-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+          <FiAlertTriangle className="h-6 w-6 text-red-600" />
+        </div>
+        <Title className="text-xl">{title}</Title>
+        <Text className="mt-2 text-gray-600">{message}</Text>
       </div>
-      <div className="mt-6 flex justify-end gap-2">
+      <div className="mt-6 flex justify-center gap-3">
         <Button variant="secondary" onClick={onClose}>
           Batal
         </Button>
         <Button color="red" onClick={onConfirm}>
-          Hapus
+          Ya, Hapus
         </Button>
       </div>
     </DialogPanel>
@@ -67,8 +70,6 @@ function BasicAssessmentFormPage() {
   const [analyses, setAnalyses] = useState([]);
 
   // --- State Modal Control ---
-  // Kita HANYA perlu menyimpan index yang sedang diedit.
-  // Data formnya sendiri sekarang ada di dalam component Modal masing-masing.
   const [isContextModalOpen, setIsContextModalOpen] = useState(false);
   const [editingContextIndex, setEditingContextIndex] = useState(null);
 
@@ -107,34 +108,27 @@ function BasicAssessmentFormPage() {
     }
   }, [assessmentId, isEditMode]);
 
-  // --- Handlers: Form Data Utama ---
+  // --- Handlers --- (Logic Tidak Berubah)
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // --- Handlers: Konteks ---
   const handleOpenAddContext = () => {
-    setEditingContextIndex(null); // Mode tambah
+    setEditingContextIndex(null);
     setIsContextModalOpen(true);
   };
-
   const handleOpenEditContext = (index) => {
-    setEditingContextIndex(index); // Mode edit index ke-i
+    setEditingContextIndex(index);
     setIsContextModalOpen(true);
   };
-
-  // Fungsi ini dipanggil oleh BasicContextModal saat tombol Simpan diklik
   const handleSaveContext = (contextData) => {
     if (editingContextIndex !== null) {
-      // Update
       const updated = [...contexts];
       updated[editingContextIndex] = contextData;
       setContexts(updated);
     } else {
-      // Tambah baru
       setContexts([...contexts, contextData]);
     }
     setIsContextModalOpen(false);
   };
-
   const handleDeleteContext = (index) => {
     setDeleteConfirmation({
       isOpen: true,
@@ -147,18 +141,14 @@ function BasicAssessmentFormPage() {
     });
   };
 
-  // --- Handlers: Risiko ---
   const handleOpenAddRisk = () => {
     setEditingRiskIndex(null);
     setIsRiskModalOpen(true);
   };
-
   const handleOpenEditRisk = (index) => {
     setEditingRiskIndex(index);
     setIsRiskModalOpen(true);
   };
-
-  // Fungsi ini dipanggil oleh BasicRiskModal
   const handleSaveRisk = (riskData) => {
     if (editingRiskIndex !== null) {
       const updated = [...risks];
@@ -169,44 +159,33 @@ function BasicAssessmentFormPage() {
     }
     setIsRiskModalOpen(false);
   };
-
   const handleDeleteRisk = (index) => {
     setDeleteConfirmation({
       isOpen: true,
       title: "Hapus Risiko",
-      message: "Yakin ingin menghapus risiko ini? Analisis terkait mungkin akan menjadi tidak valid.",
+      message: "Yakin ingin menghapus risiko ini?",
       onConfirm: () => {
         setRisks(risks.filter((_, i) => i !== index));
-        // Opsional: Anda bisa menambahkan logika untuk menghapus analisis yang terkait di sini
         setDeleteConfirmation({ isOpen: false });
       },
     });
   };
 
-  // --- Handlers: Analisis ---
   const availableRisksForAnalysis = useMemo(() => {
     const usedRiskIndices = analyses.map((a) => a.risk_identification_id);
-    // Kita perlu memetakan risiko dengan index aslinya agar dropdown bisa memilih referensi yang benar
     return risks
       .map((risk, index) => ({ ...risk, originalIndex: index }))
-      .filter(
-        (risk) =>
-          // Tampilkan jika belum dipakai ATAU jika sedang diedit (biar bisa pilih dirinya sendiri)
-          !usedRiskIndices.includes(risk.originalIndex) || (editingAnalysisIndex !== null && analyses[editingAnalysisIndex].risk_identification_id === risk.originalIndex)
-      );
+      .filter((risk) => !usedRiskIndices.includes(risk.originalIndex) || (editingAnalysisIndex !== null && analyses[editingAnalysisIndex].risk_identification_id === risk.originalIndex));
   }, [risks, analyses, editingAnalysisIndex]);
 
   const handleOpenAddAnalysis = () => {
     setEditingAnalysisIndex(null);
     setIsAnalysisModalOpen(true);
   };
-
   const handleOpenEditAnalysis = (index) => {
     setEditingAnalysisIndex(index);
     setIsAnalysisModalOpen(true);
   };
-
-  // Fungsi ini dipanggil oleh BasicAnalysisModal
   const handleSaveAnalysis = (analysisData) => {
     if (editingAnalysisIndex !== null) {
       const updated = [...analyses];
@@ -217,7 +196,6 @@ function BasicAssessmentFormPage() {
     }
     setIsAnalysisModalOpen(false);
   };
-
   const handleDeleteAnalysis = (index) => {
     setDeleteConfirmation({
       isOpen: true,
@@ -230,17 +208,10 @@ function BasicAssessmentFormPage() {
     });
   };
 
-  // --- Submit ke API ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    const payload = {
-      ...formData,
-      contexts: contexts.map((c) => ({ external: c.external, internal: c.internal })),
-      risks,
-      analyses,
-    };
-
+    const payload = { ...formData, contexts: contexts.map((c) => ({ external: c.external, internal: c.internal })), risks, analyses };
     try {
       if (isEditMode) {
         await apiClient.put(`/basic-assessments/${assessmentId}`, payload);
@@ -257,7 +228,6 @@ function BasicAssessmentFormPage() {
     }
   };
 
-  // --- Fullscreen Logic ---
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       riskTableCardRef.current?.requestFullscreen();
@@ -266,7 +236,6 @@ function BasicAssessmentFormPage() {
       document.exitFullscreen();
     }
   };
-
   useEffect(() => {
     const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleChange);
@@ -275,56 +244,96 @@ function BasicAssessmentFormPage() {
 
   if (isLoading && isEditMode)
     return (
-      <div className="p-10">
-        <Title>Memuat...</Title>
+      <div className="flex justify-center items-center h-screen">
+        <FiLoader className="animate-spin h-10 w-10 text-blue-600" />
       </div>
     );
 
   return (
-    <div className="p-6 sm:p-10">
-      <Title>{isEditMode ? "Edit" : "New"} Basic Assessment</Title>
-      <Text>{isEditMode ? "Perbarui detail asesmen di bawah ini." : "Isi detail untuk asesmen dasar baru."}</Text>
+    <div className="p-6 sm:p-10  mx-auto space-y-8 bg-slate-50 min-h-screen">
+      {/* --- HEADER SECTION --- */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 pb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/risk-management/dasar")} title="Kembali ke daftar" />
+          <div>
+            <div className="flex items-center gap-2">
+              <Title className="text-2xl text-slate-800">{isEditMode ? "Edit Asesmen Dasar" : "Asesmen Dasar Baru"}</Title>
+              <Badge className="rounded-md" color="blue">
+                {isEditMode ? "Mode Edit" : "Draft Baru"}
+              </Badge>
+            </div>
+            <Text className="text-slate-500 mt-1">Isi formulir di bawah ini untuk mendokumentasikan asesmen risiko unit kerja.</Text>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="secondary" color="slate" onClick={() => navigate("/risk-management/dasar")} className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors">
+            Batal
+          </Button>
+          <Button icon={FiSave} loading={isLoading} onClick={handleSubmit} className="rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all transform hover:-translate-y-0.5">
+            Simpan Asesmen
+          </Button>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-        {/* CARD 1: Identitas */}
-        <Card>
-          <div className="space-y-6">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Nama Unit Kerja</label>
-              <TextInput icon={FiBriefcase} name="nama_unit_kerja" value={formData.nama_unit_kerja} onChange={handleChange} placeholder="Contoh: Divisi Keuangan" required className="mt-1" />
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* CARD 1: IDENTITAS (Aksen Biru) */}
+        <Card className="border-l-4 border-blue-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+              <FiBriefcase size={24} />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Nama Perusahaan</label>
-              <TextInput icon={FiHome} name="nama_perusahaan" value={formData.nama_perusahaan} onChange={handleChange} placeholder="Contoh: PT. Sirico Jaya Abadi" required className="mt-1" />
+              <Title>Identitas Unit Kerja</Title>
+              <Text>Informasi dasar mengenai pemilik risiko.</Text>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-sm font-semibold text-slate-700 mb-1 block">
+                Nama Unit Kerja <span className="text-red-500">*</span>
+              </label>
+              <TextInput icon={FiBriefcase} name="nama_unit_kerja" value={formData.nama_unit_kerja} onChange={handleChange} placeholder="Contoh: Divisi Keuangan" required />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700 mb-1 block">
+                Nama Perusahaan <span className="text-red-500">*</span>
+              </label>
+              <TextInput icon={FiHome} name="nama_perusahaan" value={formData.nama_perusahaan} onChange={handleChange} placeholder="Contoh: PT. Sirico Jaya Abadi" required />
             </div>
           </div>
         </Card>
 
-        {/* CARD 2: Konteks */}
-        <Card>
-          <div className="flex justify-between items-center">
-            <div>
-              <Title as="h3">Tugas 1 - Penetapan Konteks Organisasi</Title>
-              <Text>Tambahkan konteks internal dan eksternal yang relevan.</Text>
+        {/* CARD 2: KONTEKS (Aksen Ungu) */}
+        <Card className="border-l-4 border-purple-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                <FiLayers size={24} />
+              </div>
+              <div>
+                <Title>1. Konteks Organisasi</Title>
+                <Text>Faktor internal dan eksternal yang mempengaruhi risiko.</Text>
+              </div>
             </div>
-            <Button type="button" icon={FiPlus} onClick={handleOpenAddContext}>
+            <Button type="button" className="rounded-lg" icon={FiPlus} variant="secondary" color="purple" onClick={handleOpenAddContext}>
               Tambah Konteks
             </Button>
           </div>
+
           <Table className="mt-4">
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Konteks Eksternal</TableHeaderCell>
-                <TableHeaderCell>Konteks Internal</TableHeaderCell>
-                <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
+                <TableHeaderCell className="bg-purple-50 text-purple-900 font-bold border-b border-purple-200">Konteks Eksternal</TableHeaderCell>
+                <TableHeaderCell className="bg-purple-50 text-purple-900 font-bold border-b border-purple-200">Konteks Internal</TableHeaderCell>
+                <TableHeaderCell className="bg-purple-50 text-purple-900 font-bold border-b border-purple-200 text-right">Aksi</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {contexts.length > 0 ? (
                 contexts.map((ctx, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="whitespace-normal">{ctx.external}</TableCell>
-                    <TableCell className="whitespace-normal">{ctx.internal}</TableCell>
+                  <TableRow key={index} className="hover:bg-purple-50/30 transition-colors">
+                    <TableCell className="whitespace-normal text-xs text-slate-700">{ctx.external}</TableCell>
+                    <TableCell className="whitespace-normal text-xs text-slate-700">{ctx.internal}</TableCell>
                     <TableCell className="text-right">
                       <Flex justifyContent="end" className="gap-2">
                         <Button type="button" icon={FiEdit2} size="xs" variant="light" color="blue" onClick={() => handleOpenEditContext(index)} />
@@ -335,8 +344,8 @@ function BasicAssessmentFormPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-gray-500 py-4">
-                    Belum ada konteks ditambahkan.
+                  <TableCell colSpan={3} className="text-center text-gray-400 py-8 italic">
+                    Belum ada data konteks. Silakan tambahkan.
                   </TableCell>
                 </TableRow>
               )}
@@ -344,61 +353,71 @@ function BasicAssessmentFormPage() {
           </Table>
         </Card>
 
-        {/* CARD 3: Identifikasi Risiko */}
-        <Card className="fullscreen-card" ref={riskTableCardRef}>
-          <div className="flex justify-between items-center">
-            <div>
-              <Title as="h3">Tugas 2 - Identifikasi Risiko</Title>
-              <Text>Tambahkan daftar risiko yang teridentifikasi.</Text>
+        {/* CARD 3: RISIKO (Aksen Oranye) */}
+        <Card className={`border-l-4 bg-slate-50 border-orange-500 shadow-md ring-1 ring-gray-100 ${isFullscreen ? "fixed inset-0 z-50 h-screen overflow-auto m-0 rounded-none" : "relative"}`} ref={riskTableCardRef}>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+                <FiList size={24} />
+              </div>
+              <div>
+                <Title>2. Identifikasi Risiko</Title>
+                <Text>Daftar potensi kejadian risiko beserta penyebab dan dampaknya.</Text>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" icon={FiPlus} onClick={handleOpenAddRisk}>
-                Tambah Identifikasi Risiko
+              <Button type="button" className="rounded-lg" icon={FiPlus} variant="secondary" color="orange" onClick={handleOpenAddRisk}>
+                Tambah Risiko
               </Button>
-              <Button type="button" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} />
+              <Button type="button" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} title="Toggle Fullscreen" />
             </div>
           </div>
-          <div className="overflow-x-auto mt-4 pt-8">
-            <Table className="min-w-[1600px]">
-              <TableHead className="sticky top-0 z-10 bg-white shadow-sm">
-                <TableRow>
-                  <TableHeaderCell className="w-12">No</TableHeaderCell>
-                  <TableHeaderCell>Kode</TableHeaderCell>
-                  <TableHeaderCell>
+
+          <div className="overflow-x-auto pb-4">
+            <Table className="min-w-[1800px]">
+              <TableHead>
+                <TableRow className="border-b border-orange-200">
+                  <TableHeaderCell className="w-12 bg-orange-50 text-orange-900 font-bold">No</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold">Kode</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold">
                     <div className="flex items-center gap-1">
                       Kategori{" "}
                       <Tooltip>
-                        <FiHelpCircle className="h-4 w-4 text-gray-400" />
+                        <FiHelpCircle />
                       </Tooltip>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell>Unit Kerja</TableHeaderCell>
-                  <TableHeaderCell>Sasaran</TableHeaderCell>
-                  <TableHeaderCell>Tgl Identifikasi</TableHeaderCell>
-                  <TableHeaderCell>Deskripsi / Kejadian</TableHeaderCell>
-                  <TableHeaderCell>Akar Penyebab</TableHeaderCell>
-                  <TableHeaderCell>Indikator</TableHeaderCell>
-                  <TableHeaderCell>Internal Control</TableHeaderCell>
-                  <TableHeaderCell>Dampak</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold">Unit Kerja</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold w-64">Sasaran</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold">Tgl Identifikasi</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold w-72">Kejadian Risiko</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold w-64">Akar Penyebab</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold w-64">Indikator</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold w-64">Internal Control</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold w-64">Dampak</TableHeaderCell>
+                  <TableHeaderCell className="bg-orange-50 text-orange-900 font-bold text-right sticky right-0 z-10 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.1)]">Aksi</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {risks.length > 0 ? (
                   risks.map((risk, index) => (
-                    <TableRow key={index} className="hover:bg-gray-50">
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>{risk.kode_risiko}</TableCell>
-                      <TableCell>{risk.kategori_risiko}</TableCell>
-                      <TableCell>{risk.unit_kerja}</TableCell>
-                      <TableCell className="whitespace-normal">{risk.sasaran}</TableCell>
-                      <TableCell>{risk.tanggal_identifikasi}</TableCell>
-                      <TableCell className="whitespace-normal">{risk.deskripsi_risiko}</TableCell>
-                      <TableCell className="whitespace-normal">{risk.akar_penyebab}</TableCell>
-                      <TableCell className="whitespace-normal">{risk.indikator_risiko}</TableCell>
-                      <TableCell className="whitespace-normal">{risk.internal_control}</TableCell>
-                      <TableCell className="whitespace-normal">{risk.deskripsi_dampak}</TableCell>
-                      <TableCell className="text-right">
+                    <TableRow key={index} className="hover:bg-orange-50/30 transition-colors group">
+                      <TableCell className="text-center font-medium text-slate-500">{index + 1}</TableCell>
+                      <TableCell className="font-mono text-xs">{risk.kode_risiko}</TableCell>
+                      <TableCell>
+                        <Badge size="xs" color="orange" className="rounded-md">
+                          {risk.kategori_risiko}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-normal text-xs text-slate-700">{risk.unit_kerja}</TableCell>
+                      <TableCell className="whitespace-normal text-xs text-slate-700">{risk.sasaran}</TableCell>
+                      <TableCell className="text-slate-500 text-xs">{formatDate(risk.tanggal_identifikasi)}</TableCell>
+                      <TableCell className="whitespace-normal text-xs font-medium text-slate-800">{risk.deskripsi_risiko}</TableCell>
+                      <TableCell className="whitespace-normal text-xs text-slate-700">{risk.akar_penyebab}</TableCell>
+                      <TableCell className="whitespace-normal text-xs text-slate-700">{risk.indikator_risiko}</TableCell>
+                      <TableCell className="whitespace-normal text-xs text-slate-700">{risk.internal_control}</TableCell>
+                      <TableCell className="whitespace-normal text-xs text-slate-700">{risk.deskripsi_dampak}</TableCell>
+                      <TableCell className="text-right sticky right-0 bg-white group-hover:bg-orange-50/30 transition-colors shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.1)]">
                         <Flex justifyContent="end" className="gap-2">
                           <Button type="button" icon={FiEdit2} size="xs" variant="light" color="blue" onClick={() => handleOpenEditRisk(index)} />
                           <Button type="button" icon={FiTrash2} size="xs" variant="light" color="red" onClick={() => handleDeleteRisk(index)} />
@@ -408,8 +427,8 @@ function BasicAssessmentFormPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-gray-500 py-10">
-                      Belum ada risiko yang diidentifikasi.
+                    <TableCell colSpan={12} className="text-center text-gray-400 py-10 italic">
+                      Belum ada risiko teridentifikasi.
                     </TableCell>
                   </TableRow>
                 )}
@@ -418,29 +437,35 @@ function BasicAssessmentFormPage() {
           </div>
         </Card>
 
-        {/* CARD 4: Analisis Risiko */}
-        <Card>
-          <div className="flex justify-between items-center">
-            <div>
-              <Title as="h3">Tugas 3 - Analisis Risiko</Title>
-              <Text>Lakukan analisis terhadap risiko yang telah diidentifikasi.</Text>
+        {/* CARD 4: ANALISIS (Aksen Merah) */}
+        <Card className="border-l-4 border-red-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-50 rounded-lg text-red-600">
+                <FiBarChart2 size={24} />
+              </div>
+              <div>
+                <Title>3. Analisis Risiko</Title>
+                <Text>Penilaian tingkat risiko inheren berdasarkan probabilitas dan dampak.</Text>
+              </div>
             </div>
-            <Button type="button" icon={FiPlus} onClick={handleOpenAddAnalysis} disabled={availableRisksForAnalysis.length === 0 && editingAnalysisIndex === null}>
-              Tambah Analisis Risiko
+            <Button type="button" className="rounded-lg" icon={FiPlus} variant="secondary" color="red" onClick={handleOpenAddAnalysis} disabled={availableRisksForAnalysis.length === 0 && editingAnalysisIndex === null}>
+              Tambah Analisis
             </Button>
           </div>
-          <div className="overflow-x-auto mt-4">
+
+          <div className="overflow-x-auto pb-2">
             <Table className="min-w-[1200px]">
               <TableHead>
-                <TableRow>
-                  <TableHeaderCell>Deskripsi Risiko</TableHeaderCell>
-                  <TableHeaderCell>Prob (P)</TableHeaderCell>
-                  <TableHeaderCell>Dampak (I)</TableHeaderCell>
-                  <TableHeaderCell>Skor (W)</TableHeaderCell>
-                  <TableHeaderCell>Prob Kualitatif (%)</TableHeaderCell>
-                  <TableHeaderCell>Dampak Finansial (Rp)</TableHeaderCell>
-                  <TableHeaderCell>Nilai Bersih</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Aksi</TableHeaderCell>
+                <TableRow className="border-b border-red-200">
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold w-1/3">Kejadian Risiko</TableHeaderCell>
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold text-center">Prob (P)</TableHeaderCell>
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold text-center">Dampak (I)</TableHeaderCell>
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold text-center">Skor (W)</TableHeaderCell>
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold text-right">Probabilitas (%)</TableHeaderCell>
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold text-right">Dampak (Rp)</TableHeaderCell>
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold text-right">Nilai Bersih</TableHeaderCell>
+                  <TableHeaderCell className="bg-red-50 text-red-900 font-bold text-right">Aksi</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -449,15 +474,23 @@ function BasicAssessmentFormPage() {
                     const riskInfo = risks[analysis.risk_identification_id];
                     const skor = (analysis.probabilitas || 0) * (analysis.dampak || 0);
                     const nilaiBersih = (analysis.dampak_finansial || 0) * ((analysis.probabilitas_kualitatif || 0) / 100);
+
+                    // Warna skor
+                    let scoreColor = "bg-green-100 text-green-800";
+                    if (skor >= 15) scoreColor = "bg-red-100 text-red-800";
+                    else if (skor >= 8) scoreColor = "bg-yellow-100 text-yellow-800";
+
                     return (
-                      <TableRow key={index}>
-                        <TableCell className="whitespace-normal max-w-md">{riskInfo?.deskripsi_risiko || "(Risiko Dihapus)"}</TableCell>
-                        <TableCell>{analysis.probabilitas}</TableCell>
-                        <TableCell>{analysis.dampak}</TableCell>
-                        <TableCell>{skor}</TableCell>
-                        <TableCell>{analysis.probabilitas_kualitatif}%</TableCell>
-                        <TableCell>{formatCurrency(analysis.dampak_finansial)}</TableCell>
-                        <TableCell>{formatCurrency(nilaiBersih)}</TableCell>
+                      <TableRow key={index} className="hover:bg-red-50/30 transition-colors">
+                        <TableCell className="whitespace-normal text-xs font-medium text-slate-700">{riskInfo?.deskripsi_risiko || <span className="text-red-400 italic">(Risiko induk terhapus)</span>}</TableCell>
+                        <TableCell className="text-center">{analysis.probabilitas}</TableCell>
+                        <TableCell className="text-center">{analysis.dampak}</TableCell>
+                        <TableCell className="text-center">
+                          <span className={`px-2 py-1 rounded font-bold text-xs ${scoreColor}`}>{skor}</span>
+                        </TableCell>
+                        <TableCell className="text-right">{analysis.probabilitas_kualitatif}%</TableCell>
+                        <TableCell className="text-right text-slate-600">{formatCurrency(analysis.dampak_finansial)}</TableCell>
+                        <TableCell className="text-right font-bold text-slate-800">{formatCurrency(nilaiBersih)}</TableCell>
                         <TableCell className="text-right">
                           <Flex justifyContent="end" className="gap-2">
                             <Button type="button" icon={FiEdit2} size="xs" variant="light" color="blue" onClick={() => handleOpenEditAnalysis(index)} />
@@ -469,7 +502,7 @@ function BasicAssessmentFormPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-4 text-gray-500">
+                    <TableCell colSpan={8} className="text-center text-gray-400 py-8 italic">
                       Belum ada analisis risiko.
                     </TableCell>
                   </TableRow>
@@ -478,21 +511,11 @@ function BasicAssessmentFormPage() {
             </Table>
           </div>
         </Card>
-
-        <div className="flex justify-end">
-          <Button type="submit" size="lg" icon={FiSave} loading={isLoading}>
-            Simpan Keseluruhan Asesmen
-          </Button>
-        </div>
       </form>
 
       {/* --- MODALS --- */}
-      {/* Perhatikan betapa bersihnya bagian ini sekarang! */}
-
       <BasicContextModal isOpen={isContextModalOpen} onClose={() => setIsContextModalOpen(false)} onSave={handleSaveContext} initialData={editingContextIndex !== null ? contexts[editingContextIndex] : null} />
-
       <BasicRiskModal isOpen={isRiskModalOpen} onClose={() => setIsRiskModalOpen(false)} onSave={handleSaveRisk} initialData={editingRiskIndex !== null ? risks[editingRiskIndex] : null} />
-
       <BasicAnalysisModal
         isOpen={isAnalysisModalOpen}
         onClose={() => setIsAnalysisModalOpen(false)}
@@ -500,7 +523,6 @@ function BasicAssessmentFormPage() {
         initialData={editingAnalysisIndex !== null ? analyses[editingAnalysisIndex] : null}
         availableRisks={availableRisksForAnalysis}
       />
-
       <ConfirmationDialog
         isOpen={deleteConfirmation.isOpen}
         onClose={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}

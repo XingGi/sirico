@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import apiClient from "../../api/api";
+import apiClient from "../../../api/api";
 import { Title, Text, Button, Textarea, Select, SelectItem, Card, Badge, Flex, Icon, Grid, Subtitle, Dialog, DialogPanel } from "@tremor/react";
 import { toast } from "sonner";
 import { FiCalendar, FiAlertTriangle, FiFileText, FiCheckCircle, FiClock, FiMinusCircle, FiPlus, FiSend } from "react-icons/fi";

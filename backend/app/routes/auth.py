@@ -218,7 +218,7 @@ def update_account_details():
     updated = False
 
     # Field yang boleh diupdate oleh user sendiri
-    allowed_profile_updates = ['nama_lengkap', 'phone_number', 'institution']
+    allowed_profile_updates = ['nama_lengkap', 'phone_number']
     for field in allowed_profile_updates:
         if field in data:
             setattr(user, field, data[field])
@@ -229,7 +229,8 @@ def update_account_details():
         limit_fields = {
             "dasar": "limit_dasar",
             "madya": "limit_madya",
-            "ai": "limit_ai"
+            "ai": "limit_ai",
+            "horizon": "limit_horizon"
         }
         for key, db_field in limit_fields.items():
             if key in limits_data and 'limit' in limits_data[key]:

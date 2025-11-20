@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogPanel, Title, Text, Select, SelectItem, NumberInput, TextInput, Button, Card, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell } from "@tremor/react";
+import { toast } from "sonner";
 
 const initialAnalysisState = { risk_identification_id: "", probabilitas: 1, dampak: 1, probabilitas_kualitatif: 0, dampak_finansial: 0 };
 
@@ -22,7 +23,7 @@ export default function BasicAnalysisModal({ isOpen, onClose, onSave, initialDat
 
   const handleSave = () => {
     if (analysisData.risk_identification_id === "") {
-      alert("Deskripsi Risiko wajib dipilih.");
+      toast.error("Deskripsi Risiko wajib dipilih.");
       return;
     }
     onSave(analysisData);
@@ -52,11 +53,11 @@ export default function BasicAnalysisModal({ isOpen, onClose, onSave, initialDat
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="text-sm">Probabilitas (1-5)</label>
-              <NumberInput value={analysisData.probabilitas} onValueChange={(val) => handleChange("probabilitas", val)} min={1} max={5} />
+              <NumberInput className="rounded-md" value={analysisData.probabilitas} onValueChange={(val) => handleChange("probabilitas", val)} min={1} max={5} />
             </div>
             <div>
               <label className="text-sm">Dampak (1-5)</label>
-              <NumberInput value={analysisData.dampak} onValueChange={(val) => handleChange("dampak", val)} min={1} max={5} />
+              <NumberInput className="rounded-md" value={analysisData.dampak} onValueChange={(val) => handleChange("dampak", val)} min={1} max={5} />
             </div>
             <div>
               <label className="text-sm">Skor (W)</label>
@@ -107,12 +108,25 @@ export default function BasicAnalysisModal({ isOpen, onClose, onSave, initialDat
 
           <div>
             <label className="text-sm">Probabilitas Kualitatif (%)</label>
-            <NumberInput icon={() => <span>%</span>} value={analysisData.probabilitas_kualitatif} onValueChange={(val) => handleChange("probabilitas_kualitatif", val)} min={0} max={100} />
+            <NumberInput
+              icon={() => <span className="m-2">%</span>}
+              value={analysisData.probabilitas_kualitatif}
+              onValueChange={(val) => {
+                if (val === undefined || val === null) {
+                  handleChange("probabilitas_kualitatif", 0);
+                } else {
+                  const clampedVal = Math.min(100, Math.max(0, val));
+                  handleChange("probabilitas_kualitatif", clampedVal);
+                }
+              }}
+              min={0}
+              max={100}
+            />
           </div>
           <div>
             <label className="text-sm">Dampak Finansial (Rp)</label>
             <TextInput
-              icon={() => <span className="text-gray-500">Rp</span>}
+              icon={() => <span className="text-gray-500 m-2">Rp</span>}
               value={analysisData.dampak_finansial?.toLocaleString("id-ID")}
               onChange={(e) => handleChange("dampak_finansial", parseCurrency(e.target.value))}
               placeholder="1.000.000"
@@ -120,7 +134,7 @@ export default function BasicAnalysisModal({ isOpen, onClose, onSave, initialDat
           </div>
           <div>
             <label className="text-sm">Nilai Bersih Risiko</label>
-            <TextInput icon={() => <span className="text-gray-500">Rp</span>} value={formatCurrency(nilaiBersih).replace("Rp", "")} disabled />
+            <TextInput icon={() => <span className="text-gray-500 m-2">Rp</span>} value={formatCurrency(nilaiBersih).replace("Rp", "")} disabled />
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">

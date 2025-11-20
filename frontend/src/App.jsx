@@ -15,9 +15,10 @@ import AssessmentStudio from "./features/risk-ai/AssessmentStudio";
 import AssessmentListPage from "./features/risk-ai/AssessmentListPage";
 import AssessmentDetailPage from "./features/risk-ai/AssessmentDetailPage";
 import RiskRegisterPage from "./features/risk-ai/RiskRegisterPage";
-import RSCAPage from "./features/rsca/RSCAPage";
-import RscaQuestionnaireForm from "./features/rsca/RscaQuestionnaireForm";
-import BPRPage from "./features/bpr/BPRPage";
+import RSCAPage from "./features/addons/rsca/RSCAPage";
+import RscaQuestionnaireForm from "./features/addons/rsca/RscaQuestionnaireForm";
+import BPRPage from "./features/addons/bpr/BPRPage";
+import BPRDesignerPage from "./features/addons/bpr/BPRDesignerPage";
 import BIAPage from "./features/bia/BIAPage";
 import BasicAssessmentListPage from "./features/risk-management/basic/BasicAssessmentListPage";
 import BasicAssessmentFormPage from "./features/risk-management/basic/BasicAssessmentFormPage";
@@ -100,6 +101,7 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_bpr" />}>
               <Route path="/addons/bpr" element={<BPRPage />} />
+              <Route path="/addons/bpr/:docId" element={<BPRDesignerPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_bia" />}>
               <Route

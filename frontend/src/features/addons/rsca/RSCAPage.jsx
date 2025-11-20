@@ -1,12 +1,12 @@
 // frontend/src/features/rsca/RSCAPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import apiClient from "../../api/api";
+import apiClient from "../../../api/api";
 import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Button, Flex, Icon, Tab, TabGroup, TabList, TabPanel, TabPanels } from "@tremor/react";
 import { FiFileText, FiEye, FiCheckCircle, FiLoader, FiGrid, FiList, FiCalendar, FiArchive, FiActivity } from "react-icons/fi";
 import { useQuery } from "@tanstack/react-query";
-import { formatDate, getStatusColor, getStatusBadgeColor } from "../../utils/formatters";
-import AppResourceTable from "../../components/common/AppResourceTable";
+import { formatDate, getStatusColor, getStatusBadgeColor } from "../../../utils/formatters";
+import AppResourceTable from "../../../components/common/AppResourceTable";
 
 const fetchMyTasks = async () => {
   const { data } = await apiClient.get("/my-rsca-tasks");

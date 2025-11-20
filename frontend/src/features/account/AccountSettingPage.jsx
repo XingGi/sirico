@@ -76,7 +76,6 @@ function AccountSettingPage() {
     const payload = {
       nama_lengkap: userData.nama_lengkap,
       phone_number: userData.phone_number,
-      institution: userData.institution,
     };
 
     const isAdmin = user?.role === "admin";
@@ -155,7 +154,7 @@ function AccountSettingPage() {
                   icon={FiHome}
                   name="institution"
                   value={userData.institution || ""}
-                  onChange={handleChange}
+                  disabled={true}
                   placeholder="Nama PT / Universitas..." // Placeholder ditambahkan
                 />
               </div>

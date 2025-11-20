@@ -100,35 +100,3 @@ class ImpactScenario(db.Model):
     
     def __repr__(self):
         return f'<ImpactScenario {self.nama_skenario}>'
-
-class BusinessProcess(db.Model):
-    __tablename__ = 'business_processes'
-    id = db.Column(db.Integer, primary_key=True)
-    nama_proses = db.Column(db.String(250), nullable=False)
-    pemilik_proses = db.Column(db.String(150), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    steps = db.relationship('ProcessStep', backref='business_process', lazy=True, cascade="all, delete-orphan")
-
-    def __repr__(self):
-        return f'<BusinessProcess {self.nama_proses}>'
-
-# Tabel asosiasi untuk ProcessStep (RiskRegister ada di file lain, pakai string)
-process_step_risks = db.Table('process_step_risks',
-    db.Column('process_step_id', db.Integer, db.ForeignKey('process_steps.id'), primary_key=True),
-    db.Column('risk_register_id', db.Integer, db.ForeignKey('risk_register.id'), primary_key=True)
-)
-
-class ProcessStep(db.Model):
-    __tablename__ = 'process_steps'
-    id = db.Column(db.Integer, primary_key=True)
-    nama_langkah = db.Column(db.String(250), nullable=False)
-    deskripsi_langkah = db.Column(db.Text, nullable=True)
-    urutan = db.Column(db.Integer, nullable=False)
-    process_id = db.Column(db.Integer, db.ForeignKey('business_processes.id'), nullable=False)
-
-    # Relasi ke RiskRegister (gunakan string 'RiskRegister')
-    risks = db.relationship('RiskRegister', secondary=process_step_risks, lazy='subquery',
-                            backref=db.backref('process_steps', lazy=True))
-    
-    def __repr__(self):
-        return f'<ProcessStep {self.nama_langkah}>'

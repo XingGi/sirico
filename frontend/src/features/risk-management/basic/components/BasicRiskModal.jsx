@@ -43,7 +43,7 @@ export default function BasicRiskModal({ isOpen, onClose, onSave, initialData })
     <Dialog open={isOpen} onClose={onClose} static={true}>
       <DialogPanel className="max-w-3xl">
         <Title>{initialData ? "Edit" : "Tambah"} Identifikasi Risiko Baru</Title>
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-[70vh] overflow-y-auto pr-2 pl-1 pb-1">
           <div>
             <label>Kode Risiko</label>
             <TextInput name="kode_risiko" value={riskData.kode_risiko} onChange={handleChange} placeholder="Otomatis atau manual..." />

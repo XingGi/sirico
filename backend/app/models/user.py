@@ -71,7 +71,6 @@ class User(db.Model):
     # String references untuk relasi agar tidak perlu import file lain di sini (mencegah circular import)
     kris = db.relationship('KRI', backref='owner', lazy=True, cascade="all, delete-orphan")
     assessments = db.relationship('RiskAssessment', backref='assessor', lazy=True, cascade="all, delete-orphan")
-    business_processes = db.relationship('BusinessProcess', backref='owner', lazy=True, cascade="all, delete-orphan")
     critical_assets = db.relationship('CriticalAsset', backref='owner', lazy=True, cascade="all, delete-orphan")
     impact_scenarios = db.relationship('ImpactScenario', backref='owner', lazy=True, cascade="all, delete-orphan")
     

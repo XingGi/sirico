@@ -4,8 +4,7 @@
 from .user import User, Role, Permission, Department, user_roles, role_permissions
 from .master import (
     MasterData, Regulation, HorizonScanEntry, KRI, 
-    CriticalAsset, Dependency, ImpactScenario, 
-    BusinessProcess, ProcessStep, process_step_risks, HorizonScanResult
+    CriticalAsset, Dependency, ImpactScenario, HorizonScanResult
 )
 from .rsca import (
     RscaCycle, RscaQuestionnaire, RscaAnswer, SubmittedRisk, ActionPlan,
@@ -22,6 +21,8 @@ from .madya import (
     MadyaCriteriaProbability, MadyaCriteriaImpact, 
     OrganizationalStructureEntry, SasaranOrganisasiKPI, RiskInputMadya
 )
+
+from .bpr import BprDocument, BprNode, BprEdge, BprRisk
 
 # Pastikan 'db' tersedia jika ada file lain yang mengimportnya dari sini (opsional tapi aman)
 from app import db

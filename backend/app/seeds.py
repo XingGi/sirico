@@ -22,8 +22,9 @@ DEFAULT_PERMISSIONS = {
     # Modules
     'view_rsca': 'Melihat tugas & siklus RSCA',
     'submit_rsca': 'Mengisi dan mengirim jawaban RSCA',
-    'view_bpr': 'Melihat Proses Bisnis (BPR)',
-    'manage_bpr': 'Membuat/Edit/Hapus Proses Bisnis (BPR)',
+    'view_bpr': 'Melihat menu Business Process Review',
+    'manage_bpr': 'Membuat dan Mengelola Business Process Review',
+    'approve_bpr': 'Menyetujui, Finalisasi, dan Membuat Header BPR (Manajer)',
     'view_bia': 'Melihat halaman BIA',
     'run_bia_simulation': 'Menjalankan simulasi BIA',
     'manage_critical_assets': 'Mengelola Aset Kritis & Dependensi (BIA)',
@@ -58,112 +59,83 @@ def seed_roles_permissions():
             created_items += 1
 
     if created_items > 0:
-        db.session.flush() # Flush untuk mendapatkan ID jika diperlukan nanti
+        db.session.commit() # Commit agar bisa di-query di bawah
         print(f"  {created_items} new permissions created.")
     else:
         print("  All default permissions already exist.")
         
-    all_permissions = Permission.query.all()
-    view_dashboard_perm = Permission.query.filter_by(name='view_dashboard').first()
-    view_rsca_perm = Permission.query.filter_by(name='view_rsca').first()
-    submit_rsca_perm = Permission.query.filter_by(name='submit_rsca').first()
-    view_admin_area_perm = Permission.query.filter_by(name='view_admin_area').first()
-    manage_depts_perm = Permission.query.filter_by(name='manage_departments').first()
-    manage_rsca_perm = Permission.query.filter_by(name='manage_rsca_cycles').first()
-    view_risk_dasar_perm = Permission.query.filter_by(name='view_risk_dasar').first()
-    view_risk_madya_perm = Permission.query.filter_by(name='view_risk_madya').first()
-    view_mitigation_perm = Permission.query.filter_by(name='view_mitigation_monitor').first()
-    view_horizon_perm = Permission.query.filter_by(name='view_horizon_scanner').first()
+    perms = {p.name: p for p in Permission.query.all()}
+
+    # Helper untuk assign permission ke role dengan aman
+    def assign_perms(role, perm_names):
+        count = 0
+        for p_name in perm_names:
+            perm_obj = perms.get(p_name)
+            if perm_obj and perm_obj not in role.permissions:
+                role.permissions.append(perm_obj)
+                count += 1
+        if count > 0:
+            print(f"  -> Added {count} missing permissions to role '{role.name}'.")
 
     # 2. Seed Role Admin
     admin_role = Role.query.filter_by(name='Admin').first()
     if not admin_role:
         print("  Creating 'Admin' role...")
         admin_role = Role(name='Admin', description='Akses penuh ke semua fitur sistem.')
-        # Assign semua permission yang ada ke Admin
-        all_permissions = Permission.query.all()
-        admin_role.permissions.extend(all_permissions)
         db.session.add(admin_role)
-        db.session.flush() # Pastikan admin_role punya ID
-        print("  'Admin' role created and all permissions assigned.")
-    else:
-        print("  'Admin' role already exists.")
-        # Opsional: Pastikan Admin selalu punya semua permission terbaru
-        current_admin_perm_ids = {p.id for p in admin_role.permissions}
-        all_perm_ids = {p.id for p in Permission.query.all()}
-        if current_admin_perm_ids != all_perm_ids:
-             print("  Updating Admin role permissions...")
-             admin_role.permissions = Permission.query.all()
-             print("  Admin role permissions updated.")
+    
+    # Admin selalu dapat SEMUA permission
+    all_permissions = list(perms.values())
+    for p in all_permissions:
+        if p not in admin_role.permissions:
+            admin_role.permissions.append(p)
 
-
-    # 3. Seed Role User (Contoh: hanya bisa lihat dashboard)
+    # 3. Seed Role User
     user_role = Role.query.filter_by(name='User').first()
     if not user_role:
         print("  Creating 'User' role...")
         user_role = Role(name='User', description='Akses standar untuk pengguna biasa.')
-        # Assign permission spesifik, contoh 'view_dashboard'
-        view_dashboard_perm = Permission.query.filter_by(name='view_dashboard').first()
-        if view_dashboard_perm:
-            user_role.permissions.append(view_dashboard_perm)
-        # Tambahkan permission lain untuk role User jika perlu
-        # misal: view_risk_dasar, submit_rsca, dll.
-
         db.session.add(user_role)
-        print("  'User' role created with basic permissions.")
-    else:
-        print("  'User' role already exists.")
-        
-    # 4. Seed Role Staf (Lini 1) - BARU
+    
+    assign_perms(user_role, ['view_dashboard'])
+
+    # 4. Seed Role Staf (Lini 1)
     staff_role = Role.query.filter_by(name='Staf').first()
     if not staff_role:
-        print("  Creating 'Staf' (Lini 1) role...")
-        staff_role = Role(name='Staf', description='Akses Lini 1 (Operasional): Mengisi asesmen, kuesioner, dll.')
-        
-        # Beri izin dasar Lini 1
-        if view_dashboard_perm: staff_role.permissions.append(view_dashboard_perm)
-        if view_rsca_perm: staff_role.permissions.append(view_rsca_perm)
-        if submit_rsca_perm: staff_role.permissions.append(submit_rsca_perm)
-        if view_risk_dasar_perm: staff_role.permissions.append(view_risk_dasar_perm)
-        if view_risk_madya_perm: staff_role.permissions.append(view_risk_madya_perm)
-        # Tambahkan izin 'view' atau 'submit' lainnya di sini
-        
+        print("  Creating 'Staf' role...")
+        staff_role = Role(name='Staf', description='Akses Lini 1 (Operasional).')
         db.session.add(staff_role)
-        print("  'Staf' role created with Lini 1 permissions.")
-    else:
-        print("  'Staf' role already exists.")
+    
+    # Daftar Permission Wajib untuk Staf
+    staff_perms_list = [
+        'view_dashboard', 'view_addons_menu',
+        'view_rsca', 'submit_rsca',
+        'view_risk_dasar', 'view_risk_madya',
+        'view_bpr', 'manage_bpr' # Permission BPR
+    ]
+    assign_perms(staff_role, staff_perms_list)
 
-
-    # 5. Seed Role Manajer Risiko (Lini 2) - BARU
+    # 5. Seed Role Manajer Risiko (Lini 2)
     manager_role = Role.query.filter_by(name='Manajer Risiko').first()
     if not manager_role:
-        print("  Creating 'Manajer Risiko' (Lini 2) role...")
-        manager_role = Role(name='Manajer Risiko', description='Akses Lini 2: Mengelola siklus, departemen, dan meninjau hasil.')
-        
-        # Beri izin Lini 2
-        if view_dashboard_perm: manager_role.permissions.append(view_dashboard_perm)
-        if view_admin_area_perm: manager_role.permissions.append(view_admin_area_perm)
-        if manage_depts_perm: manager_role.permissions.append(manage_depts_perm)
-        if manage_rsca_perm: manager_role.permissions.append(manage_rsca_perm)
-        if view_mitigation_perm: manager_role.permissions.append(view_mitigation_perm)
-        if view_horizon_perm: manager_role.permissions.append(view_horizon_perm)
-        # (Manajer Risiko mungkin juga perlu izin 'view_risk_dasar' dll.)
-        
+        print("  Creating 'Manajer Risiko' role...")
+        manager_role = Role(name='Manajer Risiko', description='Akses Lini 2 (Reviewer).')
         db.session.add(manager_role)
-        print("  'Manajer Risiko' role created with Lini 2 permissions.")
-    else:
-        print("  'Manajer Risiko' role already exists.")
-        if view_mitigation_perm and view_mitigation_perm not in manager_role.permissions:
-            manager_role.permissions.append(view_mitigation_perm)
-            print("  Adding 'view_mitigation_monitor' to existing 'Manajer Risiko' role.")
-        
-        if view_horizon_perm and view_horizon_perm not in manager_role.permissions:
-            manager_role.permissions.append(view_horizon_perm)
-            print("  Adding 'view_horizon_scanner' to existing 'Manajer Risiko' role.")
+    
+    # Daftar Permission Wajib untuk Manajer Risiko
+    manager_perms_list = [
+        'view_dashboard',
+        'view_admin_area',
+        'manage_departments', 'manage_rsca_cycles',
+        'view_mitigation_monitor', 'view_addons_menu',
+        'view_horizon_scanner',
+        'view_bpr', 'manage_bpr', 'approve_bpr' # Permission BPR Lengkap
+    ]
+    assign_perms(manager_role, manager_perms_list)
 
     try:
         db.session.commit()
-        print("Roles and Permissions seeding committed.")
+        print("Roles and Permissions seeding committed successfully.")
     except Exception as e:
         db.session.rollback()
         print(f"Error committing roles/permissions: {e}")

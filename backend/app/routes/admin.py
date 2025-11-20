@@ -147,7 +147,6 @@ def delete_role(role_id):
     db.session.commit()
     return jsonify({"msg": "Role berhasil dihapus."})
 
-# --- Endpoint untuk Permissions ---
 
 @admin_bp.route('/permissions', methods=['GET'])
 @admin_required() # Hanya admin yang perlu tahu semua permission
@@ -158,46 +157,7 @@ def get_permissions():
     permissions = Permission.query.order_by(Permission.name).all()
     result = [{"id": p.id, "name": p.name, "description": p.description} for p in permissions]
 
-    # Opsi 2: Hardcode daftar permission (lebih simpel di awal)
-    # PERMISSIONS_LIST = [
-    #     {"id": 1, "name": "view_dashboard", "description": "Melihat halaman dashboard"},
-    #     {"id": 2, "name": "manage_users", "description": "Mengelola data pengguna (Admin)"},
-    #     {"id": 3, "name": "view_risk_assessment", "description": "Melihat daftar Risk Assessment AI"},
-    #     {"id": 4, "name": "create_risk_assessment", "description": "Membuat Risk Assessment AI baru"},
-    #     {"id": 5, "name": "edit_risk_assessment", "description": "Mengedit Risk Assessment AI"},
-    #     {"id": 6, "name": "delete_risk_assessment", "description": "Menghapus Risk Assessment AI"},
-    #     {"id": 7, "name": "view_risk_register", "description": "Melihat Risk Register Utama"},
-    #     {"id": 8, "name": "edit_risk_register", "description": "Mengedit item di Risk Register Utama"},
-    #     {"id": 9, "name": "delete_risk_register", "description": "Menghapus item dari Risk Register Utama"},
-    #     # Tambahkan permission untuk fitur lain (Dasar, Madya, RSCA, BPR, BIA, Admin)
-    #     {"id": 10, "name": "view_risk_dasar", "description": "Melihat daftar Asesmen Dasar"},
-    #     {"id": 11, "name": "manage_risk_dasar", "description": "Membuat/Edit/Hapus Asesmen Dasar"}, # Gabung create, edit, delete
-    #     {"id": 12, "name": "view_risk_madya", "description": "Melihat daftar Asesmen Madya"},
-    #     {"id": 13, "name": "manage_risk_madya", "description": "Membuat/Edit/Hapus Asesmen Madya"},
-    #     {"id": 14, "name": "view_risk_templates", "description": "Melihat daftar Template Peta Risiko"},
-    #     {"id": 15, "name": "manage_risk_templates", "description": "Membuat/Edit/Hapus Template Peta Risiko"},
-    #     {"id": 16, "name": "view_rsca", "description": "Melihat tugas RSCA"},
-    #     {"id": 17, "name": "submit_rsca", "description": "Mengisi dan mengirim jawaban RSCA"},
-    #     {"id": 18, "name": "manage_rsca_cycles", "description": "Membuat/Mengelola siklus RSCA (Admin)"},
-    #     {"id": 19, "name": "view_bpr", "description": "Melihat Proses Bisnis"},
-    #     {"id": 20, "name": "manage_bpr", "description": "Membuat/Edit/Hapus Proses Bisnis"},
-    #     {"id": 21, "name": "view_bia", "description": "Melihat halaman BIA"},
-    #     {"id": 22, "name": "run_bia_simulation", "description": "Menjalankan simulasi BIA"},
-    #     {"id": 23, "name": "manage_critical_assets", "description": "Mengelola Aset Kritis (BIA)"},
-    #     {"id": 24, "name": "view_admin_master_data", "description": "Melihat halaman Master Data (Admin)"},
-    #     {"id": 25, "name": "manage_admin_master_data", "description": "Mengelola Master Data (Admin)"},
-    #     {"id": 26, "name": "view_admin_regulations", "description": "Melihat halaman Master Regulasi (Admin)"},
-    #     {"id": 27, "name": "manage_admin_regulations", "description": "Mengelola Master Regulasi (Admin)"},
-    #     {"id": 28, "name": "view_roles", "description": "Melihat daftar Roles (Admin)"},
-    #     {"id": 29, "name": "manage_roles", "description": "Membuat/Edit/Hapus Roles (Admin)"},
-    #     # ... tambahkan permission lain sesuai kebutuhan ...
-    # ]
-    # result = PERMISSIONS_LIST
-
     return jsonify(result)
-
-# --- Endpoint untuk Mengelola User & Roles (Contoh) ---
-# Endpoint ini mungkin perlu dipisah ke blueprint lain jika semakin kompleks
 
 @admin_bp.route('/users/<int:user_id>/roles', methods=['PUT'])
 @admin_required() # Hanya admin yang bisa assign role
