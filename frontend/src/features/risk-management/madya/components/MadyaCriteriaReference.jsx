@@ -90,7 +90,7 @@ function MadyaCriteriaReference({ probabilityCriteria = [], impactCriteria = [],
       <div>
         <Title className="text-xl">Kriteria Probabilitas</Title>
         <Table className="mt-2">
-          <TableHead>
+          <TableHead className="text-sm">
             <TableRow className="bg-slate-100">
               <TableHeaderCell rowSpan={2} className="align-middle w-16">
                 Skala
@@ -112,7 +112,7 @@ function MadyaCriteriaReference({ probabilityCriteria = [], impactCriteria = [],
             {criteriaData
               .sort((a, b) => b.level - a.level) // Urutkan dari 5 ke 1
               .map((item) => (
-                <TableRow key={item.level}>
+                <TableRow className="text-xs" key={item.level}>
                   <TableCell className={`font-semibold align-top ${criteriaStyles[`level${item.level}`]}`}>{item.level}</TableCell>
                   <TableCell className="align-top whitespace-normal max-w-xs">
                     <Text>{item.parameter}</Text>

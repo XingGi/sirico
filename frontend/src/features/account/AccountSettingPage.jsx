@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Card, Title, Text, TextInput, Button, Grid, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Metric, NumberInput } from "@tremor/react";
 import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiEdit3, FiInfo, FiBriefcase } from "react-icons/fi";
 import apiClient from "../../api/api";
+import { toast } from "sonner";
 import { useAuth } from "../../context/AuthContext"; // Import useAuth
 
 function AccountSettingPage() {
@@ -85,7 +86,7 @@ function AccountSettingPage() {
 
     try {
       await apiClient.put("/account/update", payload);
-      alert("Profil berhasil disimpan!");
+      toast.success("Profil berhasil disimpan!");
       // Opsional: fetch ulang data jika perlu, tapi biasanya state sudah update
     } catch (err) {
       console.error("Gagal menyimpan profil:", err);

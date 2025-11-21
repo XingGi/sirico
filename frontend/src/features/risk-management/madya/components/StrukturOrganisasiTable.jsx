@@ -7,7 +7,7 @@ function StrukturOrganisasiTable({ data, onEdit, onDelete, readOnly = false }) {
   return (
     <Table>
       <TableHead>
-        <TableRow>
+        <TableRow className="text-md">
           <TableHeaderCell>No</TableHeaderCell>
           <TableHeaderCell>Direktorat</TableHeaderCell>
           <TableHeaderCell>Divisi</TableHeaderCell>
@@ -15,7 +15,7 @@ function StrukturOrganisasiTable({ data, onEdit, onDelete, readOnly = false }) {
           {!readOnly && <TableHeaderCell className="text-right">Aksi</TableHeaderCell>}
         </TableRow>
       </TableHead>
-      <TableBody>
+      <TableBody className="text-xs">
         {data && data.length > 0 ? (
           data.map((item, index) => (
             <TableRow key={item.id}>

@@ -1,8 +1,9 @@
 // frontend/src/features/risk-management/madya/MadyaAssessmentFormPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Title, Text, Card, Button, Accordion, AccordionHeader, AccordionBody } from "@tremor/react";
+import { Title, Text, Card, Button, Badge } from "@tremor/react";
 import { debounce } from "lodash";
 import { useParams, useNavigate } from "react-router-dom";
+import { FiShield, FiArrowLeft, FiSave, FiLoader } from "react-icons/fi";
 import apiClient from "../../../api/api";
 import StrukturOrganisasiCard from "./components/StrukturOrganisasiCard";
 import MadyaCriteriaReference from "./components/MadyaCriteriaReference";
@@ -35,16 +36,14 @@ function MadyaAssessmentFormPage() {
       setSelectedTemplateData(null);
       return;
     }
-    console.log(`Fetching details for template ID: ${templateId}`);
     setIsTemplateDetailLoading(true);
     try {
       const response = await apiClient.get(`/risk-maps/${templateId}`);
       setSelectedTemplateData(response.data);
-      console.log("Template details fetched:", response.data);
     } catch (error) {
       console.error(`Gagal memuat detail template ${templateId}:`, error);
       setSelectedTemplateData(null);
-      alert(`Gagal memuat detail template (ID: ${templateId}). Perhitungan skor mungkin tidak akurat.`);
+      toast.error(`Gagal memuat detail template.`);
     } finally {
       setIsTemplateDetailLoading(false);
     }
@@ -59,11 +58,9 @@ function MadyaAssessmentFormPage() {
 
   const debouncedSaveFilters = useRef(null);
 
-  // Fungsi untuk menyimpan filter ke backend
   const saveFilters = useCallback(
     async (currentFilters) => {
       if (!assessmentId) return;
-      console.log("Saving filters:", currentFilters);
       try {
         await apiClient.put(`/madya-assessments/${assessmentId}/filters`, {
           filter_organisasi: currentFilters.organisasi,
@@ -71,7 +68,6 @@ function MadyaAssessmentFormPage() {
           filter_divisi: currentFilters.divisi,
           filter_departemen: currentFilters.departemen,
         });
-        console.log("Filters saved successfully.");
       } catch (error) {
         console.error("Gagal menyimpan filter:", error);
       }
@@ -96,7 +92,6 @@ function MadyaAssessmentFormPage() {
     try {
       const riskResponse = await apiClient.get(`/madya-assessments/${id}/risk-inputs`);
       setRiskInputEntries(riskResponse.data || []);
-      console.log("Risk Input data fetched/refreshed:", riskResponse.data);
     } catch (error) {
       console.error("Gagal memuat data Risk Input:", error);
       setRiskInputEntries([]);
@@ -121,7 +116,6 @@ function MadyaAssessmentFormPage() {
       }
       return prevEntries;
     });
-    console.log(`State Sasaran di-update secara manual (action: ${action})`);
   };
 
   useEffect(() => {
@@ -130,8 +124,7 @@ function MadyaAssessmentFormPage() {
       const parsedId = parseInt(idParam, 10);
 
       if (isNaN(parsedId)) {
-        console.error("ID Asesmen tidak valid di URL:", idParam);
-        alert("ID Asesmen tidak valid.");
+        toast.error("ID Asesmen tidak valid.");
         navigate("/risk-management/madya");
         setIsLoading(false);
         return;
@@ -163,13 +156,12 @@ function MadyaAssessmentFormPage() {
         if (templateIdFromAssessment) {
           await fetchTemplateDetails(templateIdFromAssessment);
         } else {
-          console.warn(`Asesmen ID ${id} tidak memiliki template peta risiko terkait.`);
           setSelectedTemplateData(null);
-          alert("Peringatan: Asesmen ini tidak terhubung dengan template peta risiko. Fungsi skor mungkin tidak bekerja.");
+          toast.warning("Asesmen ini tidak terhubung dengan template peta risiko.");
         }
       } catch (error) {
         console.error("Gagal memuat data asesmen madya:", error);
-        alert("Gagal memuat data asesmen. Silakan coba lagi.");
+        toast.error("Gagal memuat data asesmen.");
         setAssessmentData(null);
         setSasaranKPIEntries([]);
         setCurrentStructureEntries([]);
@@ -188,7 +180,6 @@ function MadyaAssessmentFormPage() {
       const assessmentRes = await apiClient.get(`/madya-assessments/${assessmentId}`);
       setProbabilityCriteria(assessmentRes.data.probability_criteria || []);
       setImpactCriteria(assessmentRes.data.impact_criteria || []);
-      console.log("Data kriteria di-refresh.");
     } catch (error) {
       console.error("Gagal me-refresh kriteria:", error);
     }
@@ -206,7 +197,6 @@ function MadyaAssessmentFormPage() {
     };
   }, []);
 
-  // --- 4. Tambahkan fungsi toggle fullscreen ---
   const toggleCriteriaFullscreen = () => {
     if (!document.fullscreenElement) {
       criteriaCardRef.current?.requestFullscreen();
@@ -216,7 +206,6 @@ function MadyaAssessmentFormPage() {
     }
   };
 
-  // Handler untuk update state struktur dari child
   const handleStructureEntriesChange = (newEntries) => {
     setCurrentStructureEntries(newEntries);
   };
@@ -232,7 +221,6 @@ function MadyaAssessmentFormPage() {
     const savedEntry = responseData.entry;
     const updatedSasaran = responseData.updated_sasaran;
 
-    // 1. Update state Risk Inputs secara manual
     setRiskInputEntries((prevEntries) => {
       if (isUpdate) {
         return prevEntries.map((item) => (item.id === savedEntry.id ? savedEntry : item));
@@ -241,36 +229,29 @@ function MadyaAssessmentFormPage() {
       }
     });
 
-    // 2. Update state Sasaran KPI jika ada yang berubah
     if (updatedSasaran) {
       setSasaranKPIEntries((prevSasaran) => {
-        // Ganti item sasaran yang skornya baru di-update
         return prevSasaran.map((item) => (item.id === updatedSasaran.id ? updatedSasaran : item));
       });
     }
-
-    console.log("State Sasaran & Risk Input di-update secara manual tanpa refresh API.");
   };
 
-  // Fungsi fetch khusus Sasaran/KPI
   const fetchSasaranKPI = useCallback(async (id) => {
     try {
       const sasaranRes = await apiClient.get(`/madya-assessments/${id}/sasaran-kpi`);
       setSasaranKPIEntries(sasaranRes.data || []);
-      console.log("Sasaran KPI data refreshed:", sasaranRes.data);
     } catch (error) {
       console.error("Gagal refresh data Sasaran KPI:", error);
     }
   }, []);
 
-  // Kondisi loading gabungan
   const isPageLoading = isLoading || isTemplateDetailLoading || isRiskInputLoading;
 
-  // Tampilan Loading
   if (isPageLoading) {
     return (
-      <div className="p-10 text-center">
-        <Text>Memuat asesmen madya dan data template...</Text>
+      <div className="flex flex-col justify-center items-center h-screen gap-4">
+        <FiLoader className="animate-spin h-10 w-10 text-blue-600" />
+        <Text>Memuat data asesmen madya...</Text>
       </div>
     );
   }
@@ -279,7 +260,6 @@ function MadyaAssessmentFormPage() {
     return (
       <div className="p-10 text-center">
         <Text className="text-red-600">Gagal memuat data asesmen.</Text>
-        <Text>Silakan coba lagi atau kembali ke daftar asesmen.</Text>
         <Button onClick={() => navigate("/risk-management/madya")} className="mt-4">
           Kembali
         </Button>
@@ -287,83 +267,77 @@ function MadyaAssessmentFormPage() {
     );
   }
 
-  // Render Form Utama
   return (
-    <div className="p-6 sm:p-10 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-        <div>
-          <Title>{assessmentData?.nama_asesmen ? `Asesmen: ${assessmentData.nama_asesmen}` : "Memuat Asesmen..."}</Title>
-          <Text>Lengkapi detail asesmen risiko tingkat madya.</Text>
-        </div>
-        {/* Tampilkan Nama Template yang Digunakan */}
-        <Card className="p-3 w-full sm:max-w-xs shrink-0" decoration="left" decorationColor="blue">
-          <Text className="text-xs font-medium text-gray-600">Template Digunakan:</Text>
-          <Text className="font-semibold text-tremor-content-strong">
-            {selectedTemplateData ? selectedTemplateData.name : "Memuat..."}
-            {selectedTemplateData?.is_default ? " (Default)" : ""}
-          </Text>
-        </Card>
-      </div>
-
-      {/* Card 1: Struktur Organisasi */}
-      <StrukturOrganisasiCard assessmentId={assessmentId} initialData={currentStructureEntries} initialImageUrl={assessmentData?.structure_image_url} onDataChange={handleStructureEntriesChange} />
-
-      {/* Card 2: Kriteria Risiko */}
-      <Card ref={criteriaCardRef} className="fullscreen-card">
-        <div className="flex justify-between items-start mb-4">
-          <div className="text-left">
-            <Title as="h3">2. Kriteria Risiko</Title>
-            <Text>Edit kriteria probabilitas dan dampak khusus untuk asesmen ini.</Text>
+    <div className="p-6 sm:p-10 mx-auto space-y-8 bg-slate-50 min-h-screen">
+      {/* --- HEADER SECTION (Updated Style) --- */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 pb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/risk-management/madya")} title="Kembali ke daftar" />
+          <div>
+            <div className="flex items-center gap-2">
+              <Title className="text-2xl text-slate-800">{assessmentData?.nama_asesmen || "Asesmen Madya"}</Title>
+              <Badge className="rounded-md" color="blue">
+                Mode Edit
+              </Badge>
+            </div>
+            <Text className="text-slate-500 mt-1">Lengkapi detail asesmen risiko tingkat madya.</Text>
           </div>
-          <Button
-            type="button"
-            variant="light"
-            icon={isCriteriaFullscreen ? FiMinimize : FiMaximize}
-            onClick={(e) => {
-              toggleCriteriaFullscreen();
-            }}
-            className="mr-2"
-          >
-            {isCriteriaFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+        </div>
+        <div className="flex gap-3 items-center">
+          {/* Tampilkan Nama Template yang Digunakan */}
+          <div className="hidden md:block bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 mr-2">
+            <Text className="text-xs text-blue-600 font-medium">Template: {selectedTemplateData ? selectedTemplateData.name : "..."}</Text>
+          </div>
+          <Button variant="secondary" color="slate" onClick={() => navigate("/risk-management/madya")} className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors">
+            Tutup
+          </Button>
+          <Button icon={FiSave} onClick={() => toast.success("Data tersimpan otomatis.")} className="rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all transform hover:-translate-y-0.5">
+            Simpan
           </Button>
         </div>
-        <MadyaCriteriaReference probabilityCriteria={probabilityCriteria} impactCriteria={impactCriteria} onCriteriaSave={refreshCriteriaData} readOnly={false} />
-      </Card>
+      </div>
 
-      {/* Card 3: Sasaran/KPI */}
-      {assessmentId && <SasaranKPIAppetiteCard assessmentId={assessmentId} initialData={sasaranKPIEntries || []} onSasaranChange={handleSasaranChange} />}
+      <div className="space-y-8">
+        {/* Card 1: Struktur Organisasi */}
+        <StrukturOrganisasiCard assessmentId={assessmentId} initialData={currentStructureEntries} initialImageUrl={assessmentData?.structure_image_url} onDataChange={handleStructureEntriesChange} />
 
-      {/* Card 4: Risk Input */}
-      {assessmentId && (
-        <RiskInputCard
-          assessmentId={assessmentId}
-          structureEntries={currentStructureEntries}
-          sasaranKPIEntries={sasaranKPIEntries || []}
-          templateScores={selectedTemplateData?.scores || []}
-          onRiskInputSaveSuccess={handleRiskInputSave}
-          initialFilters={filters}
-          onFilterChange={handleFilterChange}
-          initialRiskInputData={riskInputEntries}
-          isDataLoading={isRiskInputLoading}
-        />
-      )}
+        {/* Card 2: Kriteria Risiko */}
+        <Card ref={criteriaCardRef} className={`border-l-4 border-purple-500 shadow-md ring-1 ring-gray-100 bg-slate-50 ${isCriteriaFullscreen ? "fixed inset-0 z-50 h-screen overflow-auto m-0 rounded-none" : "relative"}`}>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                <FiShield size={24} /> {/* Bisa diganti ikon lain jika mau */}
+              </div>
+              <div>
+                <Title>2. Kriteria Risiko</Title>
+                <Text>Kriteria probabilitas dan dampak khusus asesmen ini.</Text>
+              </div>
+            </div>
+            <Button type="button" variant="light" icon={isCriteriaFullscreen ? FiMinimize : FiMaximize} onClick={toggleCriteriaFullscreen} title={isCriteriaFullscreen ? "Exit Fullscreen" : "Fullscreen"} />
+          </div>
+          <MadyaCriteriaReference probabilityCriteria={probabilityCriteria} impactCriteria={impactCriteria} onCriteriaSave={refreshCriteriaData} readOnly={false} />
+        </Card>
 
-      {/* Card 5: Peta Risiko */}
-      {assessmentId && !isPageLoading && <RiskMapCard risks={riskInputEntries} templateData={selectedTemplateData} />}
+        {/* Card 3: Sasaran/KPI */}
+        {assessmentId && <SasaranKPIAppetiteCard assessmentId={assessmentId} initialData={sasaranKPIEntries || []} onSasaranChange={handleSasaranChange} />}
 
-      {/* Tombol Aksi Bawah */}
-      <div className="flex justify-end gap-2 mt-6">
-        <Button variant="secondary" onClick={() => navigate("/risk-management/madya")}>
-          Kembali (Keluar)
-        </Button>
-        <Button
-          onClick={() => {
-            console.log("Tombol 'Simpan & Lanjutkan' diklik, user tetap di halaman.");
-            toast.success("Progress per bagian tersimpan otomatis. Anda tetap di halaman ini.");
-          }}
-        >
-          Simpan & Lanjutkan (Nanti)
-        </Button>
+        {/* Card 4: Risk Input */}
+        {assessmentId && (
+          <RiskInputCard
+            assessmentId={assessmentId}
+            structureEntries={currentStructureEntries}
+            sasaranKPIEntries={sasaranKPIEntries || []}
+            templateScores={selectedTemplateData?.scores || []}
+            onRiskInputSaveSuccess={handleRiskInputSave}
+            initialFilters={filters}
+            onFilterChange={handleFilterChange}
+            initialRiskInputData={riskInputEntries}
+            isDataLoading={isRiskInputLoading}
+          />
+        )}
+
+        {/* Card 5: Peta Risiko */}
+        {assessmentId && !isPageLoading && <RiskMapCard risks={riskInputEntries} templateData={selectedTemplateData} />}
       </div>
     </div>
   );

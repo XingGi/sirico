@@ -121,3 +121,25 @@ def delete_scan_history(scan_id):
         db.session.rollback()
         print(f"Error deleting scan: {e}")
         return jsonify({"msg": "Gagal menghapus data."}), 500
+    
+@horizon_bp.route('/horizon', methods=['GET'])
+@jwt_required()
+def get_horizon_dashboard():
+    current_user_id = get_jwt_identity()
+    
+    # Ambil 3 scan terbaru
+    scans = HorizonScanResult.query.filter_by(user_id=current_user_id)\
+        .order_by(HorizonScanResult.created_at.desc())\
+        .limit(3).all()
+        
+    result = []
+    for s in scans:
+        result.append({
+            "id": s.id,
+            # FIX: Map 'generated_title' atau 'sector' ke 'topic' agar muncul di frontend
+            "topic": s.generated_title if s.generated_title else s.sector, 
+            "scan_date": s.created_at.isoformat(),
+            "risk_score": "Analisis AI" 
+        })
+        
+    return jsonify(result), 200
