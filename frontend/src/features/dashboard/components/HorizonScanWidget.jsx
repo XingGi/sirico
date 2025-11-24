@@ -34,7 +34,7 @@ function HorizonScanWidget() {
           </div>
           <Title className="text-lg">Horizon Scanning</Title>
         </div>
-        <Badge color="indigo" size="xs">
+        <Badge className="rounded-md px-2 py-1" color="indigo" size="xs">
           Add-on
         </Badge>
       </div>

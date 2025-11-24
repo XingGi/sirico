@@ -1,6 +1,6 @@
 import os
 from datetime import timedelta
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
@@ -23,7 +23,13 @@ def create_app():
     
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-    app.config['UPLOAD_FOLDER'] = 'uploads'
+    UPLOAD_FOLDER = os.path.join(app.root_path, '..', 'uploads')
+    if not os.path.isabs(app.config.get('UPLOAD_FOLDER', 'uploads')):
+         app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads') # Gunakan current working directory
+
+    # Buat folder jika belum ada
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['JWT_SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
@@ -63,6 +69,10 @@ def create_app():
         app.register_blueprint(master_data_bp, url_prefix='/api')
         app.register_blueprint(admin_bp, url_prefix='/api/admin')
         app.register_blueprint(horizon_bp, url_prefix='/api')
+        
+    @app.route('/uploads/<path:filename>')
+    def serve_uploaded_file(filename):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
         # Kita tidak perlu lagi mengimpor dari routes.py yang lama
         # from . import routes

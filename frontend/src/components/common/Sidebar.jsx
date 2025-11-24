@@ -220,7 +220,7 @@ function Sidebar({ isOpen, toggle }) {
   const userInitial = userName ? userName[0].toUpperCase() : "?";
 
   return (
-    <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-[width] duration-300 ease-in-out ${isOpen ? "w-80" : "w-20"} h-screen sticky top-0 overflow-y-auto custom-scrollbar`}>
+    <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-[width] duration-300 ease-in-out ${isOpen ? "w-80" : "w-20"} h-screen sticky top-0 overflow-hidden z-50 shadow-xl`}>
       <div className="flex items-center mb-8 flex-shrink-0" style={{ justifyContent: isOpen ? "space-between" : "center" }}>
         <h1 className={`text-2xl font-bold overflow-hidden transition-all duration-200 whitespace-nowrap ${isOpen ? "w-auto" : "w-0"}`}>
           <Link to="/dashboard">SIRICO</Link>
@@ -230,9 +230,9 @@ function Sidebar({ isOpen, toggle }) {
         </button>
       </div>
 
-      <nav className="flex-grow space-y-1">{menuItems.map((item) => renderMenuItem(item))}</nav>
+      <nav className="flex-grow overflow-y-auto custom-scrollbar px-2 pb-4 space-y-1">{menuItems.map((item) => renderMenuItem(item))}</nav>
 
-      <div className="mt-auto pt-4 border-t border-slate-700 flex-shrink-0" ref={userMenuRef}>
+      <div className="mt-auto pt-4 border-t border-slate-700 p-4 flex-shrink-0 bg-slate-800" ref={userMenuRef}>
         {isUserMenuOpen && isOpen && (
           <div className="absolute bottom-[80px] left-4 z-50 bg-white rounded-md shadow-xl border border-gray-200 text-slate-700 py-1 w-64 animate-in fade-in slide-in-from-bottom-2">
             <Link to="/account-setting" onClick={() => setIsUserMenuOpen(false)} className="flex items-center w-full px-4 py-2 text-sm hover:bg-slate-100 transition-colors">

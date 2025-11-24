@@ -1,58 +1,68 @@
 // frontend/src/features/admin/MemberPage.jsx
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Button, Badge, MultiSelect, MultiSelectItem, Dialog, DialogPanel, TextInput, Flex, Icon } from "@tremor/react";
+import { Card, Title, Text, Button, Badge, Dialog, DialogPanel, MultiSelect, MultiSelectItem, Select, SelectItem } from "@tremor/react";
 import apiClient from "../../api/api";
-import { FiUsers, FiEdit, FiSliders, FiSave, FiX, FiSearch, FiLoader, FiPlus, FiTrash2, FiAlertTriangle } from "react-icons/fi";
+import { FiUsers, FiEdit, FiSliders, FiSave, FiX, FiSearch, FiLoader, FiPlus, FiTrash2, FiCheckSquare, FiSquare, FiShield, FiFilter, FiBriefcase, FiHome } from "react-icons/fi";
 import AppResourceTable from "../../components/common/AppResourceTable";
 import ConfirmationDialog from "../../components/common/ConfirmationDialog";
 import EditUserModal from "./components/EditUserModal";
 import AddUserModal from "./components/AddUserModal";
+import { toast } from "sonner";
 
-// Komponen Modal Bulk Edit Roles
+// --- MODAL BULK EDIT ---
 const BulkEditRolesModal = ({ isOpen, onClose, selectedUsers, allRoles, onSave, isLoading }) => {
   const [selectedRoleIds, setSelectedRoleIds] = useState([]);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isOpen) {
-      // Reset pilihan saat modal dibuka
-      setSelectedRoleIds([]);
-      setError("");
-    }
+    if (isOpen) setSelectedRoleIds([]);
   }, [isOpen]);
 
-  const handleSave = async () => {
-    setError("");
+  const handleSave = () => {
     const userIds = selectedUsers.map((u) => u.id);
-    await onSave(userIds, selectedRoleIds.map(Number));
+    onSave(userIds, selectedRoleIds.map(Number));
   };
 
   return (
     <Dialog open={isOpen} onClose={() => !isLoading && onClose()} static={true}>
-      <DialogPanel>
-        <Title>Bulk Edit Roles ({selectedUsers.length} Users)</Title>
-        <Text className="mt-1">Assign roles baru ke semua pengguna yang dipilih.</Text>
-        {error && <Text className="text-red-500 mt-2">{error}</Text>}
-
-        <div className="mt-4">
-          <label className="font-medium text-tremor-content-strong">Assign Roles *</label>
-          <MultiSelect value={selectedRoleIds} onValueChange={setSelectedRoleIds} placeholder="Pilih satu atau lebih role untuk di-assign..." className="mt-2" required>
-            {allRoles.map((role) => (
-              <MultiSelectItem key={role.id} value={String(role.id)}>
-                {role.name} {role.description && `(${role.description})`}
-              </MultiSelectItem>
-            ))}
-          </MultiSelect>
-          <Text className="mt-2 text-xs text-gray-500">Catatan: Roles yang dipilih akan menggantikan roles yang sudah ada pada pengguna terpilih.</Text>
+      <DialogPanel className="max-w-lg p-0 overflow-hidden rounded-xl bg-white shadow-xl">
+        <div className="px-6 py-4 border-b border-gray-200 bg-indigo-50 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg border border-indigo-200">
+              <FiSliders size={20} />
+            </div>
+            <div>
+              <Title className="text-lg font-bold text-slate-800">Bulk Edit Roles</Title>
+              <Text className="text-xs text-gray-500">{selectedUsers.length} Users Selected</Text>
+            </div>
+          </div>
+          <Button icon={FiX} variant="light" color="slate" onClick={onClose} disabled={isLoading} className="rounded-full hover:bg-gray-200" />
         </div>
 
-        <div className="flex justify-end gap-2 mt-6 border-t pt-4">
-          <Button variant="secondary" onClick={onClose} disabled={isLoading} icon={FiX}>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Assign Roles <span className="text-red-500">*</span>
+            </label>
+            <MultiSelect value={selectedRoleIds} onValueChange={setSelectedRoleIds} placeholder="Pilih role..." className="w-full">
+              {allRoles.map((role) => (
+                <MultiSelectItem key={role.id} value={String(role.id)}>
+                  {role.name}
+                </MultiSelectItem>
+              ))}
+            </MultiSelect>
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700 leading-relaxed">
+              ⚠️ <strong>Perhatian:</strong> Roles yang Anda pilih di sini akan <strong>menggantikan seluruh role</strong> yang dimiliki user saat ini.
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <Button variant="secondary" color="slate" onClick={onClose} disabled={isLoading}>
             Batal
           </Button>
-          <Button onClick={handleSave} loading={isLoading} disabled={isLoading} icon={FiSave}>
-            Apply Roles to {selectedUsers.length} Users
+          <Button onClick={handleSave} loading={isLoading} icon={FiSave} className="bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+            Terapkan
           </Button>
         </div>
       </DialogPanel>
@@ -64,14 +74,20 @@ function MemberPage() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // State UI
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // State Filter & Sort
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOption, setSortOption] = useState("name-asc");
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
+
+  // State Bulk & Delete
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
-  const [modalError, setModalError] = useState("");
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, userId: null, userName: "" });
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -81,8 +97,7 @@ function MemberPage() {
       setUsers(usersRes.data);
       setRoles(rolesRes.data);
     } catch (error) {
-      console.error("Gagal memuat data member/roles:", error);
-      alert("Gagal memuat data pengguna atau roles.");
+      toast.error("Gagal memuat data.");
     } finally {
       setIsLoading(false);
     }
@@ -93,39 +108,62 @@ function MemberPage() {
     fetchData();
   }, []);
 
-  const filteredUsers = useMemo(() => {
-    if (!searchTerm) return users;
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    return users.filter((user) => user.nama_lengkap.toLowerCase().includes(lowerSearchTerm) || user.email.toLowerCase().includes(lowerSearchTerm));
-  }, [users, searchTerm]);
+  // --- FILTER & SORT ---
+  const filteredAndSortedUsers = useMemo(() => {
+    let result = [...users];
 
+    // 1. Filter
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      result = result.filter(
+        (user) => user.nama_lengkap.toLowerCase().includes(lower) || user.email.toLowerCase().includes(lower) || (user.institution || "").toLowerCase().includes(lower) || (user.department_name || "").toLowerCase().includes(lower)
+      );
+    }
+
+    // 2. Sort
+    result.sort((a, b) => {
+      switch (sortOption) {
+        case "name-asc":
+          return a.nama_lengkap.localeCompare(b.nama_lengkap);
+        case "name-desc":
+          return b.nama_lengkap.localeCompare(a.nama_lengkap);
+        case "inst-asc":
+          return (a.institution || "").localeCompare(b.institution || "");
+        case "dept-asc":
+          return (a.department_name || "").localeCompare(b.department_name || "");
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [users, searchTerm, sortOption]);
+
+  // --- HANDLERS SELECTION ---
   const handleSelectUser = (userId, checked) => {
     setSelectedUserIds((prev) => {
       const newSet = new Set(prev);
-      if (checked) {
-        newSet.add(userId);
-      } else {
-        newSet.delete(userId);
-      }
+      checked ? newSet.add(userId) : newSet.delete(userId);
       return newSet;
     });
   };
 
-  const handleSelectAll = (checked) => {
-    if (checked) {
-      setSelectedUserIds(new Set(filteredUsers.map((u) => u.id)));
-    } else {
+  const handleSelectAll = () => {
+    if (selectedUserIds.size === filteredAndSortedUsers.length && filteredAndSortedUsers.length > 0) {
       setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(filteredAndSortedUsers.map((u) => u.id)));
     }
   };
 
-  const isAllSelected = filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.length;
+  const isAllSelected = filteredAndSortedUsers.length > 0 && selectedUserIds.size === filteredAndSortedUsers.length;
+  const selectedUsersData = users.filter((u) => selectedUserIds.has(u.id));
 
-  const handleOpenEditModal = (userIdToEdit) => {
-    setEditingUserId(userIdToEdit);
+  // --- HANDLERS MODAL ---
+  const handleOpenEditModal = (userId) => {
+    setEditingUserId(userId);
     setIsEditModalOpen(true);
   };
-
   const handleCloseModal = () => {
     setIsEditModalOpen(false);
     setIsBulkEditModalOpen(false);
@@ -133,126 +171,117 @@ function MemberPage() {
     setEditingUserId(null);
   };
 
-  const handleSaveUserSuccess = (updatedUserData) => {
-    setUsers((prevUsers) => prevUsers.map((user) => (user.id === updatedUserData.id ? updatedUserData : user)));
+  // --- HANDLERS DATA ---
+  const handleSaveUserSuccess = (updatedUser) => {
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+  };
+  const handleAddUserSuccess = (newUser) => {
+    setUsers((prev) => [newUser, ...prev]);
   };
 
-  const handleAddUserSuccess = (newUserData) => {
-    setUsers((prevUsers) => [newUserData, ...prevUsers]);
-  };
-
-  const handleOpenDeleteConfirm = (userId, userName) => {
-    setDeleteConfirm({ isOpen: true, userId, userName });
-  };
-
-  const handleCloseDeleteConfirm = () => {
-    setDeleteConfirm({ isOpen: false, userId: null, userName: "" });
-  };
+  // --- HANDLERS DELETE ---
+  const handleDeleteClick = (userId, userName) => setDeleteConfirm({ isOpen: true, userId, userName });
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirm.userId) return;
     setIsDeleting(true);
-
     try {
       await apiClient.delete(`/admin/users/${deleteConfirm.userId}`);
-      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== deleteConfirm.userId));
-      alert(`User "${deleteConfirm.userName}" berhasil dihapus.`);
-      handleCloseDeleteConfirm();
+      setUsers((prev) => prev.filter((u) => u.id !== deleteConfirm.userId));
+      toast.success(`User "${deleteConfirm.userName}" dihapus.`);
+      setDeleteConfirm({ isOpen: false, userId: null, userName: "" });
     } catch (error) {
-      console.error("Gagal menghapus user:", error);
-      alert(error.response?.data?.msg || "Gagal menghapus user.");
+      toast.error("Gagal menghapus user.");
     } finally {
       setIsDeleting(false);
     }
   };
 
+  // --- HANDLER BULK ---
   const handleBulkSaveRoles = async (userIds, newRoleIds) => {
-    setModalError("");
     setIsSubmittingBulk(true);
     const payload = { role_ids: newRoleIds };
     let successCount = 0;
-    let firstError = null;
 
     for (const userId of userIds) {
       try {
-        const response = await apiClient.put(`/admin/users/${userId}/roles`, payload);
-        handleSaveUserSuccess(response.data.user);
+        const res = await apiClient.put(`/admin/users/${userId}/roles`, payload);
+        handleSaveUserSuccess(res.data.user);
         successCount++;
       } catch (error) {
-        console.error(`Gagal update role untuk user ID ${userId}:`, error);
-        if (!firstError) {
-          firstError = error.response?.data?.msg || `Gagal update user ID ${userId}`;
-        }
+        console.error(error);
       }
     }
 
     setIsSubmittingBulk(false);
-    if (firstError) {
-      setModalError(`Sebagian (${successCount}/${userIds.length}) berhasil. Error pertama: ${firstError}`);
-    } else {
-      alert(`Roles berhasil diperbarui untuk ${successCount} pengguna.`);
-      handleCloseModal();
-      setSelectedUserIds(new Set());
-    }
+    toast.success(`${successCount} user berhasil diupdate.`);
+    handleCloseModal();
+    setSelectedUserIds(new Set());
   };
 
+  // --- COLUMNS ---
   const columns = [
     {
       key: "select",
-      // Kita bisa mengirim JSX ke header!
       header: (
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            checked={isAllSelected}
-            onChange={(e) => handleSelectAll(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-            disabled={filteredUsers.length === 0}
-          />
+        <div className="flex justify-center">
+          <button onClick={handleSelectAll} className="text-gray-400 hover:text-indigo-600 transition-colors">
+            {isAllSelected ? <FiCheckSquare size={18} className="text-indigo-600" /> : <FiSquare size={18} />}
+          </button>
         </div>
       ),
       cell: (user) => (
-        <input type="checkbox" checked={selectedUserIds.has(user.id)} onChange={(e) => handleSelectUser(user.id, e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+        <div className="flex justify-center">
+          <input type="checkbox" checked={selectedUserIds.has(user.id)} onChange={(e) => handleSelectUser(user.id, e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+        </div>
       ),
-      className: "w-12", // Class untuk header cell
+      className: "w-12 text-center",
     },
     {
       key: "name",
-      header: "Nama Lengkap",
-      cell: (user) => <Text className="font-medium text-tremor-content-strong">{user.nama_lengkap}</Text>,
-    },
-    {
-      key: "email",
-      header: "Email",
-      cell: (user) => <Text>{user.email}</Text>,
+      header: "Profil Pengguna",
+      cell: (user) => (
+        <div>
+          <Text className="font-bold text-slate-700">{user.nama_lengkap}</Text>
+          <Text className="text-xs text-gray-400">{user.email}</Text>
+        </div>
+      ),
     },
     {
       key: "institution",
       header: "Institusi",
-      cell: (user) => <Text>{user.institution || "N/A"}</Text>,
+      cell: (user) => (
+        <div className="flex items-center gap-2 text-slate-600 text-sm">
+          <FiHome size={14} className="text-gray-400" />
+          <span className="font-medium">{user.institution || "-"}</span>
+        </div>
+      ),
     },
     {
       key: "department",
       header: "Departemen",
-      cell: (user) => <Text>{user.department_name || "N/A"}</Text>,
+      cell: (user) => (
+        <div className="flex items-center gap-2 text-slate-600 text-sm">
+          <FiBriefcase size={14} className="text-gray-400" />
+          <span>{user.department_name || "-"}</span>
+        </div>
+      ),
     },
     {
       key: "roles",
       header: "Roles",
       cell: (user) => (
-        <Flex className="gap-1 flex-wrap">
-          {user.roles && user.roles.length > 0 ? (
-            user.roles.map((roleName) => (
-              <Badge key={roleName} color={roleName.toLowerCase() === "admin" ? "rose" : "blue"} size="xs" className="whitespace-nowrap">
-                {roleName}
+        <div className="flex flex-wrap gap-1">
+          {user.roles?.length > 0 ? (
+            user.roles.map((r) => (
+              <Badge key={r} size="xs" color={r.toLowerCase() === "admin" ? "rose" : "blue"} icon={r.toLowerCase() === "admin" ? FiShield : null} className="rounded-md px-2 py-1">
+                {r}
               </Badge>
             ))
           ) : (
-            <Badge color="gray" size="xs">
-              No Roles
-            </Badge>
+            <span className="text-xs text-gray-400 italic bg-gray-50 px-2 py-0.5 rounded-full">No Roles</span>
           )}
-        </Flex>
+        </div>
       ),
     },
     {
@@ -260,76 +289,89 @@ function MemberPage() {
       header: "Aksi",
       cell: (user) => (
         <div className="flex justify-end gap-2">
-          <Button size="xs" icon={FiEdit} variant="light" color="gray" onClick={() => handleOpenEditModal(user.id)} title="Edit user" />
-          <Button size="xs" icon={FiTrash2} variant="light" color="rose" onClick={() => handleOpenDeleteConfirm(user.id, user.nama_lengkap)} title="Hapus user" disabled={user.email.toLowerCase() === "admin@admin.com"} />
+          <Button size="xs" variant="light" icon={FiEdit} color="indigo" onClick={() => handleOpenEditModal(user.id)} tooltip="Edit" />
+          <Button size="xs" variant="light" icon={FiTrash2} color="rose" onClick={() => handleDeleteClick(user.id, user.nama_lengkap)} disabled={user.email.toLowerCase() === "admin@admin.com"} tooltip="Hapus" />
         </div>
       ),
-      className: "text-right",
-      cellClassName: "text-right",
+      className: "text-right w-32",
     },
   ];
 
-  if (isLoading) {
-    return <Text className="p-6">Memuat daftar member...</Text>;
-  }
-
-  const selectedUsersData = users.filter((u) => selectedUserIds.has(u.id));
-
   return (
-    <>
-      <div className="p-6 sm:p-10 space-y-6">
-        <Flex justifyContent="between" alignItems="center">
-          <Flex alignItems="center" className="space-x-3">
-            <Icon icon={FiUsers} size="lg" variant="light" color="gray" />
-            <div>
-              <Title>Member Management</Title>
-              <Text>Lihat daftar pengguna dan kelola peran mereka.</Text>
-            </div>
-          </Flex>
-          <Flex className="space-x-2">
-            <Button icon={FiSliders} variant="secondary" onClick={() => setIsBulkEditModalOpen(true)} disabled={selectedUserIds.size === 0} title={`Edit roles for ${selectedUserIds.size} selected users`}>
-              Bulk Edit Roles ({selectedUserIds.size})
-            </Button>
-            <Button icon={FiPlus} onClick={() => setIsAddModalOpen(true)}>
-              Tambah User
-            </Button>
-          </Flex>
-        </Flex>
-
-        {/* --- Filter Bar --- */}
-        <Card>
-          <Flex className="space-x-4">
-            <TextInput icon={FiSearch} placeholder={`Cari nama atau email...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-grow max-w-lg" />
-            <Text className="whitespace-nowrap">{filteredUsers.length} pengguna ditemukan</Text>
-          </Flex>
-        </Card>
-
-        {/* --- Tabel User --- */}
-        <Card className="p-0 overflow-hidden">
-          <div className="overflow-x-auto">
-            <AppResourceTable data={filteredUsers} isLoading={isLoading} columns={columns} emptyMessage={`Tidak ada pengguna ditemukan ${searchTerm ? `dengan filter "${searchTerm}"` : ""}.`} />
+    <div className="p-6 sm:p-10 bg-slate-50 min-h-screen space-y-8">
+      {/* --- HEADER --- */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-indigo-100 rounded-xl text-indigo-600 shadow-sm">
+            <FiUsers size={28} />
           </div>
-        </Card>
+          <div>
+            <Title className="text-2xl text-slate-800">Member Management</Title>
+            <Text className="text-slate-500">Kelola pengguna, institusi, departemen, dan hak akses.</Text>
+          </div>
+        </div>
+        <Button size="lg" icon={FiPlus} onClick={() => setIsAddModalOpen(true)} className="shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all rounded-xl">
+          Tambah User
+        </Button>
       </div>
 
-      {/* --- Render Modal Tambah --- */}
-      <AddUserModal isOpen={isAddModalOpen} onClose={handleCloseModal} allRoles={roles} onSaveSuccess={handleAddUserSuccess} />
+      {/* --- FILTER BAR --- */}
+      <Card className="p-4 shadow-sm border border-gray-100 rounded-xl">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          {/* Search */}
+          <div className="relative flex-grow w-full md:w-auto">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Cari nama, email, atau institusi..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
-      {/* --- Modal Edit User --- */}
+          {/* Sort */}
+          <div className="w-full md:w-56 flex-shrink-0">
+            <Select value={sortOption} onValueChange={setSortOption} icon={FiFilter} placeholder="Urutkan..." className="h-[42px]">
+              <SelectItem value="name-asc">Nama (A-Z)</SelectItem>
+              <SelectItem value="name-desc">Nama (Z-A)</SelectItem>
+              <SelectItem value="inst-asc">Institusi (A-Z)</SelectItem>
+              <SelectItem value="dept-asc">Departemen (A-Z)</SelectItem>
+            </Select>
+          </div>
+
+          {/* Bulk Action */}
+          {selectedUserIds.size > 0 && (
+            <div className="flex items-center gap-3 animate-fade-in">
+              <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
+              <Button size="md" variant="secondary" color="indigo" icon={FiSliders} onClick={() => setIsBulkEditModalOpen(true)} className="shadow-sm">
+                Bulk Edit ({selectedUserIds.size})
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* --- TABLE CARD --- */}
+      <Card className="p-0 overflow-hidden shadow-sm border border-gray-100 rounded-xl min-h-[500px]">
+        <AppResourceTable data={filteredAndSortedUsers} isLoading={isLoading} columns={columns} emptyMessage="Tidak ada pengguna ditemukan." />
+      </Card>
+
+      {/* --- MODALS --- */}
+      <AddUserModal isOpen={isAddModalOpen} onClose={handleCloseModal} allRoles={roles} onSaveSuccess={handleAddUserSuccess} />
       <EditUserModal isOpen={isEditModalOpen} onClose={handleCloseModal} userId={editingUserId} allRoles={roles} onSaveSuccess={handleSaveUserSuccess} />
 
-      {/* --- Modal Bulk Edit Roles --- */}
       {selectedUsersData.length > 0 && <BulkEditRolesModal isOpen={isBulkEditModalOpen} onClose={handleCloseModal} selectedUsers={selectedUsersData} allRoles={roles} onSave={handleBulkSaveRoles} isLoading={isSubmittingBulk} />}
 
       <ConfirmationDialog
         isOpen={deleteConfirm.isOpen}
-        onClose={handleCloseDeleteConfirm}
+        onClose={() => setDeleteConfirm({ isOpen: false, userId: null, userName: "" })}
         onConfirm={handleConfirmDelete}
-        title="Konfirmasi Hapus User"
-        message={`Apakah Anda yakin ingin menghapus user "${deleteConfirm.userName}"? Tindakan ini tidak dapat dibatalkan.`}
+        title="Hapus User"
+        message={`Yakin ingin menghapus user "${deleteConfirm.userName}"?`}
         isLoading={isDeleting}
       />
-    </>
+    </div>
   );
 }
 

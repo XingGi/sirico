@@ -71,7 +71,7 @@ function TopRisksWidget() {
                     </Text>
                     <Text className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold truncate">{risk.unit_kerja || "Unit Kerja"}</Text>
                   </div>
-                  <Badge size="xs" color={color} className="shrink-0 scale-90 origin-right">
+                  <Badge size="xs" color={color} className="rounded px-2 py-1 shrink-0 scale-90 origin-right">
                     Skor: {risk.residual_skor || 0}
                   </Badge>
                 </div>

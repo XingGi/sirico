@@ -1,18 +1,17 @@
-// frontend/src/components/MainRiskRegisterTable.jsx
+// frontend/src/features/risk-ai/components/MainRiskRegisterTable.jsx
 
 import React from "react";
-import { Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Switch, Button, Text as TremorText } from "@tremor/react";
+import { Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge, Switch, Button, Text } from "@tremor/react";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 
-// Helper functions (pindahkan atau duplikat dari RiskRegisterPage)
+// Helper functions
 const getLevelInfo = (likelihood, impact) => {
   const score = (likelihood || 0) * (impact || 0);
-  if (score >= 15) return { text: "5 - High", color: "red" };
-  if (score >= 8) return { text: "4 - Moderate to High", color: "orange" };
-  if (score >= 4) return { text: "3 - Moderate", color: "yellow" };
-  if (score >= 2) return { text: "2 - Low to Moderate", color: "lime" };
-  if (score > 0) return { text: "1 - Low", color: "green" };
-  return { text: "N/A", color: "slate" };
+  if (score >= 15) return { text: "5 - High", color: "bg-red-500 text-white" };
+  if (score >= 8) return { text: "4 - Moderate to High", color: "bg-orange-400 text-black" };
+  if (score >= 4) return { text: "3 - Moderate", color: "bg-yellow-300 text-black" };
+  if (score >= 2) return { text: "2 - Low to Moderate", color: "bg-lime-300 text-black" };
+  return { text: "1 - Low", color: "bg-green-300 text-black" };
 };
 
 const RISK_TYPE_MAP = {
@@ -27,30 +26,36 @@ function MainRiskRegisterTable({ risks, selectedRisks, onSelectRow, onEdit, onDe
   return (
     <Table className="min-w-[3000px]">
       <TableHead>
-        <TableRow className="bg-blue-900 text-white">
-          <TableHeaderCell className="sticky left-0 bg-blue-900 z-20 w-16">
-            <Switch id="selectAllSwitch" checked={isAllSelected} onChange={onSelectAll} />
+        <TableRow className="bg-blue-900 text-white border-b border-blue-800">
+          {/* Sticky Columns Header */}
+          <TableHeaderCell className="sticky left-0 z-20 w-12 bg-blue-900 text-center">
+            <div className="flex justify-center">
+              <Switch id="selectAllSwitch" checked={isAllSelected} onChange={onSelectAll} color="blue" />
+            </div>
           </TableHeaderCell>
-          <TableHeaderCell className="sticky left-16 bg-blue-900 z-20 w-16">No</TableHeaderCell>
-          <TableHeaderCell className="sticky left-32 bg-blue-900 z-20 min-w-[300px]">Title</TableHeaderCell>
-          <TableHeaderCell>Risk Code</TableHeaderCell>
-          <TableHeaderCell>Objective</TableHeaderCell>
-          <TableHeaderCell>Risk Type</TableHeaderCell>
-          <TableHeaderCell>Risk Description</TableHeaderCell>
-          <TableHeaderCell>Potential Cause</TableHeaderCell>
-          <TableHeaderCell>Potential Impact</TableHeaderCell>
-          <TableHeaderCell>Existing Control</TableHeaderCell>
-          <TableHeaderCell>Control Effectiveness</TableHeaderCell>
-          <TableHeaderCell>Likelihood</TableHeaderCell>
-          <TableHeaderCell>Impact</TableHeaderCell>
-          <TableHeaderCell>Risk Level</TableHeaderCell>
-          <TableHeaderCell>Treatment Option</TableHeaderCell>
-          <TableHeaderCell>Mitigation Plan</TableHeaderCell>
-          <TableHeaderCell>Residual Likelihood</TableHeaderCell>
-          <TableHeaderCell>Residual Impact</TableHeaderCell>
-          <TableHeaderCell>Residual Risk Level</TableHeaderCell>
+          <TableHeaderCell className="sticky left-12 z-20 w-12 bg-blue-900 text-xs text-center border-l border-blue-800">No</TableHeaderCell>
+          <TableHeaderCell className="sticky left-24 z-20 w-64 bg-blue-900 text-xs border-l border-blue-800">Title & Actions</TableHeaderCell>
+
+          {/* Scrollable Columns Header */}
+          <TableHeaderCell className="text-xs w-28">Risk Code</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-64">Objective</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-32">Risk Type</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-72">Risk Description</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-64">Potential Cause</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-64">Potential Impact</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-64">Existing Control</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-32">Control Effectiveness</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-16 text-center">Prob</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-16 text-center">Impact</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-32 text-center">Risk Level</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-32">Treatment</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-80">Mitigation Plan</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-16 text-center">Res. Prob</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-16 text-center">Res. Imp</TableHeaderCell>
+          <TableHeaderCell className="text-xs w-32 text-center">Residual Level</TableHeaderCell>
         </TableRow>
       </TableHead>
+
       <TableBody>
         {risks.map((risk, index) => {
           const inherentRisk = getLevelInfo(risk.inherent_likelihood, risk.inherent_impact);
@@ -59,43 +64,63 @@ function MainRiskRegisterTable({ risks, selectedRisks, onSelectRow, onEdit, onDe
           const isSelected = selectedRisks.includes(risk.id);
 
           return (
-            <TableRow key={risk.id} className={isSelected ? "bg-blue-50" : ""}>
-              <TableCell className="sticky left-0 bg-white z-10 w-16">
-                <Switch checked={isSelected} onChange={() => onSelectRow(risk.id)} />
-              </TableCell>
-              <TableCell className="sticky left-16 bg-white z-10 w-16">{index + 1}</TableCell>
-              <TableCell className="sticky left-32 bg-white z-10 min-w-[300px]">
-                <TremorText className="font-semibold">{risk.title}</TremorText>
-                <div className="flex gap-2 mt-1">
-                  <Button variant="light" size="xs" icon={FiEdit2} onClick={() => onEdit(risk)}>
-                    Edit
-                  </Button>
-                  <Button variant="light" size="xs" icon={FiTrash2} color="red" onClick={() => onDelete(risk.id)}>
-                    Delete
-                  </Button>
+            <TableRow key={risk.id} className={`hover:bg-blue-50/50 transition-colors ${isSelected ? "bg-blue-50" : ""}`}>
+              {/* Sticky Columns Body */}
+              <TableCell className={`sticky left-0 z-10 text-center border-r border-gray-100 ${isSelected ? "bg-blue-50" : "bg-white group-hover:bg-blue-50"}`}>
+                <div className="flex justify-center">
+                  <Switch checked={isSelected} onChange={() => onSelectRow(risk.id)} />
                 </div>
               </TableCell>
-              <TableCell>{risk.kode_risiko}</TableCell>
-              <TableCell className="max-w-xs truncate">{risk.objective}</TableCell>
-              <TableCell>
-                <Badge color="cyan">{riskTypeFullName}</Badge>
+              <TableCell className={`sticky left-12 z-10 text-center border-r border-gray-100 text-xs font-medium text-slate-500 ${isSelected ? "bg-blue-50" : "bg-white group-hover:bg-blue-50"}`}>{index + 1}</TableCell>
+              <TableCell className={`sticky left-24 z-10 border-r border-gray-100 ${isSelected ? "bg-blue-50" : "bg-white group-hover:bg-blue-50"}`}>
+                <div className="flex flex-col gap-2">
+                  <Text className="font-bold text-slate-700 text-xs line-clamp-2" title={risk.title}>
+                    {risk.title || "Untitled Risk"}
+                  </Text>
+                  <div className="flex gap-3">
+                    <Button variant="light" size="xs" icon={FiEdit2} onClick={() => onEdit(risk)} color="indigo">
+                      Edit
+                    </Button>
+                    <Button variant="light" size="xs" icon={FiTrash2} color="rose" onClick={() => onDelete(risk.id)}>
+                      Hapus
+                    </Button>
+                  </div>
+                </div>
               </TableCell>
-              <TableCell className="max-w-xs truncate">{risk.deskripsi_risiko}</TableCell>
-              <TableCell className="max-w-xs truncate">{risk.risk_causes}</TableCell>
-              <TableCell className="max-w-xs truncate">{risk.risk_impacts}</TableCell>
-              <TableCell className="max-w-xs truncate">{risk.existing_controls}</TableCell>
-              <TableCell>{risk.control_effectiveness}</TableCell>
-              <TableCell className="text-center">{risk.inherent_likelihood}</TableCell>
-              <TableCell className="text-center">{risk.inherent_impact}</TableCell>
-              <TableCell>
-                <Badge color={inherentRisk.color}>{inherentRisk.text}</Badge>
+
+              {/* Scrollable Columns Body */}
+              <TableCell className="text-xs align-top font-mono text-slate-500">{risk.kode_risiko}</TableCell>
+              <TableCell className="text-xs align-top whitespace-normal">{risk.objective}</TableCell>
+              <TableCell className="align-top">
+                <Badge size="xs" className="rounded-md" color="cyan">
+                  {riskTypeFullName}
+                </Badge>
               </TableCell>
-              <TableCell>{risk.treatment_option}</TableCell>
-              <TableCell className="max-w-xs truncate">{risk.mitigation_plan}</TableCell>
-              <TableCell className="text-center">{risk.residual_likelihood}</TableCell>
-              <TableCell className="text-center">{risk.residual_impact}</TableCell>
-              <TableCell>
-                <Badge color={residualRisk.color}>{residualRisk.text}</Badge>
+              <TableCell className="text-xs align-top whitespace-normal">{risk.deskripsi_risiko}</TableCell>
+              <TableCell className="text-xs align-top whitespace-normal text-gray-500">{risk.risk_causes}</TableCell>
+              <TableCell className="text-xs align-top whitespace-normal text-gray-500">{risk.risk_impacts}</TableCell>
+              <TableCell className="text-xs align-top whitespace-normal text-gray-500">{risk.existing_controls}</TableCell>
+              <TableCell className="text-xs align-top">{risk.control_effectiveness}</TableCell>
+
+              {/* Inherent Score */}
+              <TableCell className="text-center align-top text-xs font-semibold">{risk.inherent_likelihood}</TableCell>
+              <TableCell className="text-center align-top text-xs font-semibold">{risk.inherent_impact}</TableCell>
+              <TableCell className="text-center align-top">
+                <span className={`px-2 py-1 rounded text-[10px] font-bold ${inherentRisk.color} inline-block w-full`}>{inherentRisk.text}</span>
+              </TableCell>
+
+              <TableCell className="text-xs align-top">
+                <Badge size="xs" className="rounded-md" color="slate">
+                  {risk.treatment_option || "-"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-xs align-top whitespace-normal text-gray-500">{risk.mitigation_plan}</TableCell>
+
+              {/* Residual Score */}
+              <TableCell className="text-center align-top text-xs font-semibold">{risk.residual_likelihood}</TableCell>
+              <TableCell className="text-center align-top text-xs font-semibold">{risk.residual_impact}</TableCell>
+              <TableCell className="text-center align-top">
+                <span className={`px-2 py-1 rounded text-[10px] font-bold ${residualRisk.color} inline-block w-full`}>{residualRisk.text}</span>
               </TableCell>
             </TableRow>
           );

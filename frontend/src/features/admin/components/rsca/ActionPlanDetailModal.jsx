@@ -1,11 +1,11 @@
 // frontend/src/features/admin/components/rsca/ActionPlanDetailModal.jsx
 
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogPanel, Title, Text, Button, Select, SelectItem, Badge, Flex, Icon, Subtitle } from "@tremor/react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogPanel, Title, Text, Button, Select, SelectItem } from "@tremor/react";
+import { useMutation } from "@tanstack/react-query";
 import apiClient from "../../../../api/api";
 import { toast } from "sonner";
-import { FiSave, FiClock, FiCheckCircle, FiMinusCircle } from "react-icons/fi";
+import { FiSave, FiClock, FiCheckCircle, FiMinusCircle, FiX, FiActivity, FiUser, FiCalendar } from "react-icons/fi";
 import { getStatusColor } from "../../../../utils/formatters";
 
 const updateStatus = ({ planId, status }) => {
@@ -13,7 +13,6 @@ const updateStatus = ({ planId, status }) => {
 };
 
 function ActionPlanDetailModal({ isOpen, onClose, plan, onSaveSuccess }) {
-  const queryClient = useQueryClient();
   const [currentStatus, setCurrentStatus] = useState("");
 
   useEffect(() => {
@@ -26,9 +25,8 @@ function ActionPlanDetailModal({ isOpen, onClose, plan, onSaveSuccess }) {
     mutationFn: updateStatus,
     onSuccess: (data) => {
       toast.success(data.msg || "Status berhasil diupdate!");
-      //   onSaveSuccess(data.action_plan);
       onSaveSuccess();
-      onClose(); // Tutup modal
+      onClose();
     },
     onError: (error) => {
       toast.error("Gagal update: " + (error.response?.data?.msg || error.message));
@@ -39,25 +37,36 @@ function ActionPlanDetailModal({ isOpen, onClose, plan, onSaveSuccess }) {
     mutation.mutate({ planId: plan.id, status: currentStatus });
   };
 
-  // Jangan render apapun jika data belum siap
   if (!isOpen || !plan) return null;
 
   return (
     <Dialog open={isOpen} onClose={() => !mutation.isPending && onClose()} static={true}>
-      <DialogPanel>
-        <Subtitle>Rencana Aksi #{plan.id}</Subtitle>
-        <Title className="mb-4">{plan.action_description}</Title>
+      <DialogPanel className="max-w-lg p-0 overflow-hidden rounded-xl bg-white shadow-xl">
+        {/* --- HEADER --- */}
+        <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-start bg-gray-50/50">
+          <div className="flex items-start gap-4">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl shadow-sm border border-emerald-100 shrink-0">
+              <FiActivity size={22} />
+            </div>
+            <div>
+              <Title className="text-lg text-slate-800 font-bold leading-snug line-clamp-2">{plan.action_description}</Title>
+              <Text className="text-xs text-gray-500 mt-1 font-mono">ID: #{plan.id}</Text>
+            </div>
+          </div>
+          <Button icon={FiX} variant="light" color="slate" onClick={onClose} disabled={mutation.isPending} className="rounded-full hover:bg-gray-200 p-2 -mr-2 -mt-2" />
+        </div>
 
-        <div className="space-y-4">
+        {/* --- BODY --- */}
+        <div className="p-8 space-y-6">
+          {/* Status */}
           <div>
-            <label className="text-tremor-default font-medium text-tremor-content-strong">Status Saat Ini</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Status Saat Ini</label>
             <Select
               value={currentStatus}
               onValueChange={setCurrentStatus}
-              className="mt-1"
-              color={getStatusColor(currentStatus)}
-              icon={currentStatus === "Selesai" ? FiCheckCircle : currentStatus === "Sedang Dikerjakan" ? FiClock : FiMinusCircle}
               disabled={mutation.isPending}
+              icon={currentStatus === "Selesai" ? FiCheckCircle : currentStatus === "Sedang Dikerjakan" ? FiClock : FiMinusCircle}
+              className="w-full"
             >
               <SelectItem value="Belum Mulai" icon={FiMinusCircle}>
                 Belum Mulai
@@ -68,33 +77,38 @@ function ActionPlanDetailModal({ isOpen, onClose, plan, onSaveSuccess }) {
               <SelectItem value="Selesai" icon={FiCheckCircle}>
                 Selesai
               </SelectItem>
-              {/* <SelectItem value="Dibatalkan" icon={FiXCircle}>Dibatalkan</SelectItem> */}
             </Select>
           </div>
 
-          <div>
-            <label className="text-tremor-default font-medium text-tremor-content-strong">Penanggung Jawab</label>
-            <Text className="mt-1">{plan.assigned_department?.name || "N/A"}</Text>
-          </div>
+          {/* Info Grid */}
+          <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                <FiUser size={12} /> PIC / Dept
+              </label>
+              <Text className="text-sm font-medium text-slate-700">{plan.assigned_department?.name || "N/A"}</Text>
+            </div>
 
-          <div>
-            <label className="text-tremor-default font-medium text-tremor-content-strong">Tenggat Waktu</label>
-            <Text className="mt-1" color={new Date(plan.due_date) < new Date() ? "red" : "inherit"}>
-              {plan.due_date || "N/A"}
-            </Text>
-          </div>
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                <FiCalendar size={12} /> Tenggat
+              </label>
+              <Text className={`text-sm font-medium ${new Date(plan.due_date) < new Date() ? "text-red-600" : "text-slate-700"}`}>{plan.due_date || "N/A"}</Text>
+            </div>
 
-          <div>
-            <label className="text-tremor-default font-medium text-tremor-content-strong">Dibuat Oleh</label>
-            <Text className="mt-1">{plan.creator?.nama_lengkap || "N/A"}</Text>
+            <div className="col-span-2 border-t border-gray-200 pt-3 mt-1">
+              <label className="text-[10px] text-gray-400 uppercase tracking-wider">Dibuat Oleh</label>
+              <Text className="text-xs text-gray-500">{plan.creator?.nama_lengkap || "Sistem"}</Text>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 mt-6 border-t">
-          <Button variant="secondary" onClick={onClose} disabled={mutation.isPending}>
+        {/* --- FOOTER --- */}
+        <div className="px-8 py-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <Button variant="secondary" className="text-white bg-rose-300 hover:bg-rose-500 rounded-md  " color="slate" onClick={onClose} disabled={mutation.isPending}>
             Tutup
           </Button>
-          <Button icon={FiSave} onClick={handleSave} loading={mutation.isPending} disabled={mutation.isPending}>
+          <Button icon={FiSave} onClick={handleSave} loading={mutation.isPending} className="text-white bg-emerald-600 border-emerald-600 hover:bg-emerald-700 hover:border-emerald-700 shadow-lg shadow-emerald-100 rounded-md">
             Update Status
           </Button>
         </div>

@@ -1,7 +1,8 @@
 // frontend/src/features/bpr/components/NodeRiskSidebar.jsx
+
 import React, { useState, useEffect } from "react";
-import { Title, Text, Button, TextInput, Textarea, Select, SelectItem, Badge, Card, Flex, Icon } from "@tremor/react";
-import { FiX, FiPlus, FiTrash2, FiSave, FiAlertTriangle, FiCheckCircle, FiXCircle, FiMessageSquare } from "react-icons/fi";
+import { Title, Text, Button, TextInput, Textarea, Select, SelectItem, Badge } from "@tremor/react";
+import { FiX, FiPlus, FiTrash2, FiSave, FiAlertTriangle, FiCheckCircle, FiXCircle, FiMessageSquare, FiEdit3 } from "react-icons/fi";
 import apiClient from "../../../../api/api";
 import { toast } from "sonner";
 import { useAuth } from "../../../../context/AuthContext";
@@ -21,16 +22,14 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
     inherent_risk_level: "Low",
   });
   const [isAdding, setIsAdding] = useState(false);
-
-  const isReviewer = user?.permissions?.includes("approve_bpr") || user?.role === "admin";
-
   const [reviewNotes, setReviewNotes] = useState({});
 
-  // Fetch risks saat node berubah
+  // Permission Check
+  const isReviewer = user?.role === "Admin" || user?.permissions?.includes("approve_bpr");
+
   useEffect(() => {
     if (isOpen && selectedNode) {
       setNodeLabel(selectedNode.data?.label || "");
-
       if (selectedNode.db_id) {
         fetchRisks(selectedNode.db_id);
       } else {
@@ -40,11 +39,8 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
     }
   }, [selectedNode, isOpen]);
 
-  const handleLabelChange = (e) => {
-    setNodeLabel(e.target.value);
-  };
+  const handleLabelChange = (e) => setNodeLabel(e.target.value);
 
-  // Handler saat selesai mengetik (onBlur) -> Kirim ke Parent
   const handleLabelBlur = () => {
     if (selectedNode && onLabelChange) {
       onLabelChange(selectedNode.id, nodeLabel);
@@ -62,7 +58,6 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
       });
       setReviewNotes(notesInit);
     } catch (error) {
-      console.error(error);
       toast.error("Gagal memuat risiko.");
     } finally {
       setIsLoading(false);
@@ -71,7 +66,7 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
 
   const handleAddRisk = async () => {
     if (!newRisk.risk_description) {
-      toast.error("Deskripsi risiko wajib diisi.");
+      toast.error("Deskripsi wajib diisi.");
       return;
     }
     setIsSubmitting(true);
@@ -83,7 +78,7 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
       fetchRisks(selectedNode.db_id);
       onDataChange();
     } catch (error) {
-      toast.error("Gagal menyimpan risiko.");
+      toast.error("Gagal menyimpan.");
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +88,7 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
     if (!confirm("Hapus risiko ini?")) return;
     try {
       await apiClient.delete(`/bpr/risks/${riskId}`);
-      toast.success("Risiko dihapus.");
+      toast.success("Terhapus.");
       fetchRisks(selectedNode.db_id);
       onDataChange();
     } catch (error) {
@@ -103,38 +98,27 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
 
   const handleApproval = async (riskId, status) => {
     const note = reviewNotes[riskId] || "";
-
     if (status === "Rejected" && !note.trim()) {
-      toast.error("Harap berikan catatan alasan penolakan.");
+      toast.error("Berikan catatan penolakan.");
       return;
     }
-
     try {
-      await apiClient.put(`/bpr/risks/${riskId}`, {
-        approval_status: status,
-        reviewer_notes: note,
-      });
-      toast.success(`Risiko ${status === "Approved" ? "disetujui" : "ditolak"}.`);
+      await apiClient.put(`/bpr/risks/${riskId}`, { approval_status: status, reviewer_notes: note });
+      toast.success(`Status: ${status}`);
       fetchRisks(selectedNode.db_id);
     } catch (error) {
-      console.error(error);
-      toast.error("Gagal mengupdate status approval.");
+      toast.error("Gagal update status.");
     }
   };
 
-  const handleNoteChange = (riskId, value) => {
-    setReviewNotes((prev) => ({ ...prev, [riskId]: value }));
-  };
-
-  // Helper warna badge status
   const getStatusBadge = (status) => {
     switch (status) {
       case "Approved":
-        return { color: "emerald", icon: FiCheckCircle, text: "Disetujui" };
+        return { color: "emerald", icon: FiCheckCircle, text: "Approved" };
       case "Rejected":
-        return { color: "rose", icon: FiXCircle, text: "Ditolak" };
+        return { color: "rose", icon: FiXCircle, text: "Rejected" };
       default:
-        return { color: "gray", icon: FiAlertTriangle, text: "Draft / Review" };
+        return { color: "slate", icon: FiAlertTriangle, text: "Draft" };
     }
   };
 
@@ -142,162 +126,167 @@ export default function NodeRiskSidebar({ isOpen, onClose, selectedNode, onDataC
 
   return (
     <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
-      {/* Header */}
-      <div className="p-5 border-b bg-slate-50">
-        <div className="flex justify-between items-center mb-3">
-          <Text className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Detail Langkah</Text>
-          <Button icon={FiX} variant="light" color="gray" onClick={onClose} />
+      {/* HEADER */}
+      <div className="px-6 py-4 border-b border-gray-200 bg-slate-50 flex justify-between items-center">
+        <div className="flex items-center gap-2 text-slate-700">
+          <FiEdit3 />
+          <span className="font-bold text-sm uppercase tracking-wide">Detail Langkah</span>
         </div>
-        <div>
-          <label className="text-xs font-medium text-slate-700 mb-1 block">Nama Langkah</label>
-          <TextInput value={nodeLabel} onChange={handleLabelChange} onBlur={handleLabelBlur} placeholder="Nama Langkah..." className="font-bold" />
-        </div>
+        <Button icon={FiX} variant="light" color="slate" onClick={onClose} className="rounded-full hover:bg-gray-200 p-1" />
       </div>
 
-      {/* Content */}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+      {/* LABEL EDITOR */}
+      <div className="px-6 py-4 border-b border-gray-100 bg-white">
+        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Nama Langkah</label>
+        <TextInput value={nodeLabel} onChange={handleLabelChange} onBlur={handleLabelBlur} placeholder="Contoh: Verifikasi Dokumen" className="font-semibold text-slate-800 border-slate-200 focus:border-blue-500" />
+      </div>
+
+      {/* CONTENT */}
+      <div className="flex-grow overflow-y-auto p-6 space-y-6 bg-slate-50/50">
         {!selectedNode?.db_id ? (
-          <div className="p-4 bg-yellow-50 text-yellow-800 rounded text-sm border border-yellow-200">
-            <FiAlertTriangle className="inline mr-2" />
-            <span className="font-medium">Langkah Belum Disimpan</span>
-            <p className="mt-1 text-xs">Silakan simpan diagram terlebih dahulu untuk menambahkan risiko pada langkah ini.</p>
+          <div className="p-4 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 text-sm flex gap-3 items-start">
+            <FiAlertTriangle className="shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block mb-1">Belum Disimpan</span>
+              Simpan diagram terlebih dahulu untuk mulai menambahkan risiko.
+            </div>
           </div>
         ) : (
           <>
             <div className="flex justify-between items-center">
-              <Title className="text-sm">Daftar Risiko ({risks.length})</Title>
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Daftar Risiko ({risks.length})</h3>
             </div>
 
-            {/* List Risiko */}
-            <div className="space-y-3">
+            {/* RISK LIST */}
+            <div className="space-y-4">
               {isLoading ? (
-                <Text className="text-center py-4">Memuat...</Text>
+                <Text className="text-center py-4 text-gray-400 italic">Memuat data...</Text>
               ) : risks.length === 0 && !isAdding ? (
-                <div className="text-center py-8 border-2 border-dashed rounded-lg text-gray-400 bg-white">
-                  <FiCheckCircle className="mx-auto mb-2 w-6 h-6" />
-                  <Text>Aman. Belum ada risiko.</Text>
+                <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl bg-white">
+                  <FiCheckCircle className="mx-auto mb-2 w-8 h-8 text-gray-300" />
+                  <Text className="text-gray-400 text-sm">Belum ada risiko teridentifikasi.</Text>
                 </div>
               ) : (
                 risks.map((risk) => {
                   const statusInfo = getStatusBadge(risk.approval_status);
+                  const borderColor = risk.approval_status === "Rejected" ? "border-rose-500" : risk.approval_status === "Approved" ? "border-emerald-500" : "border-slate-300";
+
                   return (
-                    <Card
-                      key={risk.id}
-                      className={`p-4 border-l-4 shadow-sm relative group ${risk.approval_status === "Rejected" ? "border-rose-500 bg-rose-50/30" : risk.approval_status === "Approved" ? "border-emerald-500" : "border-orange-400"}`}
-                    >
-                      {/* Tombol Hapus (Hanya muncul jika belum Approved atau user adalah Reviewer) */}
+                    <div key={risk.id} className={`bg-white p-4 rounded-lg border-l-4 shadow-sm relative group ${borderColor} hover:shadow-md transition-shadow`}>
+                      {/* Delete Button */}
                       {(isReviewer || risk.approval_status !== "Approved") && (
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="xs" variant="light" color="rose" icon={FiTrash2} onClick={() => handleDeleteRisk(risk.id)} />
-                        </div>
+                        <button onClick={() => handleDeleteRisk(risk.id)} className="absolute top-2 right-2 text-gray-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
+                          <FiTrash2 size={14} />
+                        </button>
                       )}
 
-                      <Flex justifyContent="start" className="gap-2 mb-2">
-                        <Badge size="xs" color={risk.inherent_risk_level === "High" || risk.inherent_risk_level === "Extreme" ? "rose" : "orange"}>
+                      {/* Badges */}
+                      <div className="flex gap-2 mb-3">
+                        <Badge size="xs" className="rounded-md px-2 py-1" color={risk.inherent_risk_level === "High" ? "rose" : "orange"}>
                           {risk.inherent_risk_level}
                         </Badge>
-                        <Badge size="xs" color={statusInfo.color} icon={statusInfo.icon}>
+                        <Badge size="xs" className="rounded-md px-2 py-1" color={statusInfo.color} icon={statusInfo.icon}>
                           {statusInfo.text}
                         </Badge>
-                      </Flex>
+                      </div>
 
-                      <Text className="font-bold text-slate-800 text-sm mb-2 leading-snug">{risk.risk_description}</Text>
+                      <Text className="font-bold text-slate-800 text-sm mb-3 leading-relaxed">{risk.risk_description}</Text>
 
-                      <div className="text-xs space-y-1 text-slate-600 bg-white/50 p-2 rounded mb-2">
+                      {/* --- PERBAIKAN TAMPILAN SEBAB & AKIBAT (Block Layout) --- */}
+                      <div className="text-xs bg-gray-50 p-3 rounded border border-gray-100 space-y-2 text-slate-600">
                         {risk.risk_cause && (
-                          <p>
-                            <span className="font-semibold">Penyebab:</span> {risk.risk_cause}
-                          </p>
+                          <div>
+                            <span className="font-bold text-gray-500 uppercase text-[10px] block mb-0.5">Sebab:</span>
+                            <span className="leading-relaxed">{risk.risk_cause}</span>
+                          </div>
                         )}
                         {risk.risk_impact && (
-                          <p>
-                            <span className="font-semibold">Dampak:</span> {risk.risk_impact}
-                          </p>
+                          <div className="pt-2 border-t border-gray-200">
+                            <span className="font-bold text-gray-500 uppercase text-[10px] block mb-0.5">Akibat:</span>
+                            <span className="leading-relaxed">{risk.risk_impact}</span>
+                          </div>
                         )}
                       </div>
 
-                      {risk.existing_control && (
-                        <div className="pt-2 border-t border-gray-100">
-                          <Text className="text-[10px] text-gray-500 uppercase font-semibold">Kontrol</Text>
-                          <Text className="text-xs text-slate-600">{risk.existing_control}</Text>
-                        </div>
-                      )}
-
-                      {/* --- AREA REVIEWER --- */}
+                      {/* Reviewer Section */}
                       {isReviewer && (
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <Text className="text-[10px] font-bold text-blue-600 mb-1 flex items-center gap-1">
-                            <FiMessageSquare size={10} /> REVIEWER AREA
-                          </Text>
-                          <Textarea placeholder="Catatan review / alasan penolakan..." className="text-xs mb-2" rows={2} value={reviewNotes[risk.id] || ""} onChange={(e) => handleNoteChange(risk.id, e.target.value)} />
+                        <div className="mt-3 pt-3 border-t border-gray-100 bg-slate-50/50 -mx-4 -mb-4 p-3 rounded-b-lg">
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 mb-1 uppercase">
+                            <FiMessageSquare /> Reviewer Action
+                          </div>
+                          <Textarea placeholder="Catatan..." className="text-xs mb-2 min-h-[50px] bg-white" value={reviewNotes[risk.id] || ""} onChange={(e) => setReviewNotes((prev) => ({ ...prev, [risk.id]: e.target.value }))} />
                           <div className="flex gap-2 justify-end">
-                            <Button size="xs" variant="secondary" color="rose" onClick={() => handleApproval(risk.id, "Rejected")}>
+                            <Button size="xs" className="rounded-md" variant="secondary" color="rose" onClick={() => handleApproval(risk.id, "Rejected")}>
                               Tolak
                             </Button>
-                            <Button size="xs" className="text-emerald-400" color="emerald" onClick={() => handleApproval(risk.id, "Approved")}>
-                              Setujui
+                            <Button size="xs" className="rounded-md" color="emerald" onClick={() => handleApproval(risk.id, "Approved")}>
+                              Setuju
                             </Button>
                           </div>
                         </div>
                       )}
 
-                      {/* Tampilan Catatan untuk Staf */}
+                      {/* Reviewer Note for User */}
                       {!isReviewer && risk.reviewer_notes && (
-                        <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
-                          <span className="font-bold">Catatan Reviewer:</span> {risk.reviewer_notes}
+                        <div className="mt-2 text-xs text-rose-600 bg-rose-50 p-2 rounded border border-rose-100">
+                          <span className="font-bold">Note:</span> {risk.reviewer_notes}
                         </div>
                       )}
-                    </Card>
+                    </div>
                   );
                 })
               )}
             </div>
 
-            {/* Form Tambah */}
+            {/* FORM TAMBAH RISIKO */}
             {isAdding ? (
-              <Card className="bg-white border-2 border-blue-100 shadow-lg">
-                <div className="space-y-3">
-                  <Title className="text-sm">Tambah Risiko Baru</Title>
+              <div className="bg-white p-4 rounded-lg border border-blue-200 shadow-md ring-2 ring-blue-50">
+                <h4 className="text-sm font-bold text-blue-800 mb-3">Risiko Baru</h4>
+                <div className="space-y-4">
+                  {" "}
+                  {/* Tambah spacing */}
                   <div>
-                    <label className="text-xs font-bold text-gray-600">Deskripsi Risiko *</label>
-                    <Textarea rows={2} placeholder="Apa yang bisa salah?" value={newRisk.risk_description} onChange={(e) => setNewRisk({ ...newRisk, risk_description: e.target.value })} />
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Deskripsi</label>
+                    <Textarea placeholder="Deskripsi risiko..." rows={2} value={newRisk.risk_description} onChange={(e) => setNewRisk({ ...newRisk, risk_description: e.target.value })} />
+                  </div>
+                  {/* --- PERBAIKAN LAYOUT FORM (Grid atau Stack) --- */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Sebab (Cause)</label>
+                      <TextInput placeholder="..." value={newRisk.risk_cause} onChange={(e) => setNewRisk({ ...newRisk, risk_cause: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Akibat (Impact)</label>
+                      <TextInput placeholder="..." value={newRisk.risk_impact} onChange={(e) => setNewRisk({ ...newRisk, risk_impact: e.target.value })} />
+                    </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-gray-600">Penyebab</label>
-                    <Textarea rows={1} placeholder="Mengapa?" value={newRisk.risk_cause} onChange={(e) => setNewRisk({ ...newRisk, risk_cause: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-600">Dampak</label>
-                    <Textarea rows={1} placeholder="Akibatnya?" value={newRisk.risk_impact} onChange={(e) => setNewRisk({ ...newRisk, risk_impact: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-600">Kontrol Saat Ini</label>
-                    <TextInput placeholder="SOP, Sistem..." value={newRisk.existing_control} onChange={(e) => setNewRisk({ ...newRisk, existing_control: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-600">Level Risiko</label>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Level</label>
                     <Select value={newRisk.inherent_risk_level} onValueChange={(val) => setNewRisk({ ...newRisk, inherent_risk_level: val })}>
-                      <SelectItem value="Low">Low</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="High">High</SelectItem>
-                      <SelectItem value="Extreme">Extreme</SelectItem>
+                      {["Low", "Medium", "High", "Extreme"].map((l) => (
+                        <SelectItem key={l} value={l}>
+                          {l}
+                        </SelectItem>
+                      ))}
                     </Select>
                   </div>
-
-                  <div className="flex justify-end gap-2 mt-2">
-                    <Button size="xs" variant="secondary" onClick={() => setIsAdding(false)}>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-2">
+                    <Button size="xs" variant="secondary" className="rounded-md" color="rose" onClick={() => setIsAdding(false)}>
                       Batal
                     </Button>
-                    <Button size="xs" loading={isSubmitting} onClick={handleAddRisk}>
+                    <Button size="xs" className="rounded-md" color="emerald" loading={isSubmitting} onClick={handleAddRisk}>
                       Simpan
                     </Button>
                   </div>
                 </div>
-              </Card>
+              </div>
             ) : (
-              <Button className="w-full border-dashed border-2 bg-transparent text-blue-600 hover:bg-blue-50 hover:border-blue-300 py-3" onClick={() => setIsAdding(true)} icon={FiPlus}>
-                Identifikasi Risiko Baru
-              </Button>
+              <button
+                onClick={() => setIsAdding(true)}
+                className="w-full py-3 border-2 border-dashed border-blue-200 rounded-lg text-blue-500 font-medium text-sm hover:bg-blue-50 hover:border-blue-300 transition-colors flex items-center justify-center gap-2"
+              >
+                <FiPlus /> Tambah Risiko
+              </button>
             )}
           </>
         )}

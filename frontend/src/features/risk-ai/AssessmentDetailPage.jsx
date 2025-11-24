@@ -1,29 +1,139 @@
+// frontend/src/features/risk-ai/AssessmentDetailPage.jsx
+
 import React, { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { Card, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Grid, Col, Badge, Button, Switch } from "@tremor/react";
-import { FiDownload, FiFileText, FiMaximize, FiMinimize, FiAlertTriangle, FiInfo, FiZap } from "react-icons/fi";
+import { useParams, useNavigate } from "react-router-dom";
+import { Card, Title, Text, Button, Grid, Col, Badge, Switch } from "@tremor/react";
+import {
+  FiDownload,
+  FiFileText,
+  FiMaximize,
+  FiMinimize,
+  FiAlertTriangle,
+  FiInfo,
+  FiZap,
+  FiArrowLeft,
+  FiCpu,
+  FiDatabase,
+  FiBriefcase,
+  FiList,
+  FiGrid,
+  FiBarChart2,
+  FiTarget,
+  FiUsers,
+  FiBookOpen,
+  FiClipboard,
+  FiCheckCircle,
+  FiBookmark,
+  FiHash,
+  FiCalendar,
+  FiUser,
+  FiShield,
+  FiDollarSign,
+} from "react-icons/fi";
 import apiClient from "../../api/api";
+import { toast } from "sonner";
+
+// Components
 import RiskCriteriaReference from "./components/RiskCriteriaReference";
 import RiskResultsTable from "./components/RiskResultsTable";
 import EditRiskItemSidebar from "./components/EditRiskItemSidebar";
 import RiskMatrix from "./components/RiskMatrix";
 import RiskSummary from "./components/RiskSummary";
 import AIGeneratedAnalysis from "./components/AIGeneratedAnalysis";
-import { toast } from "sonner";
+
+const formatCurrency = (value, currency = "IDR") => {
+  if (!value) return "0";
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+const formatDateLocal = (dateString) => {
+  if (!dateString) return "-";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
+
+// Komponen Sub-Card untuk informasi detail
+const InfoCard = ({ title, icon: Icon, color, children }) => {
+  // PERBAIKAN: Gunakan 'bg-' (background) untuk strip warna, bukan 'border-'
+  const stripeColors = {
+    blue: "bg-blue-500",
+    indigo: "bg-indigo-500",
+    emerald: "bg-emerald-500",
+    amber: "bg-amber-500",
+  };
+
+  const iconBgColors = {
+    blue: "bg-blue-50",
+    indigo: "bg-indigo-50",
+    emerald: "bg-emerald-50",
+    amber: "bg-amber-50",
+  };
+
+  const iconTextColors = {
+    blue: "text-blue-600",
+    indigo: "text-indigo-600",
+    emerald: "text-emerald-600",
+    amber: "text-amber-600",
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all h-full relative overflow-hidden">
+      {/* Strip Warna di Kiri (Gunakan stripeColors) */}
+      <div className={`absolute top-0 left-0 w-1.5 h-full ${stripeColors[color] || "bg-gray-300"}`}></div>
+
+      <div className="flex items-center gap-2 mb-4 border-b border-gray-50 pb-2 pl-2">
+        {/* Tambah pl-2 agar tidak mepet strip */}
+        <div className={`p-1.5 rounded-md ${iconBgColors[color]} ${iconTextColors[color]}`}>
+          <Icon size={16} />
+        </div>
+        <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</h4>
+      </div>
+      <div className="space-y-4 pl-2">{children}</div>
+    </div>
+  );
+};
+
+// Komponen Field Label-Value
+const InfoField = ({ label, value, icon: Icon }) => (
+  <div>
+    <Text className="text-[10px] text-gray-400 font-bold uppercase mb-0.5 flex items-center gap-1">
+      {Icon && <Icon size={10} />} {label}
+    </Text>
+    <div className="font-medium text-slate-700 text-sm break-words">{value}</div>
+  </div>
+);
 
 function AssessmentDetailPage() {
   const { assessmentId } = useParams();
+  const navigate = useNavigate();
+
+  // State
   const [assessment, setAssessment] = useState(null);
   const [assetOptions, setAssetOptions] = useState([]);
   const [industryOptions, setIndustryOptions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // UI State
   const [selectedRisks, setSelectedRisks] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const tableCardRef = useRef(null);
   const [isEditSidebarOpen, setIsEditSidebarOpen] = useState(false);
   const [editingRisk, setEditingRisk] = useState(null);
 
+  // Fetch Data
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -34,20 +144,19 @@ function AssessmentDetailPage() {
         setIndustryOptions(industryRes.data);
       } catch (error) {
         console.error("Gagal memuat detail asesmen:", error);
+        toast.error("Gagal memuat data.");
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setIsFullscreen(false);
-      }
-    };
+
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [assessmentId]);
 
+  // Handlers
   const handleEditClick = (risk) => {
     setEditingRisk(risk);
     setIsEditSidebarOpen(true);
@@ -63,22 +172,13 @@ function AssessmentDetailPage() {
       ...prev,
       risks: prev.risks.map((r) => (r.id === updatedRisk.id ? updatedRisk : r)),
     }));
+    setIsEditSidebarOpen(false);
+    toast.success("Risiko berhasil diperbarui");
   };
 
   const handleSummaryLoaded = (newAnalysisData) => {
-    setAssessment((prevData) => ({
-      ...prevData,
-      ...newAnalysisData,
-    }));
+    setAssessment((prevData) => ({ ...prevData, ...newAnalysisData }));
   };
-
-  if (isLoading) return <div className="p-10">Memuat Laporan Asesmen Risiko...</div>;
-  if (!assessment) return <div className="p-10">Gagal memuat data asesmen.</div>;
-
-  const formatNumber = (num) => (num ? new Intl.NumberFormat("id-ID").format(num) : "-");
-
-  const assetValueDisplay = assetOptions.find((opt) => opt.key === assessment.company_assets)?.value || assessment.company_assets;
-  const industryDisplay = industryOptions.find((opt) => opt.key === assessment.company_industry)?.value || assessment.company_industry || "-";
 
   const handleSelectAll = (checked) => {
     if (checked) {
@@ -96,11 +196,10 @@ function AssessmentDetailPage() {
     if (selectedRisks.length === 0) return;
     try {
       await apiClient.post("/risk-register/import", { risk_ids: selectedRisks });
-      toast.success(`Sukses! ${selectedRisks.length} risiko telah ditambahkan ke Risk Register Utama.`);
+      toast.success(`${selectedRisks.length} risiko ditambahkan ke Risk Register.`);
       setSelectedRisks([]);
     } catch (error) {
-      toast.error("Gagal menambahkan risiko ke register.");
-      console.error("Import error:", error);
+      toast.error("Gagal import risiko.");
     }
   };
 
@@ -114,203 +213,276 @@ function AssessmentDetailPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen bg-slate-50 gap-4">
+        <div className="animate-spin h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
+        <Text className="text-indigo-900 font-medium">Memuat Laporan Asesmen...</Text>
+      </div>
+    );
+  }
+
+  if (!assessment) return <div className="p-10">Gagal memuat data asesmen.</div>;
+
+  const assetValueDisplay = assetOptions.find((opt) => opt.key === assessment.company_assets)?.value || assessment.company_assets;
+  const industryDisplay = industryOptions.find((opt) => opt.key === assessment.company_industry)?.value || assessment.company_industry || "-";
   const isAllSelected = assessment?.risks.length > 0 && selectedRisks.length === assessment.risks.length;
 
   return (
-    <>
-      <div className="p-6 sm:p-10 bg-slate-50 min-h-full">
-        <Title>Risk Assessment Results</Title>
-        <Text>AI-powered comprehensive risk analysis and recommendations</Text>
+    <div className="p-6 sm:p-10 bg-slate-50 min-h-screen space-y-8">
+      {/* --- HEADER & SUMMARY --- */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+        <div className="flex items-center gap-4">
+          <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/risk-ai/assessments")} className="rounded-full p-2 hover:bg-slate-200" />
+          <div>
+            <div className="flex items-center gap-2">
+              <Title className="text-2xl text-slate-800">Risk Assessment Results</Title>
+              <Badge color="indigo" size="xs">
+                AI Generated
+              </Badge>
+            </div>
+            <Text className="text-slate-500">Laporan analisis risiko komprehensif.</Text>
+          </div>
+        </div>
+      </div>
 
-        <Card className="mt-6 rounded-xl shadow-lg">
-          <div className="flex justify-between items-start">
+      {/* CARD 1: SUMMARY INFO (Blue Accent) */}
+      <Card className="border-t-4 border-blue-500 shadow-md bg-slate-50/50 ring-1 ring-gray-200 p-6">
+        {/* Header Card Utama */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-600 text-white rounded-lg shadow-sm">
+              <FiInfo size={24} />
+            </div>
             <div>
-              <Title>Risk Assessment Summary</Title>
-              <Text>Assessment overview and key information</Text>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" icon={FiDownload} disabled>
-                Download Excel
-              </Button>
-              <Button variant="secondary" icon={FiFileText} disabled>
-                Download PDF
-              </Button>
+              <Title className="text-lg font-bold text-slate-800">Ringkasan Proyek</Title>
+              <Text className="text-xs text-slate-500">Overview informasi kunci asesmen.</Text>
             </div>
           </div>
-
-          <Grid numItemsLg={2} className="gap-x-12 gap-y-6 mt-6 border-t pt-6">
-            {/* --- Kolom Kiri --- */}
-            <Col>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Assessment Info</h3>
-                  <div className="mt-2 grid grid-cols-3 gap-4">
-                    <div>
-                      <Text>ID</Text>
-                      <Text className="font-medium text-gray-800">RA-{assessment.id.toString().padStart(5, "0")}</Text>
-                    </div>
-                    <div>
-                      <Text>Date</Text>
-                      <Text className="font-medium text-gray-800">{assessment.tanggal_mulai}</Text>
-                    </div>
-                    <div>
-                      <Text>Created by</Text>
-                      <Text className="font-medium text-gray-800">{assessment.created_by_user_name || "N/A"}</Text>
-                      <Text className="text-xs text-gray-500">{assessment.created_by_user_email || ""}</Text>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Project Context</h3>
-                  <div className="mt-2 grid grid-cols-1 gap-4">
-                    <div>
-                      <Text>Objective</Text>
-                      <Text className="font-medium text-gray-800">{assessment.project_objective || "-"}</Text>
-                    </div>
-                    <div>
-                      <Text>Involved Units</Text>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {assessment.involved_departments?.split(",").map((unit) => (
-                          <Badge key={unit} color="green">
-                            {unit.trim()}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Col>
-
-            {/* --- Kolom Kanan --- */}
-            <Col>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Company Info</h3>
-                  <div className="mt-2 grid grid-cols-2 gap-4">
-                    <div>
-                      <Text>Type</Text>
-                      <Badge color="blue">{assessment.company_type || "-"}</Badge>
-                    </div>
-                    <div>
-                      <Text>Industry</Text>
-                      <Badge color="blue">{industryDisplay}</Badge>
-                    </div>
-                    <div>
-                      <Text>Asset Value</Text>
-                      <Badge color="blue">{assetValueDisplay || "-"}</Badge>
-                    </div>
-                    <div>
-                      <Text>Risk Limit</Text>
-                      <Text className="font-medium text-gray-800">Rp {formatNumber(assessment.risk_limit)}</Text>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Project Context</h3>
-                  <div className="mt-2 grid grid-cols-1 gap-4">
-                    <div>
-                      <Text>Regulations</Text>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {assessment.relevant_regulations?.split(",").map((reg) => (
-                          <Badge key={reg} color="amber">
-                            {reg.trim()}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <Text>Actions Taken</Text>
-                      <Text className="font-medium text-gray-800">{assessment.completed_actions || "-"}</Text>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Col>
-          </Grid>
-
-          <div className="mt-6 border-t pt-6">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Risk Types</h3>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {assessment.risk_categories?.split(",").map((cat) => (
-                <Badge key={cat} color="rose">
-                  {cat.trim()}
-                </Badge>
-              ))}
-            </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" icon={FiDownload} disabled size="xs" className="bg-white shadow-sm">
+              Excel
+            </Button>
+            <Button variant="secondary" icon={FiFileText} disabled size="xs" className="bg-white shadow-sm">
+              PDF
+            </Button>
           </div>
-        </Card>
-
-        <div className="mt-6">
-          <RiskCriteriaReference riskLimit={assessment.risk_limit} />
         </div>
 
-        <Card className="mt-6 rounded-xl shadow-lg fullscreen-card" ref={tableCardRef}>
-          <div className="flex justify-between items-center">
-            <div>
-              <Title>Risk Assessment Results</Title>
-              <Text>Detailed analysis of identified risks. Total: {assessment.risks?.length || 0} risks.</Text>
+        {/* GRID SUB-CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {/* SUB-CARD 1: INFO ASESMEN */}
+          <InfoCard title="Assessment Info" icon={FiFileText} color="blue">
+            <div className="space-y-4">
+              <InfoField label="ID Asesmen" value={`RA-${assessment.id.toString().padStart(5, "0")}`} icon={FiHash} />
+
+              {/* PERBAIKAN FORMAT TANGGAL DI SINI */}
+              <InfoField label="Tanggal Mulai" value={formatDateLocal(assessment.tanggal_mulai)} icon={FiCalendar} />
+
+              <div>
+                <Text className="text-[10px] text-gray-400 font-bold uppercase mb-0.5 flex items-center gap-1">
+                  <FiUser size={10} /> Dibuat Oleh
+                </Text>
+                <div className="font-medium text-slate-700 text-sm">{assessment.created_by_user_name || "N/A"}</div>
+                <div className="text-xs text-gray-400 truncate">{assessment.created_by_user_email}</div>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
+          </InfoCard>
+
+          {/* SUB-CARD 2: PROFIL PERUSAHAAN */}
+          <InfoCard title="Company Profile" icon={FiBriefcase} color="indigo">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <InfoField
+                  label="Tipe"
+                  value={
+                    <Badge size="xs" color="indigo" className="rounded-full px-2">
+                      {assessment.company_type || "-"}
+                    </Badge>
+                  }
+                />
+                <InfoField
+                  label="Industri"
+                  value={
+                    <Badge size="xs" color="indigo" className="rounded-full px-2">
+                      {industryDisplay}
+                    </Badge>
+                  }
+                />
+              </div>
+              <InfoField label="Aset Perusahaan" value={assetValueDisplay} icon={FiDollarSign} />
+              <div>
+                <Text className="text-[10px] text-gray-400 font-bold uppercase mb-0.5 flex items-center gap-1">
+                  <FiShield size={10} /> Risk Limit
+                </Text>
+                <div className="text-lg font-bold text-indigo-600">{formatCurrency(assessment.risk_limit, assessment.currency)}</div>
+              </div>
+            </div>
+          </InfoCard>
+
+          {/* SUB-CARD 3: KONTEKS PROYEK */}
+          <InfoCard title="Project Context" icon={FiTarget} color="emerald">
+            <div className="space-y-4">
+              <div>
+                <Text className="text-[10px] text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">
+                  <FiTarget size={10} /> Objective
+                </Text>
+                <div className="text-sm text-slate-700 bg-emerald-50/50 p-2 rounded border border-emerald-100 leading-snug">{assessment.project_objective || "-"}</div>
+              </div>
+              <div>
+                <Text className="text-[10px] text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">
+                  <FiUsers size={10} /> Involved Units
+                </Text>
+                <div className="flex flex-wrap gap-1.5">
+                  {assessment.involved_departments?.split(",").map((u, i) => (
+                    <Badge key={i} size="xs" color="emerald" icon={FiCheckCircle} className="rounded-full px-2 py-0.5">
+                      {u.trim()}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </InfoCard>
+
+          {/* SUB-CARD 4: KONTEKS TAMBAHAN */}
+          <InfoCard title="Additional Context" icon={FiList} color="amber">
+            <div className="space-y-4">
+              <div>
+                <Text className="text-[10px] text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">
+                  <FiBookOpen size={10} /> Regulations
+                </Text>
+                <div className="flex flex-wrap gap-1.5">
+                  {assessment.relevant_regulations ? (
+                    assessment.relevant_regulations.split(",").map((r, i) => (
+                      <Badge key={i} size="xs" color="amber" icon={FiBookmark} className="rounded-full px-2 py-0.5">
+                        {r.trim()}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Text className="text-xs text-gray-400 italic">No regulations.</Text>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Text className="text-[10px] text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">
+                  <FiClipboard size={10} /> Actions Taken
+                </Text>
+                <Text className="text-sm text-slate-600 italic bg-amber-50/50 p-2 rounded border border-amber-100">"{assessment.completed_actions || "No actions yet."}"</Text>
+              </div>
+            </div>
+          </InfoCard>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-gray-200 flex flex-wrap items-center gap-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <FiAlertTriangle className="text-rose-500" /> Risk Types:
+          </span>
+          {assessment.risk_categories?.split(",").map((cat, i) => (
+            <Badge key={i} size="xs" color="rose" className="rounded-full px-3 py-1 shadow-sm border border-rose-200">
+              {cat.trim()}
+            </Badge>
+          ))}
+        </div>
+      </Card>
+
+      {/* CARD 2: RISK CRITERIA (Cyan Accent) */}
+      <Card className="border-l-4 border-cyan-500 shadow-md ring-1 ring-gray-100">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-cyan-50 rounded-lg text-cyan-600">
+            <FiDatabase size={20} />
+          </div>
+          <Title>Kriteria Referensi</Title>
+        </div>
+        <RiskCriteriaReference riskLimit={assessment.risk_limit} />
+      </Card>
+
+      {/* CARD 3: RISK REGISTER TABLE (Rose Accent - Fullscreenable) */}
+      <div ref={tableCardRef} className={`transition-all duration-300 ${isFullscreen ? "fixed inset-0 z-50 bg-slate-50 p-6 overflow-auto" : ""}`}>
+        <Card className="border-t-4 border-rose-500 shadow-md ring-1 ring-gray-100 h-full flex flex-col">
+          <div className="flex justify-between items-center mb-6 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-rose-50 rounded-lg text-rose-600">
+                <FiList size={20} />
+              </div>
+              <div>
+                <Title>Risk Register</Title>
+                <Text className="text-xs text-gray-500">Total: {assessment.risks?.length} risiko teridentifikasi.</Text>
+              </div>
+            </div>
+            <div className="flex gap-3 items-center">
+              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200">
                 <Switch id="select-all" checked={isAllSelected} onChange={handleSelectAll} />
-                <label htmlFor="select-all" className="text-sm cursor-pointer">
-                  Select All ({selectedRisks.length})
+                <label htmlFor="select-all" className="text-xs font-medium text-gray-600 cursor-pointer">
+                  Select All
                 </label>
               </div>
-              <Button variant="secondary" onClick={handleAddToRegister} disabled={selectedRisks.length === 0}>
-                Add to Risk Register ({selectedRisks.length})
+              <Button size="xs" variant="secondary" onClick={handleAddToRegister} disabled={selectedRisks.length === 0}>
+                Add to Register ({selectedRisks.length})
               </Button>
-              <Button variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen}>
-                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-              </Button>
+              <Button size="xs" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} />
             </div>
           </div>
-          <div className="overflow-x-auto mt-11">
+
+          <div className="flex-1 overflow-auto border border-gray-200 rounded-lg">
             <RiskResultsTable risks={assessment.risks} selectedRisks={selectedRisks} onRowSelect={handleRowSelect} onEditClick={handleEditClick} />
           </div>
         </Card>
+      </div>
 
+      {/* CARD 4: RISK MATRIX (Teal Accent) */}
+      <Card className="border-t-4 border-teal-500 shadow-md ring-1 ring-gray-100">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-teal-50 rounded-lg text-teal-600">
+            <FiGrid size={20} />
+          </div>
+          <Title>Peta Sebaran Risiko</Title>
+        </div>
         <RiskMatrix risks={assessment.risks} />
+      </Card>
 
+      {/* CARD 5: RISK SUMMARY (Orange Accent) */}
+      <Card className="border-t-4 border-orange-500 shadow-md ring-1 ring-gray-100">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+            <FiBarChart2 size={20} />
+          </div>
+          <Title>Statistik Risiko</Title>
+        </div>
         <RiskSummary risks={assessment.risks} />
+      </Card>
 
+      {/* CARD 6: AI GENERATED ANALYSIS (Purple Accent) */}
+      <Card className="border-l-4 border-purple-500 shadow-md ring-1 ring-gray-100">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+            <FiCpu size={20} />
+          </div>
+          <Title>Analisis AI Generatif</Title>
+        </div>
         <AIGeneratedAnalysis analysisData={assessment} assessmentId={assessment.id} onSummaryLoaded={handleSummaryLoaded} />
+      </Card>
 
-        <Card className="mt-6 rounded-xl bg-orange-50 border border-orange-200">
-          <div className="flex items-center gap-3">
-            <FiAlertTriangle className="w-6 h-6 text-orange-500" />
-            <div>
-              <Title className="text-orange-800">Important Disclaimer</Title>
-              <Text className="text-orange-700">Legal and usage considerations</Text>
+      {/* CARD 7: DISCLAIMER (Yellow Accent) */}
+      <Card className="border-l-4 border-yellow-400 bg-yellow-50/50 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="p-2 bg-yellow-100 rounded-full text-yellow-600 shrink-0">
+            <FiAlertTriangle size={24} />
+          </div>
+          <div>
+            <Title className="text-yellow-800">Disclaimer & Rekomendasi</Title>
+            <Text className="mt-1 text-sm text-yellow-900/80 leading-relaxed">
+              Assessment ini memberikan gambaran awal profil risiko berdasarkan input AI. Konteks organisasi yang unik mungkin memerlukan penyesuaian manual. Pastikan review internal dilakukan sebelum finalisasi.
+            </Text>
+            <div className="mt-3 flex items-center gap-2 text-xs font-medium text-yellow-700 bg-white/60 p-2 rounded border border-yellow-200 w-fit">
+              <FiZap /> Pro Tip: Update data secara berkala sesuai kondisi lapangan.
             </div>
           </div>
+        </div>
+      </Card>
 
-          <Card className="mt-4 rounded-xl shadow-lg">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <FiInfo className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <Title>Assessment Limitations & Recommendations</Title>
-                <Text className="mt-2 text-tremor-default text-tremor-content">
-                  Assessment ini memberikan gambaran awal mengenai profil risiko organisasi Anda, berdasarkan input yang tersedia saat ini. Namun, setiap organisasi memiliki konteks dan dinamika yang unik. Pastikan untuk mereview kembali
-                  hasil ini secara internal, dan lakukan penyesuaian bila diperlukan agar selaras dengan situasi aktual di lapangan. Bila hasil tampak tidak sesuai, evaluasi kembali input yang digunakan untuk mendapatkan gambaran yang lebih
-                  akurat.
-                </Text>
-                <div className="mt-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-md flex items-start gap-2">
-                  <FiZap className="flex-shrink-0 w-5 h-5 mt-1" />
-                  <Text className="text-yellow-800">
-                    <span className="font-semibold">Pro Tip:</span> Untuk hasil optimal, lakukan review berkala dan update assessment sesuai perubahan kondisi bisnis.
-                  </Text>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </Card>
-      </div>
+      {/* Sidebar Edit */}
       <EditRiskItemSidebar risk={editingRisk} isOpen={isEditSidebarOpen} onClose={handleCloseSidebar} onSave={handleSaveRisk} />
-    </>
+    </div>
   );
 }
 

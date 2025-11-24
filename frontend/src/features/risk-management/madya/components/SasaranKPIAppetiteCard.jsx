@@ -1,7 +1,7 @@
 // frontend/src/features/risk-management/madya/components/SasaranKPIAppetiteCard.jsx
 import React, { useState, useEffect } from "react";
 import { Card, Title, Text, Button, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Textarea, Dialog, DialogPanel, Select, SelectItem } from "@tremor/react";
-import { FiPlus, FiTrash2, FiSave, FiX, FiTarget } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiSave, FiX, FiTarget, FiEdit3 } from "react-icons/fi";
 import apiClient from "../../../../api/api";
 import { toast } from "sonner";
 
@@ -16,14 +16,37 @@ function SasaranFormModal({ isOpen, onClose, onSave, initialText = "" }) {
   };
   return (
     <Dialog open={isOpen} onClose={onClose} static={true}>
-      <DialogPanel>
-        <Title>Tambah Sasaran Organisasi / KPI</Title>
-        <Textarea value={sasaranText} onChange={(e) => setSasaranText(e.target.value)} placeholder="Masukkan deskripsi Sasaran..." rows={5} className="mt-4" required />
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} icon={FiX}>
+      <DialogPanel className="max-w-xl p-0 overflow-hidden rounded-xl bg-white shadow-xl transform transition-all">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl shadow-sm border border-orange-100">
+              <FiTarget size={22} />
+            </div>
+            <div>
+              <Title className="text-xl text-slate-800 font-bold">Tambah Sasaran</Title>
+              <Text className="text-xs text-gray-500 mt-0.5">Tetapkan target KPI atau sasaran organisasi.</Text>
+            </div>
+          </div>
+          <Button icon={FiX} variant="light" color="slate" onClick={onClose} className="rounded-full hover:bg-gray-200 p-2" />
+        </div>
+
+        {/* Body */}
+        <div className="p-8 bg-white">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <div className="flex items-center gap-1.5">
+              <FiEdit3 size={14} /> Deskripsi Sasaran / KPI <span className="text-red-500">*</span>
+            </div>
+          </label>
+          <Textarea value={sasaranText} onChange={(e) => setSasaranText(e.target.value)} placeholder="Contoh: Meningkatkan kepuasan pelanggan sebesar 10%..." rows={5} className="text-sm shadow-sm" required />
+        </div>
+
+        {/* Footer */}
+        <div className="px-8 py-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <Button variant="secondary" className="rounded-md" color="rose" onClick={onClose}>
             Batal
           </Button>
-          <Button onClick={handleSave} icon={FiSave}>
+          <Button onClick={handleSave} icon={FiSave} className="text-white bg-orange-600 border-orange-600 hover:bg-orange-700 hover:border-orange-700 shadow-lg shadow-orange-100 rounded-md">
             Simpan
           </Button>
         </div>
@@ -107,7 +130,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData: sasaranEntries = []
               <Text>Definisikan Sasaran/KPI dan target toleransi risikonya.</Text>
             </div>
           </div>
-          <Button icon={FiPlus} onClick={() => setIsModalOpen(true)} loading={isLoading} variant="secondary" color="orange">
+          <Button icon={FiPlus} onClick={() => setIsModalOpen(true)} loading={isLoading} variant="secondary" className="rounded-md hover:bg-orange-200" color="orange">
             Tambah Sasaran
           </Button>
         </div>

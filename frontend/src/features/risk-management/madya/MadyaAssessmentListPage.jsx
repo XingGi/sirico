@@ -152,7 +152,7 @@ function SelectTemplateModal({ isOpen, onClose, onSelect }) {
                             </Title>
                           </div>
                           {template.is_default && (
-                            <Badge color="blue" size="xs">
+                            <Badge className="rounded-md px-2 py-1" color="blue" size="xs">
                               Default
                             </Badge>
                           )}

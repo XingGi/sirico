@@ -83,7 +83,7 @@ function AssessmentListWidget() {
                     </div>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <Badge size="xs" color={item.type === "Madya" ? "indigo" : "blue"}>
+                    <Badge size="xs" className="rounded-md px-2 py-1" color={item.type === "Madya" ? "indigo" : "blue"}>
                       {item.type}
                     </Badge>
                   </td>

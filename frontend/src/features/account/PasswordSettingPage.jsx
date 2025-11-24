@@ -1,17 +1,10 @@
 // frontend/src/features/account/PasswordSettingPage.jsx
 
 import React, { useState } from "react";
-import {
-  Card,
-  Title,
-  Text,
-  TextInput,
-  Button,
-  Flex, // Untuk layout tombol
-  Icon, // Untuk ikon di Title
-} from "@tremor/react";
-import { FiLock, FiSave, FiAlertCircle } from "react-icons/fi"; // Tambahkan FiAlertCircle
+import { Card, Title, Text, TextInput, Button, Flex } from "@tremor/react";
+import { FiLock, FiSave, FiAlertCircle, FiCheckCircle, FiKey } from "react-icons/fi";
 import apiClient from "../../api/api";
+import { toast } from "sonner";
 
 function PasswordSettingPage() {
   const [oldPassword, setOldPassword] = useState("");
@@ -26,7 +19,6 @@ function PasswordSettingPage() {
     setError("");
     setSuccessMessage("");
 
-    // Validasi frontend sederhana
     if (!oldPassword || !newPassword || !confirmPassword) {
       setError("Semua field wajib diisi.");
       return;
@@ -36,7 +28,6 @@ function PasswordSettingPage() {
       return;
     }
     if (newPassword.length < 8) {
-      // Contoh validasi panjang
       setError("Password baru minimal 8 karakter.");
       return;
     }
@@ -50,88 +41,100 @@ function PasswordSettingPage() {
       });
 
       setSuccessMessage(response.data.msg || "Password berhasil diperbarui!");
-      // Kosongkan form setelah berhasil
+      toast.success("Password berhasil diperbarui!");
+
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      console.error("Gagal ganti password:", err);
-      setError(err.response?.data?.msg || "Gagal memperbarui password. Cek kembali password lama Anda.");
+      console.error(err);
+      setError(err.response?.data?.msg || "Gagal memperbarui password.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="p-6 sm:p-10">
-      {/* Header Halaman */}
-      <Flex alignItems="center" className="space-x-3 mb-6">
-        <Icon icon={FiLock} size="lg" variant="light" color="gray" />
-        <div>
-          <Title>Password Setting</Title>
-          <Text>Ubah password akun Anda secara berkala untuk keamanan.</Text>
+    <div className="p-6 sm:p-10 bg-slate-50 min-h-screen space-y-8">
+      {/* --- HEADER --- */}
+      <div className="flex items-center gap-4">
+        <div className="p-3 bg-rose-100 rounded-xl text-rose-600 shadow-sm">
+          <FiLock size={28} />
         </div>
-      </Flex>
+        <div>
+          <Title className="text-2xl text-slate-800">Password Setting</Title>
+          <Text className="text-slate-500">Perbarui kata sandi akun Anda secara berkala.</Text>
+        </div>
+      </div>
 
-      <Card className="max-w-2xl mx-auto">
-        {" "}
-        {/* Batasi lebar card */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Tampilkan pesan error jika ada */}
+      <div className="max-w-2xl mx-auto">
+        <Card className="border-t-4 border-rose-500 shadow-lg ring-1 ring-gray-100 bg-white p-8">
+          <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
+            <div className="p-2 bg-rose-50 rounded-lg text-rose-600">
+              <FiKey size={20} />
+            </div>
+            <Title className="text-lg font-bold text-slate-800">Ganti Password</Title>
+          </div>
+
+          {/* Pesan Error / Sukses Inline */}
           {error && (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md flex items-center space-x-2" role="alert">
-              <Icon icon={FiAlertCircle} color="red" size="sm" />
-              <Text color="red">{error}</Text>
+            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-start gap-3">
+              <FiAlertCircle className="text-red-600 mt-0.5 shrink-0" />
+              <Text className="text-red-700 text-sm">{error}</Text>
             </div>
           )}
-          {/* Tampilkan pesan sukses jika ada */}
           {successMessage && (
-            <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-md" role="alert">
-              <Text color="emerald">{successMessage}</Text>
+            <div className="mb-6 bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-lg flex items-start gap-3">
+              <FiCheckCircle className="text-emerald-600 mt-0.5 shrink-0" />
+              <Text className="text-emerald-700 text-sm">{successMessage}</Text>
             </div>
           )}
 
-          <div>
-            <label htmlFor="oldPassword">Old Password *</label>
-            <TextInput id="oldPassword" type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="Enter your old password" required className="mt-1" />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Old Password */}
+            <div className="group">
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block group-hover:text-rose-600 transition-colors">Password Lama</label>
+              <TextInput type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="Masukkan password lama..." required icon={FiLock} className="transition-shadow hover:shadow-sm" />
+            </div>
 
-          <div>
-            <label htmlFor="newPassword">New Password *</label>
-            <TextInput id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Enter a new password (min. 8 characters)" required className="mt-1" />
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* New Password */}
+              <div className="group">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block group-hover:text-rose-600 transition-colors">Password Baru</label>
+                <TextInput type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 8 karakter" required icon={FiLock} />
+              </div>
 
-          <div>
-            <label htmlFor="confirmPassword">Confirm New Password *</label>
-            <TextInput
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your new password"
-              required
-              className="mt-1"
-              // Tambahkan style error jika tidak cocok (opsional)
-              error={newPassword && confirmPassword && newPassword !== confirmPassword}
-              errorMessage={newPassword && confirmPassword && newPassword !== confirmPassword ? "Passwords do not match" : ""}
-            />
-          </div>
+              {/* Confirm Password */}
+              <div className="group">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block group-hover:text-rose-600 transition-colors">Konfirmasi Password</label>
+                <TextInput
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Ulangi password baru"
+                  required
+                  icon={FiLock}
+                  error={newPassword && confirmPassword && newPassword !== confirmPassword}
+                  errorMessage="Password tidak cocok"
+                />
+              </div>
+            </div>
 
-          <Flex justifyContent="end">
-            {" "}
-            {/* Rata kanan tombol */}
-            <Button
-              type="submit"
-              icon={FiSave}
-              loading={isSaving}
-              disabled={isSaving}
-              size="lg" // Buat tombol lebih besar
-            >
-              Update Password
-            </Button>
-          </Flex>
-        </form>
-      </Card>
+            <div className="pt-6 mt-2 border-t border-gray-100 flex justify-end">
+              <Button
+                type="submit"
+                icon={FiSave}
+                loading={isSaving}
+                disabled={isSaving}
+                size="lg"
+                className="text-white shadow-lg shadow-rose-500/30 hover:shadow-rose-500/50 transition-all rounded-xl bg-rose-600 hover:bg-rose-700 border-rose-600"
+              >
+                Update Password
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

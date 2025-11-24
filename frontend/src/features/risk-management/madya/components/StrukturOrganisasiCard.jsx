@@ -121,6 +121,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
             }}
             variant="secondary"
             color="blue"
+            className="rounded-md"
           >
             Tambah Data
           </Button>

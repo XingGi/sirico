@@ -123,7 +123,7 @@ function TemplateListPage() {
                       {template.name}
                     </Title>
                     {template.is_default ? (
-                      <Badge icon={FiShield} color="blue" size="xs">
+                      <Badge icon={FiShield} className="rounded-md px-2 py-1" color="blue" size="xs">
                         Default
                       </Badge>
                     ) : (
@@ -137,12 +137,13 @@ function TemplateListPage() {
                 </div>
 
                 <div className="pt-4 mt-auto border-t border-gray-100 flex justify-end gap-2 opacity-90 hover:opacity-100 transition-opacity">
-                  <Button size="xs" variant="secondary" icon={FiEye} onClick={() => handleViewClick(template.id)} title="Lihat Detail">
+                  <Button size="xs" variant="secondary" className="rounded-md" icon={FiEye} onClick={() => handleViewClick(template.id)} title="Lihat Detail">
                     Lihat
                   </Button>
                   <Button
                     size="xs"
                     variant="secondary"
+                    className="rounded-md"
                     icon={FiEdit}
                     disabled={template.is_default}
                     onClick={() => navigate(`/risk-management/templates/edit/${template.id}`)}

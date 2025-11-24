@@ -27,10 +27,10 @@ function UnderConstructionPage({ title, description, icon: Icon = FiTool }) {
           <Text className="text-slate-500 mb-8 text-lg leading-relaxed">{description || "Fitur ini sedang dirancang dengan teliti untuk memberikan pengalaman manajemen risiko terbaik. Segera hadir!"}</Text>
 
           <div className="flex justify-center gap-4">
-            <Button variant="secondary" color="gray" icon={FiArrowLeft} onClick={() => navigate(-1)}>
+            <Button variant="secondary" className="rounded-md hover:bg-gray-400" color="gray" icon={FiArrowLeft} onClick={() => navigate(-1)}>
               Kembali
             </Button>
-            <Button variant="primary" onClick={() => navigate("/dashboard")}>
+            <Button variant="primary" className="rounded-md hover:bg-blue-800" color="blue" onClick={() => navigate("/dashboard")}>
               Ke Dashboard
             </Button>
           </div>

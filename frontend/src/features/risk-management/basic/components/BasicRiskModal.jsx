@@ -1,5 +1,9 @@
+// frontend/src/features/risk-management/basic/components/BasicRiskModal.jsx
+
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogPanel, Title, TextInput, Textarea, Select, SelectItem, Button } from "@tremor/react";
+import { Dialog, DialogPanel, Title, TextInput, Textarea, Select, SelectItem, Button, Text } from "@tremor/react";
+import { FiAlertTriangle, FiTarget, FiFileText, FiCalendar, FiShield, FiActivity, FiX, FiSave } from "react-icons/fi";
+import { toast } from "sonner";
 
 const initialRiskState = {
   kode_risiko: "",
@@ -33,68 +37,109 @@ export default function BasicRiskModal({ isOpen, onClose, onSave, initialData })
 
   const handleSave = () => {
     if (!riskData.kategori_risiko || !riskData.unit_kerja || !riskData.deskripsi_risiko) {
-      alert("Kategori, Unit Kerja, dan Deskripsi wajib diisi.");
+      toast.error("Kategori, Unit Kerja, dan Deskripsi wajib diisi.");
       return;
     }
     onSave(riskData);
+    onClose();
   };
 
   return (
     <Dialog open={isOpen} onClose={onClose} static={true}>
-      <DialogPanel className="max-w-3xl">
-        <Title>{initialData ? "Edit" : "Tambah"} Identifikasi Risiko Baru</Title>
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-[70vh] overflow-y-auto pr-2 pl-1 pb-1">
-          <div>
-            <label>Kode Risiko</label>
-            <TextInput name="kode_risiko" value={riskData.kode_risiko} onChange={handleChange} placeholder="Otomatis atau manual..." />
+      <DialogPanel className="max-w-4xl p-0 overflow-hidden rounded-xl bg-white shadow-xl transform transition-all">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl shadow-sm border border-rose-100">
+              <FiAlertTriangle size={22} />
+            </div>
+            <div>
+              <Title className="text-xl text-slate-800 font-bold">Identifikasi Risiko</Title>
+              <Text className="text-xs text-gray-500 mt-0.5">Detail risiko, penyebab, dan dampaknya.</Text>
+            </div>
           </div>
-          <div>
-            <label>Kategori Risiko *</label>
-            <Select value={riskData.kategori_risiko} onValueChange={handleSelectChange} required>
-              <SelectItem value="Operasional">Operasional</SelectItem>
-              <SelectItem value="Keuangan">Keuangan</SelectItem>
-              <SelectItem value="Kepatuhan">Kepatuhan</SelectItem>
-              <SelectItem value="Strategis">Strategis</SelectItem>
-            </Select>
+          <Button icon={FiX} variant="light" color="slate" onClick={onClose} className="rounded-full hover:bg-gray-200 p-2" />
+        </div>
+
+        {/* Body Form */}
+        <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto bg-slate-50/30">
+          {/* Info Dasar */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Kode Risiko</label>
+              <TextInput name="kode_risiko" value={riskData.kode_risiko} onChange={handleChange} placeholder="Otomatis / Manual" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Tanggal Identifikasi</label>
+              <TextInput type="date" name="tanggal_identifikasi" value={riskData.tanggal_identifikasi} onChange={handleChange} icon={FiCalendar} />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Unit Kerja *</label>
+              <TextInput name="unit_kerja" value={riskData.unit_kerja} onChange={handleChange} required placeholder="Nama Unit..." />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Kategori Risiko *</label>
+              <Select value={riskData.kategori_risiko} onValueChange={handleSelectChange} placeholder="Pilih Kategori...">
+                <SelectItem value="Strategis">Strategis</SelectItem>
+                <SelectItem value="Operasional">Operasional</SelectItem>
+                <SelectItem value="Keuangan">Keuangan</SelectItem>
+                <SelectItem value="Kepatuhan">Kepatuhan</SelectItem>
+                <SelectItem value="Reputasi">Reputasi</SelectItem>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block flex items-center gap-1">
+                <FiTarget /> Sasaran
+              </label>
+              <TextInput name="sasaran" value={riskData.sasaran} onChange={handleChange} placeholder="Sasaran strategis yang terganggu..." />
+            </div>
           </div>
-          <div className="md:col-span-2">
-            <label>Unit Kerja / Fungsi *</label>
-            <TextInput name="unit_kerja" value={riskData.unit_kerja} onChange={handleChange} required />
-          </div>
-          <div className="md:col-span-2">
-            <label>Sasaran</label>
-            <Textarea name="sasaran" value={riskData.sasaran} onChange={handleChange} rows={2} />
-          </div>
-          <div>
-            <label>Tanggal Identifikasi Risiko</label>
-            <TextInput type="date" name="tanggal_identifikasi" value={riskData.tanggal_identifikasi} onChange={handleChange} />
-          </div>
-          <div className="md:col-span-2">
-            <label>Deskripsi atau Kejadian Risiko *</label>
-            <Textarea name="deskripsi_risiko" value={riskData.deskripsi_risiko} onChange={handleChange} required rows={3} />
-          </div>
-          <div className="md:col-span-2">
-            <label>Akar Penyebab</label>
-            <Textarea name="akar_penyebab" value={riskData.akar_penyebab} onChange={handleChange} rows={3} />
-          </div>
-          <div className="md:col-span-2">
-            <label>Indikator Risiko</label>
-            <Textarea name="indikator_risiko" value={riskData.indikator_risiko} onChange={handleChange} rows={3} />
-          </div>
-          <div className="md:col-span-2">
-            <label>Faktor Positif / Internal Control Yang Ada Saat Ini</label>
-            <Textarea name="internal_control" value={riskData.internal_control} onChange={handleChange} rows={3} />
-          </div>
-          <div className="md:col-span-2">
-            <label>Deskripsi Dampak</label>
-            <Textarea name="deskripsi_dampak" value={riskData.deskripsi_dampak} onChange={handleChange} rows={3} />
+
+          {/* Detail Risiko */}
+          <div className="space-y-6 pt-6 border-t border-gray-100">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block flex items-center gap-1">
+                <FiFileText /> Deskripsi Risiko *
+              </label>
+              <Textarea name="deskripsi_risiko" value={riskData.deskripsi_risiko} onChange={handleChange} required rows={3} placeholder="Jelaskan kejadian risiko..." />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Akar Penyebab</label>
+                <Textarea name="akar_penyebab" value={riskData.akar_penyebab} onChange={handleChange} rows={3} placeholder="Mengapa ini terjadi?" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Deskripsi Dampak</label>
+                <Textarea name="deskripsi_dampak" value={riskData.deskripsi_dampak} onChange={handleChange} rows={3} placeholder="Akibat yang ditimbulkan..." />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block flex items-center gap-1">
+                  <FiActivity /> Indikator Risiko
+                </label>
+                <Textarea name="indikator_risiko" value={riskData.indikator_risiko} onChange={handleChange} rows={2} placeholder="Tanda-tanda awal..." />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block flex items-center gap-1">
+                  <FiShield /> Kontrol Internal Saat Ini
+                </label>
+                <Textarea name="internal_control" value={riskData.internal_control} onChange={handleChange} rows={2} placeholder="Pengendalian yang sudah ada..." />
+              </div>
+            </div>
           </div>
         </div>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
+
+        {/* Footer */}
+        <div className="px-8 py-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <Button variant="secondary" className="rounded-md" color="rose" onClick={onClose}>
             Batal
           </Button>
-          <Button onClick={handleSave}>OK</Button>
+          <Button onClick={handleSave} icon={FiSave} className="text-white bg-rose-600 border-rose-600 hover:bg-rose-700 hover:border-rose-700 shadow-lg shadow-rose-100 rounded-md">
+            Simpan Risiko
+          </Button>
         </div>
       </DialogPanel>
     </Dialog>
