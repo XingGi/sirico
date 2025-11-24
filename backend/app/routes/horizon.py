@@ -71,25 +71,37 @@ def scan_risks():
             }), 403
 
     data = request.get_json()
-    sector = data.get('sector', 'General')
+    scan_params = {
+        'industry': data.get('industry', 'General'),
+        'geo_scope': data.get('geo_scope', 'Nasional'),
+        'time_horizon': data.get('time_horizon', 'Short Term'),
+        'risk_appetite': data.get('risk_appetite', 'Moderate'),
+        'strategic_driver': data.get('strategic_driver', 'BAU'),
+        'risk_categories': data.get('risk_categories', []),
+        'value_chain': data.get('value_chain', []),
+        'specific_topics': data.get('specific_topics', ''),
+        'report_perspective': data.get('report_perspective', 'Board of Directors'),
+        'sentiment_mode': data.get('sentiment_mode', 'Balanced'),
+        'company_name': user.institution or "Perusahaan Anda" 
+    }
     
-    print(f"Starting Horizon Scan for sector: {sector}...")
-    news_results = run_horizon_scan(sector)
+    print(f"Starting Scan Params: {scan_params}")
+    
+    news_results = run_horizon_scan(
+        sector=scan_params['industry'], 
+        specific_topics=scan_params['specific_topics']
+    )
     
     if not news_results:
          return jsonify({"msg": "Gagal mengambil data berita."}), 500
 
     gemini_key = os.getenv("GEMINI_API_KEY")
-    title, report_html = summarize_horizon_scan(sector, news_results, gemini_key)
-    
-    if not title:
-        title = f"Horizon Scan: {sector}"
-        report_html = "<p>AI Analysis Unavailable.</p>"
+    title, report_html = summarize_horizon_scan(scan_params, news_results, gemini_key)
 
     # 4. Simpan ke Database
     new_scan = HorizonScanResult(
         user_id=user.id,
-        sector=sector,
+        sector=scan_params['industry'],
         generated_title=title,
         executive_summary=report_html,
         raw_news_data=json.dumps(news_results)

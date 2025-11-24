@@ -280,7 +280,7 @@ def generate_detailed_risk_analysis_with_gemini(risks: list, api_key: str) -> di
         print(f"Error saat membuat analisis detail dengan Gemini API: {e}")
         return None
     
-def summarize_horizon_scan(sector, news_list, api_key):
+def summarize_horizon_scan(scan_params, news_list, api_key):
     """
     Menganalisis daftar berita dan membuat laporan intelijen risiko profesional.
     """
@@ -292,66 +292,67 @@ def summarize_horizon_scan(sector, news_list, api_key):
 
     # Siapkan data berita untuk prompt
     news_text = ""
-    for idx, news in enumerate(news_list[:12]): # Ambil max 12 berita teratas agar prompt tidak kepanjangan
+    for idx, news in enumerate(news_list[:15]): # Ambil max 12 berita teratas agar prompt tidak kepanjangan
         news_text += f"{idx+1}. [{news['source']}] {news['title']} - {news['summary']}\n"
 
     prompt = f"""
-    Anda adalah Chief Risk Officer (CRO) profesional yang sedang membuat laporan intelijen pasar.
-    
-    TUGAS: 
-    Analisis data berita terbaru di sektor '{sector}' berikut ini dan buatlah laporan risiko strategis.
-    
-    Data Berita:
+    PERAN:
+    Anda adalah Chief Risk Officer (CRO) dan Ahli Strategi Korporat. Anda sedang menyusun laporan 'Strategic Horizon Scan' untuk {scan_params.get('report_perspective', 'Board of Directors')}.
+
+    KONTEKS PERUSAHAAN & PARAMETER SCAN:
+    - Industri: {scan_params.get('industry')}
+    - Lingkup Geografis: {scan_params.get('geo_scope')}
+    - Horizon Waktu: {scan_params.get('time_horizon')}
+    - Selera Risiko: {scan_params.get('risk_appetite')} (PENTING: Sesuaikan nada laporan dengan ini)
+    - Pemicu Strategis: {scan_params.get('strategic_driver')}
+    - Fokus Kategori Risiko: {', '.join(scan_params.get('risk_categories', []))}
+    - Area Terdampak (Value Chain): {', '.join(scan_params.get('value_chain', []))}
+    - Isu Spesifik: {scan_params.get('specific_topics', '-')}
+
+    DATA BERITA TERKINI:
     {news_text}
 
-    INSTRUKSI STRUKTUR LAPORAN (Gunakan format HTML yang rapi dengan jarak antar bagian):
+    TUGAS:
+    Buat laporan intelijen risiko yang menghubungkan berita eksternal dengan strategi internal perusahaan.
     
-    Berikan respon HANYA dalam format JSON berikut:
+    FORMAT OUTPUT (JSON):
     {{
-        "title": "Buat Judul Pendek & Menarik (Maksimal 4 Kata, Contoh: 'Gejolak Pasar Energi')",
-        "report_html": "HTML Content di sini..."
+        "title": "Judul Laporan (Provokatif & Strategis, Max 6 kata)",
+        "report_html": "HTML Content..."
     }}
 
-    Panduan Isi 'report_html':
-    Gunakan tag <div>, <h3>, <p>, <ul>, <ol>, <li>. 
-    JANGAN gunakan Markdown (```html).
-    Berikan jarak antar section dengan <br/> atau style margin.
-
-    Struktur HTML yang Wajib Ada:
+    STRUKTUR HTML (WAJIB ADA 6 BAGIAN INI):
     
-    1. **Executive Summary**: 
-       Ringkasan singkat situasi makro saat ini dalam 1-2 paragraf.
+    1. **Executive Intelligence Summary**: 
+       Ringkasan situasi makro 1-2 paragraf. Jelaskan sentimen pasar umum dan apakah saat ini waktu yang tepat untuk {scan_params.get('strategic_driver')}.
        
-    2. **Key Emerging Risks**: 
-       Sebutkan minimal 3 risiko baru yang muncul dalam bentuk bullet points (<ul>).
+    2. **Impact on Strategic Objectives**: 
+       Analisis spesifik: Bagaimana berita-berita ini mempercepat atau menghambat tujuan '{scan_params.get('strategic_driver')}' perusahaan?
        
-    3. **Top 2 Critical Risks** (PENTING):
-       Pilih 2 risiko paling kritis/berbahaya dari daftar. Jelaskan dampaknya.
+    3. **Key Risks Analysis (By Category)**: 
+       Kelompokkan risiko berdasarkan kategori ({', '.join(scan_params.get('risk_categories', []))}). 
+       Sebutkan mana yang "Critical" (Dampak Besar) dan mana yang "Emerging" (Tren Baru). Gunakan bullet points.
+
+    4. **Value Chain Vulnerabilities**: 
+       Jelaskan area operasional mana ({', '.join(scan_params.get('value_chain', []))}) yang paling tertekan? Apakah ada gangguan supply chain atau risiko SDM?
        
-    4. **Strategic Opportunities**:
-       Identifikasi peluang bisnis yang bisa diambil dari situasi ini (bullet points).
+    5. **Strategic Opportunities (Upside Risk)**: 
+       (PENTING) Jangan hanya bahas ancaman. Identifikasi peluang bisnis/pasar yang bisa dimanfaatkan dari situasi ini. (Gunakan bullet points).
        
-    5. **Priority Mitigation Steps**:
-       Daftar 4 langkah implementasi mitigasi paling konkret dan penting (gunakan <ol>).
-       
-    6. **Strategic Recommendation**:
-       Satu paragraf penutup berisi rekomendasi langkah selanjutnya yang bersifat umum dan strategis (High-level view).
+    6. **Priority Mitigation & Action Plan**: 
+       Daftar 3-4 langkah konkret yang harus dilakukan segera oleh {scan_params.get('report_perspective')}. Gunakan format <ol> agar jelas urutannya.
     """
 
     try:
         response = model.generate_content(prompt)
-        # Bersihkan markdown json jika ada
         text_resp = response.text.strip()
-        if text_resp.startswith("```json"):
-            text_resp = text_resp.replace("```json", "", 1)
-        if text_resp.startswith("```"):
-            text_resp = text_resp.replace("```", "", 1)
-        if text_resp.endswith("```"):
-            text_resp = text_resp[:-3]
+        # Pembersihan markdown json standard
+        if text_resp.startswith("```json"): text_resp = text_resp.replace("```json", "", 1)
+        if text_resp.startswith("```"): text_resp = text_resp.replace("```", "", 1)
+        if text_resp.endswith("```"): text_resp = text_resp[:-3]
             
         data = json.loads(text_resp)
         return data.get('title'), data.get('report_html')
     except Exception as e:
         print(f"AI Error: {e}")
-        # Fallback jika AI gagal
-        return f"Laporan {sector}", "<p>Gagal memproses analisis AI. Data mentah tersedia.</p>"
+        return f"Laporan {scan_params.get('industry')}", "<p>Maaf, AI gagal memproses analisis mendalam. Silakan coba lagi.</p>"

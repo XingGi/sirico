@@ -1,17 +1,101 @@
 // frontend/src/features/addons/horizon/HorizonScannerPage.jsx
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Card, Title, Text, SearchSelect, SearchSelectItem, Button, Grid, Badge, Flex, Icon, Dialog, DialogPanel, ProgressBar, Select, SelectItem } from "@tremor/react";
-import { FiGlobe, FiSearch, FiLoader, FiExternalLink, FiClock, FiCpu, FiTrash2, FiCheckCircle, FiFileText, FiArrowRight, FiX, FiAlertTriangle, FiTrendingUp, FiZap, FiTarget, FiAward, FiGrid, FiList, FiFilter } from "react-icons/fi";
-import { motion } from "framer-motion";
+import { Card, Title, Text, SearchSelect, SearchSelectItem, Button, Grid, Badge, Dialog, DialogPanel, ProgressBar, Select, SelectItem, TextInput } from "@tremor/react";
+import {
+  FiGlobe,
+  FiSearch,
+  FiLoader,
+  FiExternalLink,
+  FiClock,
+  FiCpu,
+  FiTrash2,
+  FiFileText,
+  FiArrowRight,
+  FiX,
+  FiFilter,
+  FiList,
+  FiGrid,
+  FiTarget,
+  FiActivity,
+  FiShield,
+  FiTrendingUp,
+  FiUsers,
+  FiLayers,
+  FiDollarSign,
+  FiAlertOctagon,
+  FiCalendar,
+  FiBarChart2,
+} from "react-icons/fi";
 import apiClient from "../../../api/api";
 import { toast } from "sonner";
-import { formatDate } from "../../../utils/formatters";
 import ConfirmationDialog from "../../../components/common/ConfirmationDialog";
-import AppResourceTable from "../../../components/common/AppResourceTable"; // Import Table
+import AppResourceTable from "../../../components/common/AppResourceTable";
 
-// --- KOMPONEN RENDER KONTEN AI YANG LEBIH COLORFUL ---
-const AIContentRenderer = ({ htmlContent }) => {
+// --- HELPER: FORMAT TANGGAL INDONESIA (WIB) ---
+const formatDateTimeIndo = (dateString) => {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+};
+
+// --- HELPER: SIMULASI RISK LEVEL BADGE ---
+// Karena di database belum ada kolom risk_level, kita simulasikan visualnya
+// agar terlihat profesional di UI. Nanti bisa diganti dengan real data.
+const getRiskBadge = (title) => {
+  const lowerTitle = title?.toLowerCase() || "";
+  if (lowerTitle.includes("krisis") || lowerTitle.includes("ancaman") || lowerTitle.includes("anjlok")) {
+    return (
+      <Badge className="rounded-md px-2 py-1" color="rose" icon={FiActivity}>
+        High Risk
+      </Badge>
+    );
+  } else if (lowerTitle.includes("peluang") || lowerTitle.includes("tumbuh") || lowerTitle.includes("positif")) {
+    return (
+      <Badge color="emerald" icon={FiTrendingUp}>
+        Opportunity
+      </Badge>
+    );
+  } else {
+    return (
+      <Badge color="orange" icon={FiShield}>
+        Medium Risk
+      </Badge>
+    );
+  }
+};
+
+// --- 1. KOMPONEN UTILITIES & RENDERER ---
+
+// Helper Component untuk Card Pilihan (Multi Select Replacement)
+const SelectableCard = ({ label, icon: Icon, colorClass, selected, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`
+                relative p-4 rounded-xl border cursor-pointer transition-all duration-200 group
+                flex items-center gap-3
+                ${selected ? `bg-white border-${colorClass}-500 shadow-md ring-1 ring-${colorClass}-500` : "bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50"}
+            `}
+    >
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl ${selected ? `bg-${colorClass}-500` : `bg-${colorClass}-200`}`}></div>
+      <div className={`p-2 rounded-lg ${selected ? `bg-${colorClass}-100 text-${colorClass}-700` : "bg-gray-100 text-gray-500"}`}>
+        <Icon size={18} />
+      </div>
+      <span className={`text-sm font-medium ${selected ? "text-slate-800" : "text-slate-600"}`}>{label}</span>
+      {selected && <div className={`ml-auto w-5 h-5 rounded-full bg-${colorClass}-500 flex items-center justify-center text-white text-xs`}>✓</div>}
+    </div>
+  );
+};
+
+const AIContentRenderer = ({ htmlContent, createdAt }) => {
   if (!htmlContent) return null;
 
   return (
@@ -21,91 +105,108 @@ const AIContentRenderer = ({ htmlContent }) => {
                 prose-p:text-slate-600 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-sm
                 prose-li:text-sm prose-li:text-slate-600 prose-li:mb-2 prose-li:pl-1
                 prose-strong:text-slate-800 prose-strong:font-bold
-                
-                /* Default H3 styling untuk judul lain yg tidak kena replace */
                 prose-h3:text-lg prose-h3:font-bold prose-h3:mt-8 prose-h3:mb-4 prose-h3:flex prose-h3:items-center prose-h3:gap-2
-                prose-h3:border-l-4 prose-h3:pl-3 prose-h3:rounded-r-lg prose-h3:py-1.5 prose-h3:bg-gray-50
-            "
+                prose-h3:border-l-4 prose-h3:pl-3 prose-h3:rounded-r-lg prose-h3:py-1.5 prose-h3:bg-gray-50"
       >
         <div
           dangerouslySetInnerHTML={{
             __html: htmlContent
-              // 1. EXECUTIVE SUMMARY (Blue/Indigo)
               .replace(
-                /<h3>(.*?)Executive Summary(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
+                /(Strategic Horizon Scan.*?)[\s\S]*?(?:UNTUK|TO).*?:\s*(.*?)[\s\S]*?(?:DARI|FROM).*?:\s*(.*?)[\s\S]*?(?:TANGGAL|DATE).*?:\s*(.*?)[\s\S]*?(?:SUBJEK|SUBJECT|PERIHAL).*?:\s*(.*?)(?=(?:<h|<div|$))/i,
+                (match, title, to, from, oldDate, subject) => {
+                  // PERBAIKAN 1: Regex lebih kuat untuk hapus tag HTML (<...>) dan Markdown
+                  const clean = (text) =>
+                    text
+                      ? text
+                          .replace(/<\/?[^>]+(>|$)/g, "")
+                          .replace(/[*_]/g, "")
+                          .trim()
+                      : "";
+
+                  // PERBAIKAN 2: Gunakan createdAt dari database jika ada
+                  const displayDate = createdAt ? formatDateTimeIndo(createdAt) : clean(oldDate);
+
+                  return `
+                    <div class="bg-white border-l-4 border-blue-600 rounded-r-xl shadow-sm mb-10 overflow-hidden font-sans border-y border-r border-slate-200">
+                        <div class="bg-slate-50/50 p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h1 class="text-2xl font-bold text-slate-800 tracking-tight leading-snug">${clean(title)}</h1>
+                                <p class="text-xs text-slate-500 mt-1 font-medium">DOKUMEN INTELIJEN STRATEGIS</p>
+                            </div>
+                            <span class="px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold tracking-widest uppercase border border-rose-100 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> CONFIDENTIAL
+                            </span>
+                        </div>
+                        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 text-sm">
+                            <div class="group">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Tanggal Analisis</span>
+                                    <div class="font-semibold text-slate-700 text-base border-b border-slate-100 pb-1 group-hover:border-blue-200 transition-colors flex items-center gap-2">
+                                        <span class="text-lg">📅</span> 
+                                        ${displayDate}
+                                    </div>
+                                </div>
+                                <div class="group">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Perihal (Subject)</span>
+                                    <div class="font-medium text-blue-700 bg-blue-50/50 p-2.5 rounded-lg border border-blue-100 text-sm leading-relaxed">${clean(subject)}</div>
+                                </div>
+                        </div>
+                    </div>`;
+                }
+              )
+
+              .replace(
+                /<h3>(.*?)Executive(.*?)Summary(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
                 `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 shadow-sm">
-                                <h3 class="text-blue-800 border-none bg-transparent p-0 mb-3 text-xl flex items-center gap-2 font-bold">
-                                    <span class="p-1.5 bg-blue-100 rounded-lg text-blue-600 shadow-sm">📊</span> $1Executive Summary$2
-                                </h3>
-                                <div class="text-slate-700 leading-relaxed text-sm">
-                                    $3
-                                </div>
-                            </div>`
+                    <h3 class="text-blue-800 border-none bg-transparent p-0 mb-3 text-xl flex items-center gap-2 font-bold">
+                        <span class="p-1.5 bg-blue-100 rounded-lg text-blue-600 shadow-sm">📊</span> $1Executive$2Summary$3
+                    </h3>
+                    <div class="text-slate-700 leading-relaxed text-sm">$4</div>
+                </div>`
               )
-
-              // 2. KEY EMERGING RISKS (Rose/Red) - Card Style
               .replace(
-                /<h3>(.*?)Key Emerging Risks(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
+                /<h3>(.*?)Impact on Strategic Objectives(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
+                `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-100 shadow-sm">
+                    <h3 class="text-violet-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
+                        <span class="p-1.5 bg-violet-100 rounded-lg text-violet-600 shadow-sm">🎯</span> $1Impact on Strategic Objectives$2
+                    </h3>
+                    <div class="text-slate-700 leading-relaxed text-sm">$3</div>
+                </div>`
+              )
+              .replace(
+                /<h3>(.*?)Key Risks Analysis(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
                 `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-100 shadow-sm">
-                                <h3 class="text-rose-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
-                                    <span class="p-1.5 bg-rose-100 rounded-lg text-rose-600 shadow-sm">⚠️</span> $1Key Emerging Risks$2
-                                </h3>
-                                <div class="text-slate-700 leading-relaxed text-sm">
-                                    $3
-                                </div>
-                            </div>`
+                    <h3 class="text-rose-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
+                        <span class="p-1.5 bg-rose-100 rounded-lg text-rose-600 shadow-sm">⚠️</span> $1Key Risks Analysis$2
+                    </h3>
+                    <div class="text-slate-700 leading-relaxed text-sm">$3</div>
+                </div>`
               )
-
-              // 3. TOP 2 CRITICAL RISKS (Orange/Amber) - Card Style
               .replace(
-                /<h3>(.*?)Top 2 Critical Risks(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
-                `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 shadow-sm">
-                                <h3 class="text-orange-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
-                                    <span class="p-1.5 bg-orange-100 rounded-lg text-orange-600 shadow-sm">🔥</span> $1Top 2 Critical Risks$2
-                                </h3>
-                                <div class="text-slate-700 leading-relaxed text-sm">
-                                    $3
-                                </div>
-                            </div>`
+                /<h3>(.*?)Value Chain Vulnerabilities(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
+                `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 shadow-sm">
+                    <h3 class="text-amber-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
+                        <span class="p-1.5 bg-amber-100 rounded-lg text-amber-600 shadow-sm">🔗</span> $1Value Chain Vulnerabilities$2
+                    </h3>
+                    <div class="text-slate-700 leading-relaxed text-sm">$3</div>
+                </div>`
               )
-
-              // 4. STRATEGIC OPPORTUNITIES (Blue/Sky) - Card Style
               .replace(
                 /<h3>(.*?)Strategic Opportunities(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
                 `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-100 shadow-sm">
-                                <h3 class="text-sky-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
-                                    <span class="p-1.5 bg-sky-100 rounded-lg text-sky-600 shadow-sm">🚀</span> $1Strategic Opportunities$2
-                                </h3>
-                                <div class="text-slate-700 leading-relaxed text-sm">
-                                    $3
-                                </div>
-                            </div>`
+                    <h3 class="text-sky-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
+                        <span class="p-1.5 bg-sky-100 rounded-lg text-sky-600 shadow-sm">🚀</span> $1Strategic Opportunities$2
+                    </h3>
+                    <div class="text-slate-700 leading-relaxed text-sm">$3</div>
+                </div>`
               )
-
-              // 5. PRIORITY MITIGATION STEPS (Emerald/Green) - Card Style
               .replace(
-                /<h3>(.*?)Priority Mitigation Steps(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
+                /<h3>(.*?)Priority Mitigation(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
                 `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-100 shadow-sm">
-                                <h3 class="text-emerald-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
-                                    <span class="p-1.5 bg-emerald-100 rounded-lg text-emerald-600 shadow-sm">🛡️</span> $1Priority Mitigation Steps$2
-                                </h3>
-                                <div class="text-slate-700 leading-relaxed text-sm">
-                                    $3
-                                </div>
-                            </div>`
-              )
-
-              // 6. STRATEGIC RECOMMENDATION (Purple/Indigo - Special Card)
-              .replace(
-                /<h3>(.*?)Strategic Recommendation(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
-                `<div class="my-8 p-6 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border-l-4 border-purple-500 shadow-md relative overflow-hidden">
-                                <h3 class="text-purple-900 border-none bg-transparent p-0 mb-3 flex items-center gap-2 text-xl font-bold relative z-10">
-                                    <span class="p-1.5 bg-purple-100 rounded-lg text-purple-600 border border-purple-200 shadow-sm">👑</span> $1Strategic Recommendation$2
-                                </h3>
-                                <div class="text-slate-700 leading-relaxed text-sm bg-white/60 p-4 rounded-lg border border-purple-100 relative z-10">
-                                    $3
-                                </div>
-                            </div>`
+                    <h3 class="text-emerald-800 border-none bg-transparent p-0 mb-3 text-lg flex items-center gap-2 font-bold">
+                        <span class="p-1.5 bg-emerald-100 rounded-lg text-emerald-600 shadow-sm">🛡️</span> $1Priority Mitigation & Action Plan$2
+                    </h3>
+                    <div class="text-slate-700 leading-relaxed text-sm">$3</div>
+                </div>`
               ),
           }}
         />
@@ -114,40 +215,91 @@ const AIContentRenderer = ({ htmlContent }) => {
   );
 };
 
+// --- 2. MAIN PAGE COMPONENT ---
+
 function HorizonScannerPage() {
   const [history, setHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [sectorOptions, setSectorOptions] = useState([]);
-  const [selectedSector, setSelectedSector] = useState("");
   const [isSectorsLoading, setIsSectorsLoading] = useState(true);
+
+  // State Scanning & Modal
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+
+  // State Detail
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedScan, setSelectedScan] = useState(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+
+  // State Config & Utils
   const [limitConfig, setLimitConfig] = useState({ count: 0, limit: null });
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, id: null });
-
-  // Filter & Sort State
   const [viewMode, setViewMode] = useState("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("newest");
   const [filterIndustry, setFilterIndustry] = useState("all");
 
-  // --- COMPUTED VALUES ---
-  const selectedSectorLabel = useMemo(() => {
-    if (!selectedSector || sectorOptions.length === 0) return selectedSector;
-    const option = sectorOptions.find((opt) => opt.key === selectedSector);
-    return option ? option.value : selectedSector;
-  }, [selectedSector, sectorOptions]);
+  // --- STATE FORM CONFIGURATION ---
+  const [formData, setFormData] = useState({
+    company_name: "",
+    company_website: "",
+    industry: "",
+    geo_scope: "Nasional",
+    time_horizon: "Medium Term (1-3 Tahun)",
+    risk_appetite: "Moderate",
+    strategic_driver: "Business as Usual (BAU)",
+    risk_categories: ["Strategic", "Operational"],
+    value_chain: [],
+    input_competitors: "",
+    input_topics: "",
+    report_perspective: "Board of Directors",
+    sentiment_mode: "Balanced",
+  });
+
+  const handleFormChange = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleSelection = (key, itemValue) => {
+    setFormData((prev) => {
+      const currentList = prev[key] || [];
+      if (currentList.includes(itemValue)) {
+        return { ...prev, [key]: currentList.filter((i) => i !== itemValue) };
+      } else {
+        return { ...prev, [key]: [...currentList, itemValue] };
+      }
+    });
+  };
+
+  // --- CONFIG DATA FOR CARDS ---
+  const RISK_CATEGORIES = [
+    { id: "Strategic", label: "Strategis", icon: FiTarget, color: "purple" },
+    { id: "Operational", label: "Operasional", icon: FiActivity, color: "blue" },
+    { id: "Financial", label: "Finansial", icon: FiDollarSign, color: "emerald" },
+    { id: "Compliance", label: "Kepatuhan", icon: FiShield, color: "rose" },
+    { id: "Cyber Security", label: "Cyber Sec", icon: FiCpu, color: "cyan" },
+    { id: "Reputational", label: "Reputasi", icon: FiAlertOctagon, color: "orange" },
+    { id: "ESG", label: "ESG / Sustainability", icon: FiGlobe, color: "green" },
+  ];
+
+  const VALUE_CHAINS = [
+    { id: "Supply Chain", label: "Supply Chain (Hulu)", icon: FiLayers, color: "amber" },
+    { id: "Operations", label: "Operasional / Produksi", icon: FiActivity, color: "blue" },
+    { id: "Sales Marketing", label: "Sales & Marketing", icon: FiTrendingUp, color: "indigo" },
+    { id: "Human Capital", label: "SDM / Human Capital", icon: FiUsers, color: "pink" },
+    { id: "IT Infrastructure", label: "IT & Digital", icon: FiCpu, color: "cyan" },
+    { id: "Finance", label: "Finance & Treasury", icon: FiDollarSign, color: "emerald" },
+  ];
+
+  const remainingQuota = limitConfig.limit !== null ? Math.max(0, limitConfig.limit - limitConfig.count) : "Unlimited";
+  const isLimitReached = limitConfig.limit !== null && limitConfig.count >= limitConfig.limit;
 
   const getSectorLabel = (key) => {
     const option = sectorOptions.find((opt) => opt.key === key);
     return option ? option.value : key;
   };
-
-  const remainingQuota = limitConfig.limit !== null ? Math.max(0, limitConfig.limit - limitConfig.count) : "Unlimited";
-  const isLimitReached = limitConfig.limit !== null && limitConfig.count >= limitConfig.limit;
 
   useEffect(() => {
     const initData = async () => {
@@ -156,9 +308,16 @@ function HorizonScannerPage() {
         const industryRes = await apiClient.get("/master-data?category=INDUSTRY");
         setSectorOptions(industryRes.data);
         await fetchHistory();
+
         const userRes = await apiClient.get("/account/details");
         const horizonData = userRes.data.assessment_limits?.horizon || { count: 0, limit: null };
         setLimitConfig(horizonData);
+
+        setFormData((prev) => ({
+          ...prev,
+          company_name: userRes.data.institution || "",
+          company_website: "",
+        }));
       } catch (error) {
         toast.error("Gagal memuat data.");
       } finally {
@@ -178,36 +337,30 @@ function HorizonScannerPage() {
     }
   };
 
-  // --- LOGIC FILTER & SORT ---
   const filteredHistory = useMemo(() => {
     let result = [...history];
-
-    // 1. Search
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       result = result.filter((item) => item.title?.toLowerCase().includes(lower) || item.summary_preview?.toLowerCase().includes(lower));
     }
-
-    // 2. Filter Industry
     if (filterIndustry !== "all") {
       result = result.filter((item) => item.sector === filterIndustry);
     }
-
-    // 3. Sort
     result.sort((a, b) => {
       const dateA = new Date(a.created_at);
       const dateB = new Date(b.created_at);
       return sortOption === "newest" ? dateB - dateA : dateA - dateB;
     });
-
     return result;
   }, [history, searchTerm, filterIndustry, sortOption]);
 
-  const handleScan = async () => {
-    if (!selectedSector) {
-      toast.error("Pilih sektor terlebih dahulu.");
+  const handleStartScan = async () => {
+    if (!formData.industry) {
+      toast.error("Mohon pilih Industri Utama.");
       return;
     }
+
+    setIsScanModalOpen(false);
     setIsScanning(true);
     setScanProgress(10);
     const interval = setInterval(() => {
@@ -215,10 +368,17 @@ function HorizonScannerPage() {
     }, 800);
 
     try {
-      const response = await apiClient.post("/horizon/scan", { sector: selectedSector });
+      const combinedTopics = [formData.input_competitors, formData.input_topics].filter((t) => t.trim() !== "").join(", ");
+
+      const payload = {
+        ...formData,
+        specific_topics: combinedTopics,
+      };
+
+      const response = await apiClient.post("/horizon/scan", payload);
       clearInterval(interval);
       setScanProgress(100);
-      toast.success("Horizon Scan selesai!");
+      toast.success("Analisis Strategis Selesai!");
       await fetchHistory();
       handleViewDetail(response.data.scan_id);
       setLimitConfig((prev) => ({ ...prev, count: prev.count + 1 }));
@@ -265,7 +425,6 @@ function HorizonScannerPage() {
     }
   };
 
-  // Definisi Kolom untuk List View
   const listColumns = [
     {
       key: "title",
@@ -293,7 +452,7 @@ function HorizonScannerPage() {
       header: "Tanggal Scan",
       cell: (item) => (
         <div className="flex items-center gap-1 text-xs text-gray-500">
-          <FiClock size={12} /> {formatDate(item.created_at)}
+          <FiClock size={12} /> {formatDateTimeIndo(item.created_at)}
         </div>
       ),
     },
@@ -314,7 +473,7 @@ function HorizonScannerPage() {
 
   return (
     <div className="p-6 sm:p-10 bg-slate-50 min-h-screen space-y-8">
-      {/* --- HEADER SECTION --- */}
+      {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-100 rounded-xl text-blue-600 shadow-sm">
@@ -322,25 +481,13 @@ function HorizonScannerPage() {
           </div>
           <div>
             <Title className="text-2xl text-slate-800">Horizon Scanner</Title>
-            <Text className="text-slate-500">Intelijen risiko berbasis AI yang memindai berita global & lokal.</Text>
+            <Text className="text-slate-500">Market Intelligence & Strategic Risk Foresight</Text>
           </div>
         </div>
 
-        {/* CONTROL PANEL (Scan Button) */}
-        <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 w-full md:w-auto">
-          <div className="w-full md:w-64">
-            <SearchSelect value={selectedSector} onValueChange={setSelectedSector} disabled={isScanning || isSectorsLoading} placeholder="Pilih Target Industri..." className="border-none focus:ring-0">
-              {sectorOptions.map((s) => (
-                <SearchSelectItem key={s.key} value={s.key}>
-                  {s.value}
-                </SearchSelectItem>
-              ))}
-            </SearchSelect>
-          </div>
-          <Button size="md" icon={FiSearch} loading={isScanning} onClick={handleScan} disabled={isLimitReached || isSectorsLoading} className="shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all rounded-xl">
-            {isScanning ? "Scanning..." : "Mulai Scan"}
-          </Button>
-        </div>
+        <Button size="lg" icon={FiSearch} onClick={() => setIsScanModalOpen(true)} disabled={isScanning || isLimitReached || isSectorsLoading} className="shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all rounded-xl">
+          Mulai Analisis Baru
+        </Button>
       </div>
 
       {limitConfig.limit !== null && (
@@ -349,7 +496,7 @@ function HorizonScannerPage() {
         </div>
       )}
 
-      {/* --- FILTER BAR (BARU) --- */}
+      {/* FILTER BAR */}
       <Card className="p-4 shadow-sm border border-gray-100 rounded-xl">
         <div className="flex flex-col md:flex-row gap-4 items-center w-full">
           <div className="relative flex-grow w-full">
@@ -384,14 +531,13 @@ function HorizonScannerPage() {
               variant="secondary"
               icon={viewMode === "list" ? FiGrid : FiList}
               onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
-              title={viewMode === "list" ? "Tampilan Grid" : "Tampilan List"}
               className="shadow-sm border-gray-200 bg-white hover:bg-gray-50 rounded-xl h-[42px]"
             />
           </div>
         </div>
       </Card>
 
-      {/* --- HISTORY LIST/GRID --- */}
+      {/* HISTORY LIST/GRID */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <div className="h-6 w-1 bg-blue-500 rounded-full"></div>
@@ -409,12 +555,10 @@ function HorizonScannerPage() {
             <Text className="font-bold text-slate-700">Belum ada riwayat scanning.</Text>
           </div>
         ) : viewMode === "list" ? (
-          // LIST VIEW
           <Card className="p-0 overflow-hidden shadow-sm border border-gray-100 rounded-xl">
             <AppResourceTable data={filteredHistory} isLoading={isLoadingHistory} columns={listColumns} emptyMessage="Tidak ada data." />
           </Card>
         ) : (
-          // GRID VIEW
           <Grid numItemsSm={1} numItemsMd={2} numItemsLg={3} className="gap-6">
             {filteredHistory.map((item) => (
               <Card
@@ -423,17 +567,29 @@ function HorizonScannerPage() {
                 onClick={() => handleViewDetail(item.id)}
               >
                 <div className="p-5 flex-grow">
-                  <div className="flex justify-between items-start mb-3 pr-6">
+                  <div className="flex justify-between items-start mb-4">
                     <Badge size="xs" color="blue" icon={FiGlobe} className="rounded-md px-2 py-1">
                       {getSectorLabel(item.sector)}
                     </Badge>
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <FiClock size={10} /> {formatDate(item.created_at)}
+                    {getRiskBadge(item.title)}
+                  </div>
+
+                  <Title className="text-lg font-bold text-slate-800 mb-4 line-clamp-3 leading-snug">{item.title || "Laporan Tanpa Judul"}</Title>
+
+                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 space-y-2 mt-auto">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <FiCalendar className="text-slate-400" />
+                      <span>Analisis pada:</span>
+                      <span className="font-medium text-slate-700">{formatDateTimeIndo(item.created_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <FiBarChart2 className="text-slate-400" />
+                      <span>Sumber Data:</span>
+                      <span className="font-medium text-slate-700">Multi-Source AI</span>
                     </div>
                   </div>
-                  <Title className="text-lg font-bold text-slate-800 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">{item.title || "Laporan Tanpa Judul"}</Title>
-                  <Text className="text-sm text-slate-600 line-clamp-3 leading-relaxed">{item.summary_preview?.replace(/<[^>]+>/g, "") || "Klik untuk melihat detail analisis lengkap..."}</Text>
                 </div>
+
                 <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center mt-auto">
                   <Text className="text-xs font-medium text-blue-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                     Baca Laporan <FiArrowRight size={12} />
@@ -448,7 +604,166 @@ function HorizonScannerPage() {
         )}
       </div>
 
-      {/* --- MODAL PROGRESS SCANNING --- */}
+      {/* MODAL FORM KONFIGURASI */}
+      <Dialog open={isScanModalOpen} onClose={() => setIsScanModalOpen(false)} static={true} className="z-50">
+        <DialogPanel className="max-w-4xl w-full bg-white rounded-xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-slate-50 px-8 py-6 border-b border-gray-200 flex justify-between items-center shrink-0">
+            <div>
+              <Title className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
+                  <FiSearch size={20} />
+                </span>
+                Konfigurasi Horizon Scan
+              </Title>
+              <Text className="text-sm text-slate-500 mt-1">Sesuaikan parameter scan agar relevan dengan strategi Anda.</Text>
+            </div>
+            <button onClick={() => setIsScanModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+              <FiX size={20} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
+            {/* SECTION 1: TARGET & SCOPE */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">1</span>
+                <h3 className="font-bold text-slate-800 text-lg">Target & Ruang Lingkup</h3>
+              </div>
+              <div className="pl-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Nama Perusahaan</label>
+                  <TextInput value={formData.company_name} disabled placeholder="Memuat data institusi..." className="bg-slate-50 opacity-90 border-slate-200 text-slate-700" />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Website Perusahaan</label>
+                  <TextInput value={formData.company_website} onChange={(e) => handleFormChange("company_website", e.target.value)} placeholder="https://www.perusahaan.com" icon={FiExternalLink} />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                    Industri Utama <span className="text-red-500">*</span>
+                  </label>
+                  <SearchSelect value={formData.industry || ""} onValueChange={(v) => handleFormChange("industry", v)} placeholder="Pilih Industri...">
+                    {sectorOptions.map((s) => (
+                      <SearchSelectItem key={s.key} value={s.key}>
+                        {s.value}
+                      </SearchSelectItem>
+                    ))}
+                  </SearchSelect>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Lingkup Geografis</label>
+                  <Select value={formData.geo_scope} onValueChange={(v) => handleFormChange("geo_scope", v)}>
+                    <SelectItem value="Global">Global (Worldwide)</SelectItem>
+                    <SelectItem value="Regional Asia">Regional (Asia Pasifik)</SelectItem>
+                    <SelectItem value="Nasional">Nasional (Indonesia)</SelectItem>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Horizon Waktu</label>
+                  <Select value={formData.time_horizon} onValueChange={(v) => handleFormChange("time_horizon", v)}>
+                    <SelectItem value="Short Term">Jangka Pendek ( &lt; 1 Tahun)</SelectItem>
+                    <SelectItem value="Medium Term">Jangka Menengah (1-3 Tahun)</SelectItem>
+                    <SelectItem value="Long Term">Jangka Panjang / Foresight</SelectItem>
+                  </Select>
+                </div>
+              </div>
+            </section>
+
+            {/* SECTION 2: STRATEGIC CONTEXT */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-sm">2</span>
+                <h3 className="font-bold text-slate-800 text-lg">Konteks Strategis</h3>
+              </div>
+              <div className="pl-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Selera Risiko</label>
+                  <Select value={formData.risk_appetite} onValueChange={(v) => handleFormChange("risk_appetite", v)}>
+                    <SelectItem value="Risk Averse">Risk Averse (Konservatif)</SelectItem>
+                    <SelectItem value="Moderate">Moderate (Seimbang)</SelectItem>
+                    <SelectItem value="Aggressive">Risk Aggressive (Berani)</SelectItem>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Pemicu Strategis</label>
+                  <Select value={formData.strategic_driver} onValueChange={(v) => handleFormChange("strategic_driver", v)}>
+                    <SelectItem value="BAU">Business as Usual</SelectItem>
+                    <SelectItem value="Expansion">Ekspansi Bisnis</SelectItem>
+                    <SelectItem value="Digital Transformation">Transformasi Digital</SelectItem>
+                    <SelectItem value="IPO/M&A">IPO / M&A</SelectItem>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Sudut Pandang</label>
+                  <Select value={formData.report_perspective} onValueChange={(v) => handleFormChange("report_perspective", v)}>
+                    <SelectItem value="Board of Directors">Board of Directors</SelectItem>
+                    <SelectItem value="Operational Manager">Operational Manager</SelectItem>
+                    <SelectItem value="Investor">Investor / Shareholder</SelectItem>
+                  </Select>
+                </div>
+              </div>
+            </section>
+
+            {/* SECTION 3: INTELLIGENCE FOCUS (CARDS) */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">3</span>
+                <h3 className="font-bold text-slate-800 text-lg">Fokus Analisis</h3>
+              </div>
+              <div className="pl-10 space-y-6">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-3 block">Fokus Kategori Risiko (Multi-select)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {RISK_CATEGORIES.map((cat) => (
+                      <SelectableCard key={cat.id} label={cat.label} icon={cat.icon} colorClass={cat.color} selected={formData.risk_categories.includes(cat.id)} onClick={() => toggleSelection("risk_categories", cat.id)} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-3 block">Area Terdampak / Value Chain (Multi-select)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {VALUE_CHAINS.map((vc) => (
+                      <SelectableCard key={vc.id} label={vc.label} icon={vc.icon} colorClass={vc.color} selected={formData.value_chain.includes(vc.id)} onClick={() => toggleSelection("value_chain", vc.id)} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* SECTION 4: SPECIFIC KEYWORDS (SPLIT) */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">4</span>
+                <h3 className="font-bold text-slate-800 text-lg">Keyword & Isu Spesifik</h3>
+              </div>
+              <div className="pl-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Kompetitor Utama</label>
+                  <TextInput value={formData.input_competitors} onChange={(e) => handleFormChange("input_competitors", e.target.value)} placeholder="Contoh: Bank A, Fintech B..." />
+                  <p className="text-xs text-slate-500 mt-1">Pisahkan dengan koma.</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Isu / Topik Spesifik</label>
+                  <TextInput value={formData.input_topics} onChange={(e) => handleFormChange("input_topics", e.target.value)} placeholder="Contoh: Pilkada 2024, Kebocoran Data..." />
+                  <p className="text-xs text-slate-500 mt-1">Isu yang sedang dipantau manajemen.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="bg-gray-50 p-6 border-t border-gray-200 flex justify-end gap-3 shrink-0">
+            <Button variant="secondary" color="slate" onClick={() => setIsScanModalOpen(false)}>
+              Batal
+            </Button>
+            <Button variant="primary" color="blue" icon={FiCpu} onClick={handleStartScan} className="shadow-lg shadow-blue-500/20">
+              Mulai Analisis AI
+            </Button>
+          </div>
+        </DialogPanel>
+      </Dialog>
+
+      {/* MODAL PROGRESS SCANNING */}
       <Dialog open={isScanning} onClose={() => {}} static={true} className="z-[100]">
         <DialogPanel className="text-center max-w-md p-8 bg-white rounded-2xl shadow-2xl">
           <div className="mx-auto w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-6 relative">
@@ -457,8 +772,8 @@ function HorizonScannerPage() {
           </div>
           <Title className="text-xl font-bold text-slate-800">AI Sedang Bekerja...</Title>
           <Text className="mt-2 text-sm text-slate-600">
-            Memindai berita global & menyusun laporan untuk: <br />
-            <span className="font-bold text-blue-600">{selectedSectorLabel}</span>
+            Menganalisis profil risiko & strategi: <br />
+            <span className="font-bold text-blue-600">{getSectorLabel(formData.industry)}</span>
           </Text>
           <div className="mt-8">
             <ProgressBar value={scanProgress} color="blue" />
@@ -466,7 +781,7 @@ function HorizonScannerPage() {
         </DialogPanel>
       </Dialog>
 
-      {/* --- MODAL DETAIL LAPORAN --- */}
+      {/* MODAL DETAIL LAPORAN */}
       <Dialog open={isDetailOpen} onClose={() => setIsDetailOpen(false)} static={true} className="z-50">
         <DialogPanel className="w-full max-w-7xl h-[90vh] flex flex-col p-0 overflow-hidden rounded-xl bg-white shadow-2xl">
           <div className="bg-white px-8 py-5 border-b border-gray-200 flex justify-between items-start shadow-sm z-10">
@@ -482,7 +797,7 @@ function HorizonScannerPage() {
                     <Badge size="xs" color="blue" className="rounded-md px-2 py-1">
                       {selectedScan && getSectorLabel(selectedScan.sector)}
                     </Badge>
-                    <span className="text-xs text-gray-400 border-l border-gray-300 pl-3">{selectedScan && formatDate(selectedScan.created_at)}</span>
+                    <span className="text-xs text-gray-400 border-l border-gray-300 pl-3">{selectedScan && formatDateTimeIndo(selectedScan.created_at)}</span>
                   </div>
                   <Title className="text-2xl font-bold text-slate-800 leading-snug">{selectedScan?.title}</Title>
                 </>
@@ -496,39 +811,46 @@ function HorizonScannerPage() {
               <div className="text-center py-20">Loading...</div>
             ) : selectedScan ? (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-[1600px] mx-auto">
-                {/* KOLOM KIRI: LAPORAN AI */}
                 <div className="lg:col-span-8">
                   <Card className="shadow-sm border border-gray-100 p-8 min-h-[500px] bg-white">
-                    <AIContentRenderer htmlContent={selectedScan.report_html} />
+                    <AIContentRenderer htmlContent={selectedScan.report_html} createdAt={selectedScan.created_at} />
                   </Card>
                 </div>
 
-                {/* KOLOM KANAN: SUMBER BERITA */}
                 <div className="lg:col-span-4 space-y-6">
-                  <div className="bg-gradient-to-br from-blue-900 to-indigo-900 text-white p-5 rounded-xl shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 -mt-2 -mr-2 w-20 h-20 bg-white/10 rounded-full blur-xl"></div>
-                    <Title className="text-white text-lg mb-1 relative z-10">Sumber Intelijen</Title>
-                    <Text className="text-blue-100 text-xs relative z-10">AI menganalisis {selectedScan.news_data?.length || 0} artikel berita.</Text>
-                  </div>
-                  <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
-                    {selectedScan.news_data?.map((news, idx) => (
-                      <a
-                        key={idx}
-                        href={news.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block p-4 rounded-xl bg-white border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all group relative overflow-hidden"
-                      >
-                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <div className="flex justify-between items-start mb-2 pl-2">
-                          <Badge size="xs" className="rounded-md px-2 py-1" color={news.source.includes("Reuters") ? "rose" : "blue"}>
-                            {news.source}
-                          </Badge>
-                          <FiExternalLink className="h-3 w-3 text-gray-300 group-hover:text-blue-500" />
+                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-0">
+                    <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
+                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                        <FiGlobe size={20} />
+                      </div>
+                      <div>
+                        <Title className="text-lg text-slate-800">Intelligence Source</Title>
+                        <Text className="text-xs text-slate-500">Live feed dari {selectedScan.news_data?.length || 0} sumber</Text>
+                      </div>
+                    </div>
+
+                    <div className="relative border-l-2 border-slate-100 ml-3 space-y-6 py-2">
+                      {selectedScan.news_data?.map((news, idx) => (
+                        <div key={idx} className="relative pl-6 group">
+                          {/* Dot Timeline */}
+                          <div className="absolute -left-[5px] top-1 w-3 h-3 bg-slate-200 rounded-full border-2 border-white group-hover:bg-blue-500 transition-colors"></div>
+
+                          <a href={news.url} target="_blank" rel="noopener noreferrer" className="block transition-all hover:-translate-y-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${news.source.includes("Reuters") ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>
+                                {news.source}
+                              </span>
+                              <span className="text-[10px] text-gray-400">{formatDateTimeIndo(news.published_at || new Date())}</span>
+                            </div>
+                            <h4 className="text-sm font-semibold text-slate-700 leading-snug group-hover:text-blue-600 transition-colors">{news.title}</h4>
+                            <div className="mt-1 flex items-center gap-1 text-xs text-gray-400 group-hover:text-blue-400">
+                              <span>Buka Artikel</span>
+                              <FiExternalLink size={10} />
+                            </div>
+                          </a>
                         </div>
-                        <Text className="font-bold text-xs leading-snug text-slate-800 group-hover:text-blue-700 mb-2 pl-2">{news.title}</Text>
-                      </a>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -544,7 +866,7 @@ function HorizonScannerPage() {
         onClose={() => setDeleteConfirm({ isOpen: false, id: null })}
         onConfirm={handleDelete}
         title="Hapus Laporan"
-        message="Apakah Anda yakin ingin menghapus laporan intelijen ini? Data tidak dapat dikembalikan."
+        message="Apakah Anda yakin ingin menghapus laporan intelijen ini?"
         confirmButtonText="Hapus"
       />
     </div>

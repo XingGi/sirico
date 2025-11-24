@@ -51,10 +51,22 @@ def translate_text(text, target_lang='id'):
         return text
 
 class NewsScraper:
-    def __init__(self, sector_key="General"):
+    def __init__(self, sector_key="General", specific_topics=None):
         self.sector = sector_key
-        self.keywords = SECTOR_KEYWORDS.get(sector_key, DEFAULT_KEYWORDS)
-        self.main_keyword = self.keywords[0]
+        
+        base_keywords = SECTOR_KEYWORDS.get(sector_key, DEFAULT_KEYWORDS)
+        
+        if specific_topics and isinstance(specific_topics, str) and len(specific_topics.strip()) > 0:
+            custom_topics = [t.strip() for t in specific_topics.split(',')]
+            self.keywords = custom_topics + base_keywords
+        else:
+            self.keywords = base_keywords
+            
+        if self.keywords:
+            self.main_keyword = self.keywords[0]
+        else:
+            self.main_keyword = "Ekonomi" # Fallback terburuk
+
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
@@ -78,8 +90,6 @@ class NewsScraper:
 
             response = requests.get(rss_url, headers=self.headers, timeout=8)
             
-            # Parsing XML Response
-            # Gunakan 'lxml' jika ada, atau 'xml' built-in parser
             try:
                 soup = BeautifulSoup(response.content, features='xml')
             except Exception:
@@ -135,11 +145,11 @@ class NewsScraper:
         # Bonus: Tambahan sumber Kompas
         return self._scrape_google_rss("site:kompas.com", "Kompas Ekonomi", 'id')
 
-def run_horizon_scan(sector="General"):
+def run_horizon_scan(sector="General", specific_topics=None):
     """
-    Menjalankan semua scraper secara paralel agar cepat.
+    Menjalankan scraper dengan input topik spesifik.
     """
-    scraper = NewsScraper(sector)
+    scraper = NewsScraper(sector, specific_topics)
     all_news = []
     
     # Daftar fungsi scraper yang akan dijalankan
