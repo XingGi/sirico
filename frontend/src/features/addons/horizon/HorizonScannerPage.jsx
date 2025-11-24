@@ -606,7 +606,7 @@ function HorizonScannerPage() {
 
       {/* MODAL FORM KONFIGURASI */}
       <Dialog open={isScanModalOpen} onClose={() => setIsScanModalOpen(false)} static={true} className="z-50">
-        <DialogPanel className="max-w-4xl w-full bg-white rounded-xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogPanel className="max-w-6xl w-full bg-white rounded-xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
           <div className="bg-slate-50 px-8 py-6 border-b border-gray-200 flex justify-between items-center shrink-0">
             <div>
               <Title className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -753,10 +753,10 @@ function HorizonScannerPage() {
           </div>
 
           <div className="bg-gray-50 p-6 border-t border-gray-200 flex justify-end gap-3 shrink-0">
-            <Button variant="secondary" color="slate" onClick={() => setIsScanModalOpen(false)}>
+            <Button variant="secondary" className="rounded-md" color="rose" onClick={() => setIsScanModalOpen(false)}>
               Batal
             </Button>
-            <Button variant="primary" color="blue" icon={FiCpu} onClick={handleStartScan} className="shadow-lg shadow-blue-500/20">
+            <Button variant="primary" color="blue" icon={FiCpu} onClick={handleStartScan} className="rounded-md shadow-lg shadow-blue-500/20 hover:bg-blue-600">
               Mulai Analisis AI
             </Button>
           </div>
