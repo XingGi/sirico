@@ -13,10 +13,10 @@ function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, isLoad
           <Text className="mt-2">{message}</Text>
         </div>
         <div className="mt-8 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+          <Button variant="secondary" className="rounded-md" onClick={onClose} disabled={isLoading}>
             Batal
           </Button>
-          <Button onClick={onConfirm} loading={isLoading} disabled={isLoading} color={confirmButtonColor}>
+          <Button onClick={onConfirm} loading={isLoading} disabled={isLoading} className="rounded-md" color={confirmButtonColor}>
             {confirmButtonText}
           </Button>
         </div>

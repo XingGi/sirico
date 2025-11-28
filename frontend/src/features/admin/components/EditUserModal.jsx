@@ -68,7 +68,11 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
           ["dasar", "madya", "ai", "template_peta", "horizon"].forEach((key) => {
             if (!limits[key]) limits[key] = { count: 0, limit: null };
           });
-          setUserData({ ...fetchedUser, assessment_limits: limits, department_id: fetchedUser.department_id?.toString() || "" });
+
+          const qrcStd = fetchedUser.limit_qrc_standard !== undefined ? fetchedUser.limit_qrc_standard : 2;
+          const qrcEssay = fetchedUser.limit_qrc_essay !== undefined ? fetchedUser.limit_qrc_essay : 1;
+
+          setUserData({ ...fetchedUser, assessment_limits: limits, limit_qrc_standard: qrcStd, limit_qrc_essay: qrcEssay, department_id: fetchedUser.department_id?.toString() || "" });
           setSelectedRoleIds(fetchedUser.role_ids?.map(String) || []);
         })
         .catch(() => toast.error("Gagal memuat data user."))
@@ -97,6 +101,13 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
       assessment_limits: { ...prev.assessment_limits, [key]: { ...prev.assessment_limits[key], limit: val === "" ? null : Number(val) } },
     }));
 
+  const handleQrcLimitChange = (key, val) => {
+    setUserData((prev) => ({
+      ...prev,
+      [key]: val === "" ? 0 : Number(val),
+    }));
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
@@ -104,6 +115,8 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
       ...userData,
       role_ids: selectedRoleIds.map(Number),
       department_id: userData.department_id ? Number(userData.department_id) : null,
+      limit_qrc_standard: userData.limit_qrc_standard,
+      limit_qrc_essay: userData.limit_qrc_essay,
     };
     try {
       const res = await apiClient.put(`/admin/users/${userId}`, payload);
@@ -213,6 +226,20 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
                           </TableCell>
                         </TableRow>
                       ))}
+                      <TableRow className="hover:bg-gray-50 transition-colors border-t border-gray-100">
+                        <TableCell className="p-2 text-xs font-bold text-indigo-700">QRC Standard</TableCell>
+                        <TableCell className="p-2 text-xs text-right text-slate-500 font-medium">{userData.usage_qrc_standard || 0}</TableCell>
+                        <TableCell className="p-2 text-right">
+                          <NumberInput className="max-w-[70px]" value={userData.limit_qrc_standard} onValueChange={(v) => handleQrcLimitChange("limit_qrc_standard", v)} min={0} />
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="hover:bg-gray-50 transition-colors">
+                        <TableCell className="p-2 text-xs font-bold text-indigo-700">QRC Essay</TableCell>
+                        <TableCell className="p-2 text-xs text-right text-slate-500 font-medium">{userData.usage_qrc_essay || 0}</TableCell>
+                        <TableCell className="p-2 text-right">
+                          <NumberInput className="max-w-[70px]" value={userData.limit_qrc_essay} onValueChange={(v) => handleQrcLimitChange("limit_qrc_essay", v)} min={0} />
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </div>

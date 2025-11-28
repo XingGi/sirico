@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Card, Title, Text, Button, Badge, Dialog, DialogPanel, MultiSelect, MultiSelectItem, Select, SelectItem } from "@tremor/react";
 import apiClient from "../../api/api";
-import { FiUsers, FiEdit, FiSliders, FiSave, FiX, FiSearch, FiLoader, FiPlus, FiTrash2, FiCheckSquare, FiSquare, FiShield, FiFilter, FiBriefcase, FiHome } from "react-icons/fi";
+import { FiUsers, FiEdit, FiSliders, FiSave, FiX, FiSearch, FiLoader, FiPlus, FiTrash2, FiCheckSquare, FiSquare, FiShield, FiFilter, FiBriefcase, FiHome, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import AppResourceTable from "../../components/common/AppResourceTable";
 import ConfirmationDialog from "../../components/common/ConfirmationDialog";
 import EditUserModal from "./components/EditUserModal";
@@ -58,10 +58,10 @@ const BulkEditRolesModal = ({ isOpen, onClose, selectedUsers, allRoles, onSave, 
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-          <Button variant="secondary" color="slate" onClick={onClose} disabled={isLoading}>
+          <Button variant="secondary" className="rounded-md" color="rose" onClick={onClose} disabled={isLoading}>
             Batal
           </Button>
-          <Button onClick={handleSave} loading={isLoading} icon={FiSave} className="bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+          <Button onClick={handleSave} loading={isLoading} icon={FiSave} className="text-white bg-indigo-600 border-indigo-600 hover:bg-indigo-700 rounded-md">
             Terapkan
           </Button>
         </div>
@@ -85,6 +85,13 @@ function MemberPage() {
   const [sortOption, setSortOption] = useState("name-asc");
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
 
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({
+    total_pages: 1,
+    total_items: 0,
+    per_page: 10,
+  });
+
   // State Bulk & Delete
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
@@ -92,9 +99,27 @@ function MemberPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async () => {
+    setIsLoading(true);
     try {
-      const [usersRes, rolesRes] = await Promise.all([apiClient.get("/admin/users"), apiClient.get("/admin/roles")]);
-      setUsers(usersRes.data);
+      const [usersRes, rolesRes] = await Promise.all([
+        apiClient.get("/admin/users", {
+          params: {
+            page: page,
+            per_page: meta.per_page,
+            search: searchTerm,
+          },
+        }),
+        apiClient.get("/admin/roles"),
+      ]);
+
+      if (usersRes.data.data) {
+        setUsers(usersRes.data.data);
+        setMeta(usersRes.data.meta);
+      } else {
+        // Fallback jika backend belum update (masih array biasa)
+        setUsers(usersRes.data);
+      }
+
       setRoles(rolesRes.data);
     } catch (error) {
       toast.error("Gagal memuat data.");
@@ -104,21 +129,16 @@ function MemberPage() {
   };
 
   useEffect(() => {
-    setIsLoading(true);
     fetchData();
-  }, []);
+  }, [page, searchTerm]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
   // --- FILTER & SORT ---
   const filteredAndSortedUsers = useMemo(() => {
     let result = [...users];
-
-    // 1. Filter
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter(
-        (user) => user.nama_lengkap.toLowerCase().includes(lower) || user.email.toLowerCase().includes(lower) || (user.institution || "").toLowerCase().includes(lower) || (user.department_name || "").toLowerCase().includes(lower)
-      );
-    }
 
     // 2. Sort
     result.sort((a, b) => {
@@ -137,7 +157,7 @@ function MemberPage() {
     });
 
     return result;
-  }, [users, searchTerm, sortOption]);
+  }, [users, sortOption]);
 
   // --- HANDLERS SELECTION ---
   const handleSelectUser = (userId, checked) => {
@@ -149,11 +169,22 @@ function MemberPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedUserIds.size === filteredAndSortedUsers.length && filteredAndSortedUsers.length > 0) {
-      setSelectedUserIds(new Set());
-    } else {
-      setSelectedUserIds(new Set(filteredAndSortedUsers.map((u) => u.id)));
-    }
+    const currentPageUserIds = filteredAndSortedUsers.map((u) => u.id);
+
+    // Cek apakah semua di halaman ini sudah terpilih
+    const isPageAllSelected = currentPageUserIds.every((id) => selectedUserIds.has(id));
+
+    setSelectedUserIds((prev) => {
+      const newSet = new Set(prev);
+      if (isPageAllSelected) {
+        // Unselect semua di halaman ini
+        currentPageUserIds.forEach((id) => newSet.delete(id));
+      } else {
+        // Select semua di halaman ini
+        currentPageUserIds.forEach((id) => newSet.add(id));
+      }
+      return newSet;
+    });
   };
 
   const isAllSelected = filteredAndSortedUsers.length > 0 && selectedUserIds.size === filteredAndSortedUsers.length;
@@ -289,8 +320,8 @@ function MemberPage() {
       header: "Aksi",
       cell: (user) => (
         <div className="flex justify-end gap-2">
-          <Button size="xs" variant="light" icon={FiEdit} color="indigo" onClick={() => handleOpenEditModal(user.id)} tooltip="Edit" />
-          <Button size="xs" variant="light" icon={FiTrash2} color="rose" onClick={() => handleDeleteClick(user.id, user.nama_lengkap)} disabled={user.email.toLowerCase() === "admin@admin.com"} tooltip="Hapus" />
+          <Button size="xs" variant="light" icon={FiEdit} color="indigo" onClick={() => handleOpenEditModal(user.id)} title="Edit" />
+          <Button size="xs" variant="light" icon={FiTrash2} color="rose" onClick={() => handleDeleteClick(user.id, user.nama_lengkap)} disabled={user.email.toLowerCase() === "admin@admin.com"} title="Hapus" />
         </div>
       ),
       className: "text-right w-32",
@@ -353,8 +384,46 @@ function MemberPage() {
       </Card>
 
       {/* --- TABLE CARD --- */}
-      <Card className="p-0 overflow-hidden shadow-sm border border-gray-100 rounded-xl min-h-[500px]">
-        <AppResourceTable data={filteredAndSortedUsers} isLoading={isLoading} columns={columns} emptyMessage="Tidak ada pengguna ditemukan." />
+      <Card className="p-0 overflow-hidden shadow-sm border border-gray-100 rounded-xl min-h-[500px] flex flex-col">
+        <div className="flex-grow">
+          <AppResourceTable data={filteredAndSortedUsers} isLoading={isLoading} columns={columns} emptyMessage="Tidak ada pengguna ditemukan." />
+        </div>
+
+        {/* --- FOOTER PAGINATION BARU --- */}
+        {!isLoading && meta.total_items > 0 && (
+          <div className="px-6 py-4 border-t border-gray-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-slate-500">
+              Menampilkan{" "}
+              <span className="font-bold text-slate-700">
+                {(page - 1) * meta.per_page + 1} - {Math.min(page * meta.per_page, meta.total_items)}
+              </span>{" "}
+              dari <span className="font-bold text-slate-700">{meta.total_items}</span> user
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <FiChevronLeft size={18} />
+              </button>
+
+              {/* Indikator Halaman Sederhana */}
+              <span className="text-sm font-medium text-slate-600 px-2">
+                Halaman {page} dari {meta.total_pages}
+              </span>
+
+              <button
+                onClick={() => setPage((p) => Math.min(meta.total_pages, p + 1))}
+                disabled={page === meta.total_pages}
+                className="p-2 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <FiChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* --- MODALS --- */}

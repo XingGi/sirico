@@ -30,6 +30,8 @@ import {
   FiFileText,
   FiActivity,
   FiGlobe,
+  FiZap,
+  FiPieChart,
 } from "react-icons/fi";
 import { HiCalculator } from "react-icons/hi";
 import { useAuth } from "../../context/AuthContext";
@@ -38,6 +40,32 @@ import { useAuth } from "../../context/AuthContext";
 // 1. Definisikan struktur menu dalam bentuk data
 const menuItems = [
   { title: "Dashboard", path: "/dashboard", icon: <FiGrid />, requiredPermission: "view_dashboard" },
+  {
+    key: "qrc",
+    title: "Quick Risk Check",
+    icon: <FiZap />,
+    requiredPermission: "view_qrc_menu",
+    children: [
+      {
+        title: "QRC Assessment",
+        path: "/qrc/assessments",
+        icon: <FiCheckSquare />,
+        requiredPermission: "submit_qrc_assessment",
+      },
+      {
+        title: "Dashboard Consultant",
+        path: "/qrc/consultant",
+        icon: <FiPieChart />,
+        requiredPermission: "view_qrc_consultant",
+      },
+      {
+        title: "Template QRC",
+        path: "/qrc/templates",
+        icon: <FiFileText />,
+        requiredPermission: "view_admin_area",
+      },
+    ],
+  },
   {
     key: "riskLevel",
     title: "Risk Management Level",
@@ -220,7 +248,7 @@ function Sidebar({ isOpen, toggle }) {
   const userInitial = userName ? userName[0].toUpperCase() : "?";
 
   return (
-    <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-[width] duration-300 ease-in-out ${isOpen ? "w-80" : "w-20"} h-screen sticky top-0 overflow-hidden z-50 shadow-xl`}>
+    <aside className={`bg-slate-800 text-white flex flex-col p-4 transition-[width] duration-300 ease-in-out ${isOpen ? "w-80" : "w-24"} h-screen sticky top-0 overflow-hidden z-50 shadow-xl`}>
       <div className="flex items-center mb-8 flex-shrink-0" style={{ justifyContent: isOpen ? "space-between" : "center" }}>
         <h1 className={`text-2xl font-bold overflow-hidden transition-all duration-200 whitespace-nowrap ${isOpen ? "w-auto" : "w-0"}`}>
           <Link to="/dashboard">SIRICO</Link>

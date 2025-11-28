@@ -88,6 +88,8 @@ function Dashboard() {
   // User bisa melihat ini jika punya akses ke Basic ATAU Madya
   const canAccessCore = canAccessBasic || canAccessMadya;
 
+  const canAccessQRC = hasAccess("view_qrc_menu") || hasAccess("submit_qrc_assessment");
+
   useEffect(() => {
     // ... (Logic useEffect loadData tetap sama, TIDAK PERLU DIUBAH)
     const loadData = async () => {
@@ -95,15 +97,19 @@ function Dashboard() {
       try {
         // Fetch data hanya jika punya akses core, untuk efisiensi (opsional)
         // Tapi biar aman, fetch saja, kalau backend reject (403) kita catch errornya
-        const [risksRes, basicRes, madyaRes] = await Promise.all([
+        const [risksRes, basicRes, madyaRes, qrcRes] = await Promise.all([
           apiClient.get("/risk-inputs").catch(() => ({ data: [] })),
           apiClient.get("/basic-assessments").catch(() => ({ data: [] })),
           apiClient.get("/madya-assessments").catch(() => ({ data: [] })),
+          apiClient.get("/qrc/my-history").catch(() => ({ data: [] })),
         ]);
 
         const allRisks = Array.isArray(risksRes.data) ? risksRes.data : [];
         const highRisks = allRisks.filter((r) => (r.residual_skor || 0) >= 12).length;
+
+        const qrcCount = Array.isArray(qrcRes.data) ? qrcRes.data.length : 0;
         const totalAssessments = (basicRes.data?.length || 0) + (madyaRes.data?.length || 0);
+
         const plans = allRisks.filter((r) => r.rencana_penanganan && r.rencana_penanganan !== "-").length;
 
         setStats({
@@ -156,10 +162,9 @@ function Dashboard() {
       </Grid>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-10 items-start">
         {/* Kolom Kiri */}
-        <div className="lg:col-span-1 space-y-6 h-full">
-          {/* Kirim permission flags ke QuickActions */}
+        <div className="lg:col-span-1 space-y-6 h-full flex-col">
           <QuickActionsWidget
             canBasic={hasAccess("manage_risk_dasar")} // Khusus tombol "Buat Baru", cek permission 'manage'
             canMadya={hasAccess("manage_risk_madya")}
@@ -167,7 +172,9 @@ function Dashboard() {
           />
 
           {/* Top Risks */}
-          {canAccessCore ? <TopRisksWidget /> : <RestrictedWidget title="Top Risiko Kritis" description="Analisis risiko tertinggi tidak tersedia tanpa akses Basic/Madya." icon={FiAlertCircle} color="rose" />}
+          <div className="flex-grow">
+            {canAccessCore ? <TopRisksWidget /> : <RestrictedWidget title="Top Risiko Kritis" description="Analisis risiko tertinggi tidak tersedia tanpa akses Basic/Madya." icon={FiAlertCircle} color="rose" />}
+          </div>
         </div>
 
         {/* Kolom Kanan */}
@@ -179,7 +186,7 @@ function Dashboard() {
           </div>
 
           {/* Row 2: Add-ons */}
-          <Grid numItemsSm={1} numItemsMd={2} className="gap-6">
+          <Grid numItemsSm={1} numItemsMd={2} numItemsLg={3} className="gap-6">
             {canAccessHorizon ? <HorizonScanWidget /> : <RestrictedWidget title="Horizon Scanning" description="Pemindaian risiko masa depan dengan AI terkunci." icon={FiSearch} color="indigo" />}
 
             {canAccessBPR ? (
@@ -195,6 +202,24 @@ function Dashboard() {
               </Card>
             ) : (
               <RestrictedWidget title="BPR & RCSA" description="Modul Analisis Proses Bisnis & RCSA terkunci." icon={FiLayers} color="orange" />
+            )}
+
+            {canAccessQRC ? (
+              <Card
+                className="border-t-4 border-red-500 shadow-md flex flex-col justify-center items-center h-full min-h-[200px] text-center hover:shadow-lg transition-shadow cursor-pointer bg-white group"
+                onClick={() => (window.location.href = "/qrc/assessments")}
+              >
+                <div className="p-3 bg-red-50 text-red-600 rounded-full mb-3 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                  <FiZap size={24} />
+                </div>
+                <Title>Quick Risk Check</Title>
+                <Text className="text-sm text-gray-500 mt-2 px-4">Diagnosa kesehatan risiko cepat & analisis mendalam.</Text>
+                <Button size="xs" variant="light" color="red" className="mt-4">
+                  Mulai Scan
+                </Button>
+              </Card>
+            ) : (
+              <RestrictedWidget title="Quick Risk Scan" description="Fitur diagnosa cepat terkunci." icon={FiZap} color="red" />
             )}
           </Grid>
         </div>

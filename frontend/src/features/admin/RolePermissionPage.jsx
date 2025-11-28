@@ -14,30 +14,43 @@ const groupPermissions = (permissions) => {
     Dashboard: [],
     "Risk Management AI": [],
     "Risk Management Levels": [],
+    "Quick Risk Scan (QRC)": [],
     "Modul RSCA": [],
     "Modul BPR": [],
     "Modul BIA": [],
+    "Modul Horizon": [],
     "Admin Area": [],
     Lainnya: [],
   };
 
   const categoryMap = {
     dashboard: "Dashboard",
+
     risk_assessment_ai: "Risk Management AI",
     risk_register_main: "Risk Management AI",
+
     risk_dasar: "Risk Management Levels",
     risk_madya: "Risk Management Levels",
     risk_templates: "Risk Management Levels",
+
+    qrc: "Quick Risk Scan (QRC)",
+
     rsca: "Modul RSCA",
     bpr: "Modul BPR",
     bia: "Modul BIA",
     critical_assets: "Modul BIA",
+    horizon: "Modul Horizon",
+    cba: "Lainnya",
+    monte_carlo: "Lainnya",
+
     admin_area: "Admin Area",
     users: "Admin Area",
     roles: "Admin Area",
     master_data: "Admin Area",
     regulations: "Admin Area",
+    departments: "Admin Area",
     rsca_cycles: "Admin Area",
+    mitigation_monitor: "Modul RSCA",
   };
 
   permissions.forEach((perm) => {
@@ -242,8 +255,8 @@ function RolePermissionPage() {
         const isAdmin = role.name.toLowerCase() === "admin";
         return (
           <div className="flex justify-end gap-2">
-            <Button size="xs" variant="light" icon={FiEdit2} onClick={() => handleOpenModal(role)} disabled={isAdmin} tooltip={isAdmin ? "Role Admin tidak dapat diedit" : "Edit Role"} />
-            <Button size="xs" variant="light" color="rose" icon={FiTrash2} onClick={() => handleDeleteClick(role)} disabled={isAdmin} tooltip={isAdmin ? "Role Admin tidak dapat dihapus" : "Hapus Role"} />
+            <Button size="xs" variant="light" icon={FiEdit2} onClick={() => handleOpenModal(role)} disabled={isAdmin} title={isAdmin ? "Role Admin tidak dapat diedit" : "Edit Role"} />
+            <Button size="xs" variant="light" color="rose" icon={FiTrash2} onClick={() => handleDeleteClick(role)} disabled={isAdmin} title={isAdmin ? "Role Admin tidak dapat dihapus" : "Hapus Role"} />
           </div>
         );
       },

@@ -38,6 +38,12 @@ import RscaResultPage from "./features/admin/RscaResultPage";
 import ActionPlanMonitorPage from "./features/admin/ActionPlanMonitorPage";
 import HorizonScannerPage from "./features/addons/horizon/HorizonScannerPage";
 import UnderConstructionPage from "./components/common/UnderConstructionPage";
+import QrcAssessmentListPage from "./features/qrc/QrcAssessmentListPage";
+import QrcWizardPage from "./features/qrc/QrcWizardPage";
+import QrcEssayWizardPage from "./features/qrc/QrcEssayWizardPage";
+import QrcConsultantDashboard from "./features/qrc/QrcConsultantDashboard";
+import QrcReviewWorkspace from "./features/qrc/QrcReviewWorkspace";
+import QrcTemplatePage from "./features/qrc/QrcTemplatePage";
 import { FiActivity, FiCpu, FiPieChart } from "react-icons/fi";
 import { Title, Text } from "@tremor/react";
 const PlaceholderComponent = ({ title }) => (
@@ -117,6 +123,18 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute requiredPermission="view_monte_carlo" />}>
               <Route path="/addons/monte-carlo" element={<UnderConstructionPage title="Monte Carlo Simulator" description="Simulasi probabilistik tingkat lanjut untuk memprediksi berbagai skenario risiko di masa depan." icon={FiCpu} />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="submit_qrc_assessment" />}>
+              <Route path="/qrc/assessments" element={<QrcAssessmentListPage />} />
+              <Route path="/qrc/assessment/new" element={<QrcWizardPage />} />
+              <Route path="/qrc/assessment/new-essay" element={<QrcEssayWizardPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="review_qrc_assessment" />}>
+              <Route path="/qrc/consultant" element={<QrcConsultantDashboard />} />
+              <Route path="/qrc/consultant/review/:id" element={<QrcReviewWorkspace />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="manage_qrc_templates" />}>
+              <Route path="/qrc/templates" element={<QrcTemplatePage />} />
             </Route>
 
             {/* Admin (semua route di dalamnya butuh role admin atau permission spesifik) */}
