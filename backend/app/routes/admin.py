@@ -1,11 +1,11 @@
 # backend/app/routes/admin.py
 from flask import request, jsonify, Blueprint
-from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate, SubmittedRisk, ActionPlan, HorizonScanResult
+from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate, SubmittedRisk, ActionPlan, HorizonScanResult, QrcAssessment
 from app import bcrypt, ma
 from marshmallow import fields
 from .auth import admin_required, permission_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime
 
 class DepartmentSchema(ma.Schema):
@@ -179,21 +179,49 @@ def assign_user_roles(user_id):
 @admin_bp.route('/users', methods=['GET'])
 @admin_required() # Hanya admin yang bisa melihat semua user
 def get_users():
-     users = User.query.order_by(User.nama_lengkap).all()
-     result = []
-     for user in users:
-         result.append({
-             "id": user.id,
-             "email": user.email,
-             "nama_lengkap": user.nama_lengkap,
-             "role_ids": [role.id for role in user.roles], # Kirim ID role yang dimiliki user
-             "roles": [role.name for role in user.roles], # Kirim nama role juga bisa membantu
-             "institution": user.institution, # Tambahkan institusi
-             "department_id": user.department_id,
-             "department_name": user.department.name if user.department else None
-             # Jangan kirim password_hash
-         })
-     return jsonify(result)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    search = request.args.get('search', '')
+
+    query = User.query
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                User.nama_lengkap.ilike(search_term),
+                User.email.ilike(search_term),
+                User.institution.ilike(search_term)
+            )
+        )
+
+    query = query.order_by(User.nama_lengkap)
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    users = pagination.items
+    
+    result = []
+    for user in users:
+        result.append({
+            "id": user.id,
+            "email": user.email,
+            "nama_lengkap": user.nama_lengkap,
+            "role_ids": [role.id for role in user.roles],
+            "roles": [role.name for role in user.roles],
+            "institution": user.institution,
+            "department_id": user.department_id,
+            "department_name": user.department.name if user.department else None
+        })
+        
+    return jsonify({
+        "data": result,
+        "meta": {
+            "page": page,
+            "per_page": per_page,
+            "total_pages": pagination.pages,
+            "total_items": pagination.total
+        }
+    })
 
 @admin_bp.route('/users/<int:user_id>', methods=['GET'])
 @admin_required()
@@ -206,6 +234,8 @@ def get_user_details_admin(user_id):
     count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=user_id).scalar() or 0
     count_template_peta = db.session.query(func.count(RiskMapTemplate.id)).filter_by(user_id=user_id, is_default=False).scalar() or 0
     count_horizon = db.session.query(func.count(HorizonScanResult.id)).filter_by(user_id=user_id).scalar() or 0
+    count_qrc_standard = db.session.query(func.count(QrcAssessment.id)).filter_by(user_id=user_id, assessment_type='standard').scalar() or 0
+    count_qrc_essay = db.session.query(func.count(QrcAssessment.id)).filter_by(user_id=user_id, assessment_type='essay').scalar() or 0
 
     assessment_limits = {
         "dasar": {"count": count_dasar, "limit": user.limit_dasar},
@@ -223,7 +253,11 @@ def get_user_details_admin(user_id):
         "institution": getattr(user, 'institution', None),
         "role_ids": [role.id for role in user.roles], # Kirim ID roles
         "assessment_limits": assessment_limits,
-        "department_id": user.department_id
+        "department_id": user.department_id,
+        "limit_qrc_standard": user.limit_qrc_standard,
+        "limit_qrc_essay": user.limit_qrc_essay,
+        "usage_qrc_standard": count_qrc_standard,
+        "usage_qrc_essay": count_qrc_essay
     }), 200
 
 # === ENDPOINT BARU: UPDATE User Detail (oleh Admin) ===
@@ -281,6 +315,28 @@ def update_user_details_admin(user_id):
                         updated = True
                 except (ValueError, TypeError):
                     pass # Abaikan jika limit tidak valid
+                
+    if 'limit_qrc_standard' in data:
+        try:
+            val = data['limit_qrc_standard']
+            new_limit = int(val) if val is not None else None
+            
+            if user.limit_qrc_standard != new_limit:
+                user.limit_qrc_standard = new_limit
+                updated = True
+        except (ValueError, TypeError):
+            pass # Abaikan jika input tidak valid
+
+    if 'limit_qrc_essay' in data:
+        try:
+            val = data['limit_qrc_essay']
+            new_limit = int(val) if val is not None else None
+            
+            if user.limit_qrc_essay != new_limit:
+                user.limit_qrc_essay = new_limit
+                updated = True
+        except (ValueError, TypeError):
+            pass
     
     if 'department_id' in data:
         dept_id = data.get('department_id')
@@ -309,7 +365,9 @@ def update_user_details_admin(user_id):
                 "institution": getattr(user, 'institution', None),
                 "department_id": user.department_id,
                 "role_ids": [role.id for role in user.roles],
-                "roles": [role.name for role in user.roles], # Kirim nama role juga
+                "roles": [role.name for role in user.roles],
+                "limit_qrc_standard": user.limit_qrc_standard,
+                "limit_qrc_essay": user.limit_qrc_essay,
                 "assessment_limits": {
                     "dasar": {"count": count_dasar, "limit": user.limit_dasar},
                     "madya": {"count": count_madya, "limit": user.limit_madya},

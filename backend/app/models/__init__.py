@@ -24,5 +24,7 @@ from .madya import (
 
 from .bpr import BprDocument, BprNode, BprEdge, BprRisk
 
+from .qrc import QrcAssessment, QrcQuestion
+
 # Pastikan 'db' tersedia jika ada file lain yang mengimportnya dari sini (opsional tapi aman)
 from app import db

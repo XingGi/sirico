@@ -56,6 +56,7 @@ def create_app():
         from .routes.master_data import master_data_bp
         from .routes.admin import admin_bp
         from .routes.horizon import horizon_bp
+        from app.routes.qrc import qrc_bp
 
         # Daftarkan semua blueprint ke aplikasi
         app.register_blueprint(auth_bp, url_prefix='/api')
@@ -69,6 +70,7 @@ def create_app():
         app.register_blueprint(master_data_bp, url_prefix='/api')
         app.register_blueprint(admin_bp, url_prefix='/api/admin')
         app.register_blueprint(horizon_bp, url_prefix='/api')
+        app.register_blueprint(qrc_bp, url_prefix='/api/qrc')
         
     @app.route('/uploads/<path:filename>')
     def serve_uploaded_file(filename):

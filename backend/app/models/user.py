@@ -64,6 +64,8 @@ class User(db.Model):
     limit_ai = db.Column(db.Integer, nullable=True, default=15)
     limit_template_peta = db.Column(db.Integer, nullable=True, default=5)
     limit_horizon = db.Column(db.Integer, nullable=True, default=5)
+    limit_qrc_standard = db.Column(db.Integer, nullable=True, default=2)
+    limit_qrc_essay = db.Column(db.Integer, nullable=True, default=1)
     
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
     department = db.relationship('Department', back_populates='users')

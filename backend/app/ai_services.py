@@ -356,3 +356,62 @@ def summarize_horizon_scan(scan_params, news_list, api_key):
     except Exception as e:
         print(f"AI Error: {e}")
         return f"Laporan {scan_params.get('industry')}", "<p>Maaf, AI gagal memproses analisis mendalam. Silakan coba lagi.</p>"
+  
+# Quick Risk Check (QRC)  
+def analyze_qrc_assessment(assessment_type, answers_data, client_name, institution):
+    """
+    Menganalisis hasil Quick Risk Check (QRC) menggunakan Gemini.
+    Mendukung tipe 'standard' (Multiple Choice) dan 'essay' (Kualitatif).
+    """
+    try:
+        # 1. Konstruksi Prompt berdasarkan Tipe
+        prompt_context = f"""
+        Anda adalah Senior Risk Management Consultant profesional.
+        Tugas Anda adalah membuat Laporan Analisis Risiko Eksekutif untuk klien berikut:
+        
+        Nama Klien: {client_name}
+        Institusi: {institution}
+        Tipe Asesmen: {assessment_type.upper()}
+        
+        Data Jawaban Klien:
+        {json.dumps(answers_data, indent=2)}
+        
+        INSTRUKSI KHUSUS:
+        1. Analisis jawaban di atas secara komprehensif.
+        2. Identifikasi Area Kelemahan Utama (Key Vulnerabilities).
+        3. Identifikasi Area Kekuatan (Key Strengths).
+        4. Berikan 3-5 Rekomendasi Strategis yang konkret dan dapat ditindaklanjuti (Actionable Insights).
+        5. Gunakan bahasa Indonesia yang profesional, formal, dan meyakinkan (gaya bahasa konsultan manajemen).
+        6. Format output menggunakan Markdown yang rapi (gunakan Bold, Bullet points). Jangan gunakan sapaan pembuka (Halo/Hai).
+        
+        OUTPUT YANG DIHARAPKAN:
+        
+        ### Ringkasan Eksekutif
+        [Berikan gambaran umum profil risiko klien berdasarkan jawaban secara naratif]
+        
+        ### Analisis Kekuatan & Kelemahan
+        **Kekuatan Utama:**
+        * [Poin 1]
+        * [Poin 2]
+        
+        **Kelemahan/Area Perbaikan:**
+        * [Poin 1]
+        * [Poin 2]
+        
+        ### Rekomendasi Strategis
+        1. **[Judul Rekomendasi 1]:** [Penjelasan detail implementasi]
+        2. **[Judul Rekomendasi 2]:** [Penjelasan detail implementasi]
+        3. **[Judul Rekomendasi 3]:** [Penjelasan detail implementasi]
+        """
+
+        # 2. Panggil Gemini
+        model = genai.GenerativeModel('gemini-2.5-pro')
+        response = model.generate_content(prompt_context)
+        
+        clean_text = response.text.strip()
+        
+        return clean_text
+
+    except Exception as e:
+        print(f"Error in analyze_qrc_assessment: {e}")
+        return "Maaf, terjadi kesalahan saat menghasilkan analisis AI. Silakan coba lagi nanti atau lakukan analisis manual."
