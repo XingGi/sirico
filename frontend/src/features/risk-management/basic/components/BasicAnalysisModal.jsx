@@ -34,8 +34,12 @@ export default function BasicAnalysisModal({ isOpen, onClose, onSave, initialDat
   };
 
   const handleSave = () => {
-    if (!analysisData.risk_identification_id) {
+    if (analysisData.risk_identification_id === "" || analysisData.risk_identification_id === null || analysisData.risk_identification_id === undefined) {
       toast.error("Pilih risiko terlebih dahulu.");
+      return;
+    }
+    if (analysisData.probabilitas_kualitatif <= 0) {
+      toast.error("Probabilitas (%) tidak boleh 0.");
       return;
     }
     onSave(analysisData);
@@ -71,7 +75,7 @@ export default function BasicAnalysisModal({ isOpen, onClose, onSave, initialDat
             <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Pilih Risiko</label>
             <Select value={String(analysisData.risk_identification_id)} onValueChange={(val) => handleChange("risk_identification_id", Number(val))}>
               {availableRisks.map((risk) => (
-                <SelectItem key={risk.id} value={String(risk.id)}>
+                <SelectItem key={risk.originalIndex} value={String(risk.originalIndex)}>
                   {risk.deskripsi_risiko}
                 </SelectItem>
               ))}
@@ -111,7 +115,10 @@ export default function BasicAnalysisModal({ isOpen, onClose, onSave, initialDat
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Probabilitas (%)</label>
                   <NumberInput
                     value={analysisData.probabilitas_kualitatif}
-                    onValueChange={(val) => handleChange("probabilitas_kualitatif", Math.min(100, Math.max(0, val)))}
+                    onValueChange={(val) => {
+                      const safeVal = val === undefined || val === null ? 0 : val;
+                      handleChange("probabilitas_kualitatif", Math.min(100, Math.max(0, safeVal)));
+                    }}
                     min={0}
                     max={100}
                     icon={() => <span className="text-gray-400 text-xs ml-2">%</span>}

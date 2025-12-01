@@ -1,6 +1,6 @@
 # backend/app/routes/auth.py
 from flask import request, jsonify, Blueprint
-from app.models import User, Role, BasicAssessment, MadyaAssessment, RiskAssessment, RiskMapTemplate, HorizonScanResult
+from app.models import User, Role, BasicAssessment, MadyaAssessment, RiskAssessment, RiskMapTemplate, HorizonScanResult, QrcAssessment
 from app import db, bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request, get_jwt
 from functools import wraps
@@ -168,6 +168,8 @@ def get_account_details():
     count_ai = db.session.query(func.count(RiskAssessment.id)).filter_by(user_id=current_user_id).scalar() or 0
     count_template_peta = db.session.query(func.count(RiskMapTemplate.id)).filter_by(user_id=current_user_id, is_default=False).scalar() or 0
     count_horizon = db.session.query(func.count(HorizonScanResult.id)).filter_by(user_id=current_user_id).scalar() or 0
+    count_qrc_standard = db.session.query(func.count(QrcAssessment.id)).filter_by(user_id=current_user_id, assessment_type='standard').scalar() or 0
+    count_qrc_essay = db.session.query(func.count(QrcAssessment.id)).filter_by(user_id=current_user_id, assessment_type='essay').scalar() or 0
 
     assessment_limits = {
         "dasar": {"count": count_dasar, "limit": user.limit_dasar},
@@ -188,8 +190,11 @@ def get_account_details():
         "institution": institution,   
         "assessment_limits": assessment_limits,
         "department_id": user.department_id,
-        "department_name": user.department.name if user.department else None
-        # Jangan kirim password_hash
+        "department_name": user.department.name if user.department else None,
+        "limit_qrc_standard": user.limit_qrc_standard,
+        "limit_qrc_essay": user.limit_qrc_essay,
+        "usage_qrc_standard": count_qrc_standard,
+        "usage_qrc_essay": count_qrc_essay
     }), 200
 
 # === ENDPOINT BARU UNTUK UPDATE AKUN ===

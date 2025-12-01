@@ -217,9 +217,9 @@ function EditUserModal({ isOpen, onClose, userId, allRoles = [], onSaveSuccess }
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {["dasar", "madya", "ai", "horizon"].map((key) => (
+                      {["dasar", "madya", "ai", "horizon", "template_peta"].map((key) => (
                         <TableRow key={key} className="hover:bg-gray-50 transition-colors">
-                          <TableCell className="p-2 text-xs font-medium capitalize text-slate-700">{key}</TableCell>
+                          <TableCell className="p-2 text-xs font-medium capitalize text-slate-700">{key.replace("_", " ")}</TableCell>
                           <TableCell className="p-2 text-xs text-right text-slate-500">{userData.assessment_limits[key]?.count || 0}</TableCell>
                           <TableCell className="p-2 text-right">
                             <NumberInput className="max-w-[70px]" value={userData.assessment_limits[key]?.limit ?? ""} onValueChange={(v) => handleLimitChange(key, v)} min={0} placeholder="∞" />

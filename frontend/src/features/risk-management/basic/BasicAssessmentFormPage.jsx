@@ -46,10 +46,10 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message }) => (
         <Text className="mt-2 text-gray-600">{message}</Text>
       </div>
       <div className="mt-6 flex justify-center gap-3">
-        <Button variant="secondary" onClick={onClose}>
+        <Button className="rounded-md" variant="secondary" onClick={onClose}>
           Batal
         </Button>
-        <Button color="red" onClick={onConfirm}>
+        <Button className="rounded-md" color="red" onClick={onConfirm}>
           Ya, Hapus
         </Button>
       </div>

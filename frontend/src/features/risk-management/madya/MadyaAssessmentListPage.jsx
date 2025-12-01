@@ -23,10 +23,10 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message, isLoad
         <Text className="mt-2 text-gray-600">{message}</Text>
       </div>
       <div className="mt-6 flex justify-center gap-3">
-        <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+        <Button className="rounded-md" variant="secondary" onClick={onClose} disabled={isLoading}>
           Batal
         </Button>
-        <Button color="red" onClick={onConfirm} loading={isLoading} disabled={isLoading}>
+        <Button className="rounded-md" color="red" onClick={onConfirm} loading={isLoading} disabled={isLoading}>
           Ya, Hapus
         </Button>
       </div>

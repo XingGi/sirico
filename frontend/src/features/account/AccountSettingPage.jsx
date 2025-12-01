@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Card, Title, Text, TextInput, Button, Grid, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, NumberInput, Badge } from "@tremor/react";
-import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiInfo, FiBriefcase, FiShield, FiActivity, FiGlobe, FiMap, FiCpu } from "react-icons/fi";
+import { FiUser, FiMail, FiPhone, FiHome, FiSave, FiInfo, FiBriefcase, FiShield, FiActivity, FiGlobe, FiMap, FiCpu, FiFileText, FiEdit3 } from "react-icons/fi";
 import apiClient from "../../api/api";
 import { toast } from "sonner";
 import { useAuth } from "../../context/AuthContext";
@@ -21,6 +21,8 @@ function AccountSettingPage() {
       ai: { count: 0, limit: 0 },
       template_peta: { count: 0, limit: 0 },
       horizon: { count: 0, limit: 0 },
+      qrc_standard: { count: 0, limit: 0 },
+      qrc_essay: { count: 0, limit: 0 },
     },
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -32,10 +34,20 @@ function AccountSettingPage() {
     apiClient
       .get("/account/details")
       .then((response) => {
+        const data = response.data;
         const limits = response.data.assessment_limits || {};
         for (const key in limits) {
           limits[key].limit = limits[key].limit !== null ? Number(limits[key].limit) : null;
         }
+        limits.qrc_standard = {
+          count: data.usage_qrc_standard || 0,
+          limit: data.limit_qrc_standard !== null && data.limit_qrc_standard !== undefined ? Number(data.limit_qrc_standard) : 2, // Default jika null
+        };
+
+        limits.qrc_essay = {
+          count: data.usage_qrc_essay || 0,
+          limit: data.limit_qrc_essay !== null && data.limit_qrc_essay !== undefined ? Number(data.limit_qrc_essay) : 1, // Default jika null
+        };
         setUserData({ ...response.data, assessment_limits: limits });
         setError("");
       })
@@ -90,7 +102,11 @@ function AccountSettingPage() {
     };
 
     if (user?.role === "admin") {
-      payload.assessment_limits = userData.assessment_limits;
+      const { qrc_standard, qrc_essay, ...jsonLimits } = userData.assessment_limits;
+
+      payload.assessment_limits = jsonLimits;
+      payload.limit_qrc_standard = qrc_standard?.limit;
+      payload.limit_qrc_essay = qrc_essay?.limit;
     }
 
     try {
@@ -116,6 +132,8 @@ function AccountSettingPage() {
       ai: { label: "Risk AI", icon: FiCpu, color: "purple" },
       template_peta: { label: "Template Peta", icon: FiMap, color: "amber" },
       horizon: { label: "Horizon Scanner", icon: FiGlobe, color: "indigo" },
+      qrc_standard: { label: "QRC Standard", icon: FiFileText, color: "cyan" },
+      qrc_essay: { label: "QRC Essay", icon: FiEdit3, color: "rose" },
     };
     return map[key] || { label: key, icon: FiActivity, color: "slate" };
   };
@@ -207,7 +225,7 @@ function AccountSettingPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {["dasar", "madya", "ai", "template_peta", "horizon"].map((key) => {
+                  {["dasar", "madya", "ai", "template_peta", "horizon", "qrc_standard", "qrc_essay"].map((key) => {
                     const value = userData.assessment_limits?.[key] || { count: 0, limit: null };
                     const config = getFeatureConfig(key);
                     const Icon = config.icon;
