@@ -160,7 +160,7 @@ function ActionPlanMonitorPage() {
       header: "Aksi",
       cell: (plan) => (
         <div className="flex justify-end">
-          <Button variant="secondary" className="text-white rounded-md bg-blue-300 hover:bg-blue-500 rounded-md" size="xs" icon={FiEye} onClick={() => openModal(plan)}>
+          <Button variant="secondary" className="text-white bg-blue-300 hover:bg-blue-500 rounded-md" size="xs" icon={FiEye} onClick={() => openModal(plan)}>
             Detail
           </Button>
         </div>

@@ -283,7 +283,7 @@ function MadyaAssessmentFormPage() {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-          <div className="hidden md:block bg-blue-50 px-3 py-2 rounded-lg border border-blue-100 flex items-center justify-center">
+          <div className="md:block bg-blue-50 px-3 py-2 rounded-lg border border-blue-100 flex items-center justify-center">
             <Text className="text-xs text-blue-600 font-medium text-center">Template: {selectedTemplateData ? selectedTemplateData.name : "..."}</Text>
           </div>
           <div className="flex gap-3">
