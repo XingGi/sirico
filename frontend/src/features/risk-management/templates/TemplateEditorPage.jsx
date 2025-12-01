@@ -161,7 +161,7 @@ function TemplateEditorPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="secondary" color="slate" onClick={() => navigate("/risk-management/templates")}>
+          <Button variant="secondary" className="rounded-md" color="rose" onClick={() => navigate("/risk-management/templates")}>
             Batal
           </Button>
           <Button icon={FiSave} onClick={handleSaveTemplate} loading={isSaving} className="shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all rounded-xl">
@@ -303,14 +303,14 @@ function TemplateEditorPage() {
 
           {/* Card Definisi Level */}
           <Card className="border-l-4 border-orange-500 shadow-md ring-1 ring-gray-100">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
                   <FiList size={20} />
                 </div>
                 <Title as="h3">Definisi Level Risiko</Title>
               </div>
-              <Button icon={FiPlus} onClick={addLevelDefinition} size="xs" variant="secondary" color="orange">
+              <Button icon={FiPlus} onClick={addLevelDefinition} size="xs" variant="secondary" className="rounded-md" color="orange">
                 Tambah Level
               </Button>
             </div>

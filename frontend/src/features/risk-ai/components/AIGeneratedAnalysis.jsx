@@ -7,12 +7,12 @@ import apiClient from "../../../api/api";
 
 // Komponen kecil untuk setiap seksi agar lebih rapi
 const AnalysisSection = ({ icon, title, children }) => (
-  <div className="py-4">
-    <div className="flex items-center gap-3">
-      <div className="flex-shrink-0 text-gray-500">{icon}</div>
-      <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+  <div className="py-4 border-b border-gray-100 last:border-0">
+    <div className="flex items-center gap-3 mb-2">
+      <div className="flex-shrink-0 text-blue-600 mt-1">{icon}</div>
+      <h3 className="text-base md:text-lg font-semibold text-gray-800 leading-snug">{title}</h3>
     </div>
-    <div className="mt-2 pl-8 text-tremor-default text-tremor-content">{children}</div>
+    <div className="pl-0 md:pl-8 text-sm text-gray-600 leading-relaxed break-words">{children}</div>
   </div>
 );
 
@@ -82,67 +82,69 @@ function AIGeneratedAnalysis({ analysisData, assessmentId, onSummaryLoaded }) {
   }
 
   return (
-    <Card className="mt-6 rounded-xl shadow-lg">
-      <div className="flex items-start gap-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+    <Card className="mt-6 rounded-xl shadow-lg border-l-4 border-purple-500 ring-1 ring-gray-100">
+      <div className="flex flex-col sm:flex-row items-start gap-4 mb-2">
+        <div className="flex-shrink-0 p-3 rounded-xl bg-purple-50 text-purple-600">
           <FiCpu className="w-6 h-6 text-blue-600" />
         </div>
         <div>
-          <Title>AI-Generated Analysis</Title>
-          <Text>Intelligent risk assessment conclusions and recommendations.</Text>
+          <Title className="text-xl text-slate-800">AI-Generated Analysis</Title>
+          <Text className="text-sm text-slate-500">Intelligent risk assessment conclusions and recommendations.</Text>
         </div>
       </div>
 
-      <Accordion className="mt-4">
-        <AccordionHeader>
+      <Accordion className="mt-6 border border-gray-200 rounded-xl overflow-hidden">
+        <AccordionHeader className="bg-gray-50 hover:bg-gray-100 px-4 py-3">
           <div className="flex items-center gap-2">
-            <FiAlertOctagon className="w-5 h-5 text-gray-500" />
-            <span className="font-semibold">AI Analysis & Conclusion</span>
+            <FiAlertOctagon className="w-5 h-5 text-purple-600" />
+            <span className="font-bold text-slate-700 text-sm md:text-base">AI Analysis & Conclusion</span>
           </div>
         </AccordionHeader>
-        <AccordionBody>
+        <AccordionBody className="px-4 py-2 bg-white">
           <div className="divide-y divide-gray-200">
             <AnalysisSection icon={<FiChevronsRight />} title="Kesimpulan Risk Assessment">
-              <p className="prose prose-sm max-w-none">{ai_executive_summary}</p>
+              <p className="whitespace-pre-line">{ai_executive_summary}</p>
             </AnalysisSection>
 
             <AnalysisSection icon={<FiClipboard />} title="Analisis Profil Risiko">
-              <p className="prose prose-sm max-w-none mb-3">{ai_risk_profile_analysis?.summary}</p>
-              <ul className="list-disc list-inside space-y-1">
+              <p className="mb-3 font-medium text-slate-700">{ai_risk_profile_analysis?.summary}</p>
+              <ul className="list-disc list-outside ml-4 space-y-1 text-slate-600 marker:text-purple-400">
                 {ai_risk_profile_analysis?.distribution &&
                   Object.entries(ai_risk_profile_analysis.distribution).map(([level, count]) => (
                     <li key={level}>
-                      Risiko tingkat '{level}': <span className="font-semibold">{count} risiko</span>
+                      Risiko tingkat '{level}': <span className="font-bold text-slate-800 capitalize">{count} risiko</span>
                     </li>
                   ))}
               </ul>
             </AnalysisSection>
 
             <AnalysisSection icon={<FiZap />} title="Prioritas Tindakan Segera">
-              <ul className="list-disc list-inside space-y-1">
+              <ul className="list-decimal list-outside ml-4 space-y-2 text-slate-700 marker:font-bold marker:text-purple-600">
                 {ai_immediate_priorities?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
             </AnalysisSection>
 
-            <AnalysisSection icon={<FiTrendingUp />} title="Pembahasan Risiko Kritis">
-              <div className="space-y-4">
+            <AnalysisSection icon={<FiTrendingUp />} title="Risiko Kritis & Mitigasi">
+              <div className="space-y-4 mt-2">
                 {ai_critical_risks_discussion?.map((item, index) => (
-                  <div key={index} className="p-3 bg-slate-50 rounded-md border">
-                    <p className="font-semibold text-tremor-content-strong">
-                      {item.risk_code}: {item.discussion}
-                    </p>
-                    <p className="text-xs mt-1">
-                      <span className="font-medium">Target Mitigasi:</span> {item.mitigation_target}
-                    </p>
+                  <div key={index} className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                    <div className="font-bold text-slate-800 flex flex-col sm:flex-row sm:gap-2 mb-1">
+                      <span className="text-purple-700 bg-purple-50 px-2 py-0.5 rounded text-xs w-fit">{item.risk_code}</span>
+                      <span>{item.discussion}</span>
+                    </div>
+                    <div className="text-xs mt-2 flex gap-2 items-start">
+                      <span className="font-bold text-slate-500 shrink-0">Target:</span>
+                      <span className="text-slate-700">{item.mitigation_target}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </AnalysisSection>
 
             <AnalysisSection icon={<FiArrowRight />} title="Rencana Implementasi">
-              <ul className="list-disc list-inside space-y-1">
+              <ul className="list-disc list-outside ml-4 space-y-1 text-slate-600">
                 {ai_implementation_plan?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}

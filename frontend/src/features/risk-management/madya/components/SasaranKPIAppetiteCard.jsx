@@ -120,7 +120,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData: sasaranEntries = []
   return (
     <>
       <Card className="border-l-4 border-orange-500 shadow-md ring-1 ring-gray-100">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
               <FiTarget size={24} />
@@ -130,7 +130,7 @@ function SasaranKPIAppetiteCard({ assessmentId, initialData: sasaranEntries = []
               <Text>Definisikan Sasaran/KPI dan target toleransi risikonya.</Text>
             </div>
           </div>
-          <Button icon={FiPlus} onClick={() => setIsModalOpen(true)} loading={isLoading} variant="secondary" className="rounded-md hover:bg-orange-200" color="orange">
+          <Button icon={FiPlus} onClick={() => setIsModalOpen(true)} loading={isLoading} variant="secondary" className="rounded-md hover:bg-orange-200 w-full sm:w-auto" color="orange">
             Tambah Sasaran
           </Button>
         </div>

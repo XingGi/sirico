@@ -33,17 +33,42 @@ import ConfirmationDialog from "../../../components/common/ConfirmationDialog";
 import AppResourceTable from "../../../components/common/AppResourceTable";
 
 // --- HELPER: FORMAT TANGGAL INDONESIA (WIB) ---
-const formatDateTimeIndo = (dateString) => {
-  if (!dateString) return "-";
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
+const formatDateTimeIndo = (dateInput) => {
+  if (!dateInput) return "-";
+
+  try {
+    let date;
+    // 1. Cek apakah input adalah string
+    if (typeof dateInput === "string") {
+      // Cek apakah string kosong atau invalid
+      if (dateInput.trim() === "") return "-";
+
+      // Jika string belum punya penanda timezone 'Z' (UTC), tambahkan manual
+      const safeDateString = !dateInput.endsWith("Z") ? dateInput + "Z" : dateInput;
+      date = new Date(safeDateString);
+    } else {
+      // Jika input sudah berupa object Date
+      date = dateInput;
+    }
+
+    // 2. Cek Validitas Tanggal (PENTING: Mencegah RangeError)
+    if (isNaN(date.getTime())) {
+      return "-"; // Kembalikan strip jika tanggal tidak valid
+    }
+
+    // 3. Format ke Bahasa Indonesia
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date);
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "-"; // Fallback aman jika terjadi error apa pun
+  }
 };
 
 // --- HELPER: SIMULASI RISK LEVEL BADGE ---
@@ -59,13 +84,13 @@ const getRiskBadge = (title) => {
     );
   } else if (lowerTitle.includes("peluang") || lowerTitle.includes("tumbuh") || lowerTitle.includes("positif")) {
     return (
-      <Badge color="emerald" icon={FiTrendingUp}>
+      <Badge className="rounded-md px-2 py-1" color="emerald" icon={FiTrendingUp}>
         Opportunity
       </Badge>
     );
   } else {
     return (
-      <Badge color="orange" icon={FiShield}>
+      <Badge className="rounded-md px-2 py-1" color="orange" icon={FiShield}>
         Medium Risk
       </Badge>
     );
@@ -95,8 +120,12 @@ const SelectableCard = ({ label, icon: Icon, colorClass, selected, onClick }) =>
   );
 };
 
-const AIContentRenderer = ({ htmlContent, createdAt }) => {
+const AIContentRenderer = ({ htmlContent, createdAt, title, topics }) => {
   if (!htmlContent) return null;
+
+  const displayTitle = title || "Laporan Horizon Scan";
+  const displayDate = createdAt ? formatDateTimeIndo(createdAt) : "-";
+  const displaySubject = topics || displayTitle;
 
   return (
     <div className="space-y-8">
@@ -108,52 +137,37 @@ const AIContentRenderer = ({ htmlContent, createdAt }) => {
                 prose-h3:text-lg prose-h3:font-bold prose-h3:mt-8 prose-h3:mb-4 prose-h3:flex prose-h3:items-center prose-h3:gap-2
                 prose-h3:border-l-4 prose-h3:pl-3 prose-h3:rounded-r-lg prose-h3:py-1.5 prose-h3:bg-gray-50"
       >
+        <div className="bg-white border-l-4 border-blue-600 rounded-r-xl shadow-sm mb-10 overflow-hidden font-sans border-y border-r border-slate-200">
+          <div className="bg-slate-50/50 p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight leading-snug">{displayTitle}</h1>
+              <p className="text-xs text-slate-500 mt-1 font-medium">DOKUMEN INTELIJEN STRATEGIS</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold tracking-widest uppercase border border-rose-100 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> CONFIDENTIAL
+            </span>
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 text-sm">
+            {/* Kolom 1: Tanggal */}
+            <div className="group">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Tanggal Analisis</span>
+              <div className="font-semibold text-slate-700 text-base border-b border-slate-100 pb-1 flex items-center gap-2">
+                <span className="text-lg">📅</span>
+                {displayDate}
+              </div>
+            </div>
+
+            {/* Kolom 2: Perihal (Subject) - INI YANG HILANG */}
+            <div className="group">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Perihal (Subject)</span>
+              <div className="font-medium text-blue-700 bg-blue-50/50 p-2.5 rounded-lg border border-blue-100 text-sm leading-relaxed">{displaySubject}</div>
+            </div>
+          </div>
+        </div>
+
         <div
           dangerouslySetInnerHTML={{
             __html: htmlContent
-              .replace(
-                /(Strategic Horizon Scan.*?)[\s\S]*?(?:UNTUK|TO).*?:\s*(.*?)[\s\S]*?(?:DARI|FROM).*?:\s*(.*?)[\s\S]*?(?:TANGGAL|DATE).*?:\s*(.*?)[\s\S]*?(?:SUBJEK|SUBJECT|PERIHAL).*?:\s*(.*?)(?=(?:<h|<div|$))/i,
-                (match, title, to, from, oldDate, subject) => {
-                  // PERBAIKAN 1: Regex lebih kuat untuk hapus tag HTML (<...>) dan Markdown
-                  const clean = (text) =>
-                    text
-                      ? text
-                          .replace(/<\/?[^>]+(>|$)/g, "")
-                          .replace(/[*_]/g, "")
-                          .trim()
-                      : "";
-
-                  // PERBAIKAN 2: Gunakan createdAt dari database jika ada
-                  const displayDate = createdAt ? formatDateTimeIndo(createdAt) : clean(oldDate);
-
-                  return `
-                    <div class="bg-white border-l-4 border-blue-600 rounded-r-xl shadow-sm mb-10 overflow-hidden font-sans border-y border-r border-slate-200">
-                        <div class="bg-slate-50/50 p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div>
-                                <h1 class="text-2xl font-bold text-slate-800 tracking-tight leading-snug">${clean(title)}</h1>
-                                <p class="text-xs text-slate-500 mt-1 font-medium">DOKUMEN INTELIJEN STRATEGIS</p>
-                            </div>
-                            <span class="px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold tracking-widest uppercase border border-rose-100 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> CONFIDENTIAL
-                            </span>
-                        </div>
-                        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 text-sm">
-                            <div class="group">
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Tanggal Analisis</span>
-                                    <div class="font-semibold text-slate-700 text-base border-b border-slate-100 pb-1 group-hover:border-blue-200 transition-colors flex items-center gap-2">
-                                        <span class="text-lg">📅</span> 
-                                        ${displayDate}
-                                    </div>
-                                </div>
-                                <div class="group">
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Perihal (Subject)</span>
-                                    <div class="font-medium text-blue-700 bg-blue-50/50 p-2.5 rounded-lg border border-blue-100 text-sm leading-relaxed">${clean(subject)}</div>
-                                </div>
-                        </div>
-                    </div>`;
-                }
-              )
-
               .replace(
                 /<h3>(.*?)Executive(.*?)Summary(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
                 `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 shadow-sm">
@@ -162,6 +176,15 @@ const AIContentRenderer = ({ htmlContent, createdAt }) => {
                     </h3>
                     <div class="text-slate-700 leading-relaxed text-sm">$4</div>
                 </div>`
+              )
+              .replace(
+                /<h3>(.*?)Competitor Landscape(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
+                `<div class="mb-8 p-6 rounded-xl bg-gradient-to-r from-cyan-50 to-teal-50 border border-cyan-100 shadow-sm">
+                      <h3 class="text-cyan-800 border-none bg-transparent p-0 mb-3 text-xl flex items-center gap-2 font-bold">
+                          <span class="p-1.5 bg-cyan-100 rounded-lg text-cyan-600 shadow-sm">🏢</span> $1Competitor Landscape & Market Dynamics$2
+                      </h3>
+                      <div class="text-slate-700 leading-relaxed text-sm">$3</div>
+                  </div>`
               )
               .replace(
                 /<h3>(.*?)Impact on Strategic Objectives(.*?)<\/h3>([\s\S]*?)(?=<h3>|$)/g,
@@ -275,11 +298,11 @@ function HorizonScannerPage() {
 
   // --- CONFIG DATA FOR CARDS ---
   const RISK_CATEGORIES = [
-    { id: "Strategic", label: "Strategis", icon: FiTarget, color: "purple" },
+    { id: "Strategic", label: "Strategis", icon: FiTarget, color: "indigo" },
     { id: "Operational", label: "Operasional", icon: FiActivity, color: "blue" },
     { id: "Financial", label: "Finansial", icon: FiDollarSign, color: "emerald" },
     { id: "Compliance", label: "Kepatuhan", icon: FiShield, color: "rose" },
-    { id: "Cyber Security", label: "Cyber Sec", icon: FiCpu, color: "cyan" },
+    { id: "Cyber Security", label: "Cyber Sec", icon: FiCpu, color: "lime" },
     { id: "Reputational", label: "Reputasi", icon: FiAlertOctagon, color: "orange" },
     { id: "ESG", label: "ESG / Sustainability", icon: FiGlobe, color: "green" },
   ];
@@ -288,8 +311,8 @@ function HorizonScannerPage() {
     { id: "Supply Chain", label: "Supply Chain (Hulu)", icon: FiLayers, color: "amber" },
     { id: "Operations", label: "Operasional / Produksi", icon: FiActivity, color: "blue" },
     { id: "Sales Marketing", label: "Sales & Marketing", icon: FiTrendingUp, color: "indigo" },
-    { id: "Human Capital", label: "SDM / Human Capital", icon: FiUsers, color: "pink" },
-    { id: "IT Infrastructure", label: "IT & Digital", icon: FiCpu, color: "cyan" },
+    { id: "Human Capital", label: "SDM / Human Capital", icon: FiUsers, color: "rose" },
+    { id: "IT Infrastructure", label: "IT & Digital", icon: FiCpu, color: "lime" },
     { id: "Finance", label: "Finance & Treasury", icon: FiDollarSign, color: "emerald" },
   ];
 
@@ -368,11 +391,11 @@ function HorizonScannerPage() {
     }, 800);
 
     try {
-      const combinedTopics = [formData.input_competitors, formData.input_topics].filter((t) => t.trim() !== "").join(", ");
-
       const payload = {
         ...formData,
-        specific_topics: combinedTopics,
+        input_competitors: formData.input_competitors,
+        input_topics: formData.input_topics,
+        specific_topics: formData.input_topics,
       };
 
       const response = await apiClient.post("/horizon/scan", payload);
@@ -474,14 +497,14 @@ function HorizonScannerPage() {
   return (
     <div className="p-6 sm:p-10 bg-slate-50 min-h-screen space-y-8">
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-xl text-blue-600 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="p-3 bg-blue-100 rounded-xl text-blue-600 shadow-sm shrink-0">
             <FiGlobe size={28} />
           </div>
           <div>
             <Title className="text-2xl text-slate-800">Horizon Scanner</Title>
-            <Text className="text-slate-500">Market Intelligence & Strategic Risk Foresight</Text>
+            <Text className="text-slate-500 text-sm mt-1">Market Intelligence & Strategic Risk Foresight</Text>
           </div>
         </div>
 
@@ -711,10 +734,10 @@ function HorizonScannerPage() {
                 <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">3</span>
                 <h3 className="font-bold text-slate-800 text-lg">Fokus Analisis</h3>
               </div>
-              <div className="pl-10 space-y-6">
+              <div className="pl-0 md:pl-10 space-y-6">
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-3 block">Fokus Kategori Risiko (Multi-select)</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {RISK_CATEGORIES.map((cat) => (
                       <SelectableCard key={cat.id} label={cat.label} icon={cat.icon} colorClass={cat.color} selected={formData.risk_categories.includes(cat.id)} onClick={() => toggleSelection("risk_categories", cat.id)} />
                     ))}
@@ -722,7 +745,7 @@ function HorizonScannerPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-3 block">Area Terdampak / Value Chain (Multi-select)</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {VALUE_CHAINS.map((vc) => (
                       <SelectableCard key={vc.id} label={vc.label} icon={vc.icon} colorClass={vc.color} selected={formData.value_chain.includes(vc.id)} onClick={() => toggleSelection("value_chain", vc.id)} />
                     ))}
@@ -740,8 +763,8 @@ function HorizonScannerPage() {
               <div className="pl-10 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-1.5 block">Kompetitor Utama</label>
-                  <TextInput value={formData.input_competitors} onChange={(e) => handleFormChange("input_competitors", e.target.value)} placeholder="Contoh: Bank A, Fintech B..." />
-                  <p className="text-xs text-slate-500 mt-1">Pisahkan dengan koma.</p>
+                  <TextInput value={formData.input_competitors} onChange={(e) => handleFormChange("input_competitors", e.target.value)} placeholder="Contoh: Bank Mandiri, BCA, BNI (Pisahkan dengan koma)" />
+                  <p className="text-xs text-slate-500 mt-1">Sebutkan 3-5 nama pesaing langsung untuk analisis perbandingan.</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-1.5 block">Isu / Topik Spesifik</label>

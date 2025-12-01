@@ -570,7 +570,7 @@ function MadyaAssessmentListPage() {
           <div className="bg-white p-6 border-b flex justify-between items-start flex-shrink-0 shadow-sm z-10">
             <div>
               <Title>Detail: {viewingAssessmentData?.nama_asesmen}</Title>
-              <Text>ID: #{viewingAssessmentData?.id}</Text>
+              <Text>ID: RAM-#{viewingAssessmentData?.id}</Text>
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" icon={FiDownload} onClick={(e) => handleExportClick(e, viewingAssessmentData?.id, viewingAssessmentData?.nama_asesmen)}>

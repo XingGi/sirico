@@ -115,7 +115,7 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
     <>
       <Card className={`border-l-4 border-rose-500 shadow-md ring-1 ring-gray-100 bg-slate-50 ${isFullscreen ? "fixed inset-0 z-50 h-screen overflow-auto m-0 rounded-none" : "relative"}`} ref={cardRef}>
         {/* Header Card */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-rose-50 rounded-lg text-rose-600">
               <FiList size={24} />
@@ -126,7 +126,7 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button icon={FiPlus} onClick={handleOpenAddModal} loading={isLoading} variant="secondary" className="rounded-md" color="rose">
+            <Button icon={FiPlus} onClick={handleOpenAddModal} loading={isLoading} variant="secondary" className="rounded-md w-full sm:w-auto" color="rose">
               Tambah Risk Input
             </Button>
             <Button variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} />

@@ -269,31 +269,31 @@ function MadyaAssessmentFormPage() {
 
   return (
     <div className="p-6 sm:p-10 mx-auto space-y-8 bg-slate-50 min-h-screen">
-      {/* --- HEADER SECTION (Updated Style) --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 pb-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-gray-200 pb-6">
+        <div className="flex items-center gap-4 w-full lg:w-auto">
           <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/risk-management/madya")} title="Kembali ke daftar" />
-          <div>
-            <div className="flex items-center gap-2">
-              <Title className="text-2xl text-slate-800">{assessmentData?.nama_asesmen || "Asesmen Madya"}</Title>
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Title className="text-xl sm:text-2xl text-slate-800 line-clamp-1">{assessmentData?.nama_asesmen || "Asesmen Madya"}</Title>
               <Badge className="rounded-md" color="blue">
                 Mode Edit
               </Badge>
             </div>
-            <Text className="text-slate-500 mt-1">Lengkapi detail asesmen risiko tingkat madya.</Text>
+            <Text className="text-slate-500 mt-1 text-sm">Lengkapi detail asesmen risiko tingkat madya.</Text>
           </div>
         </div>
-        <div className="flex gap-3 items-center">
-          {/* Tampilkan Nama Template yang Digunakan */}
-          <div className="hidden md:block bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 mr-2">
-            <Text className="text-xs text-blue-600 font-medium">Template: {selectedTemplateData ? selectedTemplateData.name : "..."}</Text>
+        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+          <div className="hidden md:block bg-blue-50 px-3 py-2 rounded-lg border border-blue-100 flex items-center justify-center">
+            <Text className="text-xs text-blue-600 font-medium text-center">Template: {selectedTemplateData ? selectedTemplateData.name : "..."}</Text>
           </div>
-          <Button variant="secondary" color="slate" onClick={() => navigate("/risk-management/madya")} className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors">
-            Tutup
-          </Button>
-          <Button icon={FiSave} onClick={() => toast.success("Data tersimpan otomatis.")} className="rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all transform hover:-translate-y-0.5">
-            Simpan
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="secondary" color="slate" onClick={() => navigate("/risk-management/madya")} className="flex-1 sm:flex-none rounded-xl border-slate-200">
+              Tutup
+            </Button>
+            <Button icon={FiSave} onClick={() => toast.success("Data tersimpan otomatis.")} className="flex-1 sm:flex-none rounded-xl shadow-lg shadow-blue-500/30">
+              Simpan
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -303,17 +303,19 @@ function MadyaAssessmentFormPage() {
 
         {/* Card 2: Kriteria Risiko */}
         <Card ref={criteriaCardRef} className={`border-l-4 border-purple-500 shadow-md ring-1 ring-gray-100 bg-slate-50 ${isCriteriaFullscreen ? "fixed inset-0 z-50 h-screen overflow-auto m-0 rounded-none" : "relative"}`}>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                <FiShield size={24} /> {/* Bisa diganti ikon lain jika mau */}
+                <FiShield size={24} />
               </div>
               <div>
                 <Title>2. Kriteria Risiko</Title>
                 <Text>Kriteria probabilitas dan dampak khusus asesmen ini.</Text>
               </div>
             </div>
-            <Button type="button" variant="light" icon={isCriteriaFullscreen ? FiMinimize : FiMaximize} onClick={toggleCriteriaFullscreen} title={isCriteriaFullscreen ? "Exit Fullscreen" : "Fullscreen"} />
+            <div className="self-end sm:self-auto">
+              <Button type="button" variant="light" icon={isCriteriaFullscreen ? FiMinimize : FiMaximize} onClick={toggleCriteriaFullscreen} title={isCriteriaFullscreen ? "Exit Fullscreen" : "Fullscreen"} />
+            </div>
           </div>
           <MadyaCriteriaReference probabilityCriteria={probabilityCriteria} impactCriteria={impactCriteria} onCriteriaSave={refreshCriteriaData} readOnly={false} />
         </Card>

@@ -82,8 +82,6 @@ function RiskMatrix({ risks = [] }) {
 
             {/* Grid Container */}
             <div className="grid grid-cols-5 gap-1.5 flex-1 relative">
-              {" "}
-              {/* gap-1.5 agar sedikit lebih renggang */}
               {gridCells.map((cell) => {
                 const colorClass = getCellColor(cell.value);
                 const totalRisks = cell.risks.inherent.length + cell.risks.residual.length;
@@ -92,10 +90,8 @@ function RiskMatrix({ risks = [] }) {
                 return (
                   <div
                     key={cell.key}
-                    // PERUBAHAN 1: height h-20 (80px) atau h-24 (96px) agar kotak lebih tinggi
                     className={`relative group ${colorClass} rounded-md flex flex-col items-center justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg hover:z-20 cursor-default border border-white/20 h-24`}
                   >
-                    {/* PERUBAHAN 2: Opacity ditingkatkan (text-white/60) dan ukuran font diperbesar (text-3xl) */}
                     <span className="text-white/60 font-bold text-3xl select-none absolute">{cell.value}</span>
 
                     {/* Indikator Jumlah Risiko */}
@@ -116,7 +112,7 @@ function RiskMatrix({ risks = [] }) {
 
                     {/* TOOLTIP HOVER */}
                     {totalRisks > 0 && (
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-64 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2  hidden group-hover:block z-50 w-64 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <div className={`bg-white rounded-lg shadow-2xl border-l-4 ${theme.border} overflow-hidden text-left ring-1 ring-black/5`}>
                           <div className={`${theme.bg} px-3 py-2 border-b border-gray-100 flex justify-between items-center`}>
                             <span className={`text-xs font-bold ${theme.text}`}>

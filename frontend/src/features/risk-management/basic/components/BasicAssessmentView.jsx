@@ -8,6 +8,16 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 };
 
+const formatDateIndo = (dateString) => {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
+
 function BasicAssessmentView({ assessmentData }) {
   if (!assessmentData) return null;
 
@@ -90,7 +100,7 @@ function BasicAssessmentView({ assessmentData }) {
                       <TableCell>{risk.kategori_risiko}</TableCell>
                       <TableCell>{risk.unit_kerja}</TableCell>
                       <TableCell>{risk.sasaran}</TableCell>
-                      <TableCell>{new Date(risk.tanggal_identifikasi).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatDateIndo(risk.tanggal_identifikasi)}</TableCell>
                       <TableCell>{risk.deskripsi_risiko}</TableCell>
                       <TableCell>{risk.akar_penyebab}</TableCell>
                       <TableCell>{risk.indikator_risiko}</TableCell>

@@ -305,7 +305,7 @@ function BasicAssessmentFormPage() {
 
         {/* CARD 2: KONTEKS (Aksen Ungu) */}
         <Card className="border-l-4 border-purple-500 shadow-md ring-1 ring-gray-100">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
                 <FiLayers size={24} />
@@ -315,7 +315,7 @@ function BasicAssessmentFormPage() {
                 <Text>Faktor internal dan eksternal yang mempengaruhi risiko.</Text>
               </div>
             </div>
-            <Button type="button" className="rounded-lg" icon={FiPlus} variant="secondary" color="purple" onClick={handleOpenAddContext}>
+            <Button type="button" className="rounded-lg w-full sm:w-auto" icon={FiPlus} variant="secondary" color="purple" onClick={handleOpenAddContext}>
               Tambah Konteks
             </Button>
           </div>
@@ -355,7 +355,7 @@ function BasicAssessmentFormPage() {
 
         {/* CARD 3: RISIKO (Aksen Oranye) */}
         <Card className={`border-l-4 bg-slate-50 border-orange-500 shadow-md ring-1 ring-gray-100 ${isFullscreen ? "fixed inset-0 z-50 h-screen overflow-auto m-0 rounded-none" : "relative"}`} ref={riskTableCardRef}>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
                 <FiList size={24} />
@@ -365,8 +365,8 @@ function BasicAssessmentFormPage() {
                 <Text>Daftar potensi kejadian risiko beserta penyebab dan dampaknya.</Text>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" className="rounded-lg" icon={FiPlus} variant="secondary" color="orange" onClick={handleOpenAddRisk}>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button type="button" className="rounded-lg flex-1 sm:flex-none" icon={FiPlus} variant="secondary" color="orange" onClick={handleOpenAddRisk}>
                 Tambah Risiko
               </Button>
               <Button type="button" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} title="Toggle Fullscreen" />
@@ -439,7 +439,7 @@ function BasicAssessmentFormPage() {
 
         {/* CARD 4: ANALISIS (Aksen Merah) */}
         <Card className="border-l-4 border-red-500 shadow-md ring-1 ring-gray-100">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-red-50 rounded-lg text-red-600">
                 <FiBarChart2 size={24} />
@@ -449,7 +449,7 @@ function BasicAssessmentFormPage() {
                 <Text>Penilaian tingkat risiko inheren berdasarkan probabilitas dan dampak.</Text>
               </div>
             </div>
-            <Button type="button" className="rounded-lg" icon={FiPlus} variant="secondary" color="red" onClick={handleOpenAddAnalysis} disabled={availableRisksForAnalysis.length === 0 && editingAnalysisIndex === null}>
+            <Button type="button" className="rounded-lg w-full sm:w-auto" icon={FiPlus} variant="secondary" color="red" onClick={handleOpenAddAnalysis} disabled={availableRisksForAnalysis.length === 0 && editingAnalysisIndex === null}>
               Tambah Analisis
             </Button>
           </div>

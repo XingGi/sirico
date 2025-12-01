@@ -230,26 +230,24 @@ function AssessmentDetailPage() {
 
   return (
     <div className="p-6 sm:p-10 bg-slate-50 min-h-screen space-y-8">
-      {/* --- HEADER & SUMMARY --- */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
-        <div className="flex items-center gap-4">
-          <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/risk-ai/assessments")} className="rounded-full p-2 hover:bg-slate-200" />
-          <div>
-            <div className="flex items-center gap-2">
-              <Title className="text-2xl text-slate-800">Risk Assessment Results</Title>
-              <Badge color="indigo" size="xs">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 border-b border-gray-200 pb-6">
+        <div className="flex items-center gap-4 w-full lg:w-auto">
+          <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/risk-ai/assessments")} className="rounded-full p-2 hover:bg-slate-200 transition-colors" />
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Title className="text-2xl text-slate-800 font-bold">Risk Assessment Results</Title>
+              <Badge className="rounded-md px-2 py-1 font-medium" color="indigo" size="xs">
                 AI Generated
               </Badge>
             </div>
-            <Text className="text-slate-500">Laporan analisis risiko komprehensif.</Text>
+            <Text className="text-slate-500 mt-1 text-sm">Laporan analisis risiko komprehensif.</Text>
           </div>
         </div>
       </div>
 
       {/* CARD 1: SUMMARY INFO (Blue Accent) */}
       <Card className="border-t-4 border-blue-500 shadow-md bg-slate-50/50 ring-1 ring-gray-200 p-6">
-        {/* Header Card Utama */}
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-600 text-white rounded-lg shadow-sm">
               <FiInfo size={24} />
@@ -259,11 +257,11 @@ function AssessmentDetailPage() {
               <Text className="text-xs text-slate-500">Overview informasi kunci asesmen.</Text>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" icon={FiDownload} disabled size="xs" className="bg-white shadow-sm">
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="secondary" icon={FiDownload} disabled size="xs" className="rounded-md bg-white shadow-sm flex-1 sm:flex-none">
               Excel
             </Button>
-            <Button variant="secondary" icon={FiFileText} disabled size="xs" className="bg-white shadow-sm">
+            <Button variant="secondary" icon={FiFileText} disabled size="xs" className="rounded-md bg-white shadow-sm flex-1 sm:flex-none">
               PDF
             </Button>
           </div>
@@ -275,8 +273,6 @@ function AssessmentDetailPage() {
           <InfoCard title="Assessment Info" icon={FiFileText} color="blue">
             <div className="space-y-4">
               <InfoField label="ID Asesmen" value={`RA-${assessment.id.toString().padStart(5, "0")}`} icon={FiHash} />
-
-              {/* PERBAIKAN FORMAT TANGGAL DI SINI */}
               <InfoField label="Tanggal Mulai" value={formatDateLocal(assessment.tanggal_mulai)} icon={FiCalendar} />
 
               <div>
@@ -292,11 +288,11 @@ function AssessmentDetailPage() {
           {/* SUB-CARD 2: PROFIL PERUSAHAAN */}
           <InfoCard title="Company Profile" icon={FiBriefcase} color="indigo">
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 items-center mr-2">
                 <InfoField
                   label="Tipe"
                   value={
-                    <Badge size="xs" color="indigo" className="rounded-full px-2">
+                    <Badge size="xs" color="indigo" className="rounded-full px-2 py-1">
                       {assessment.company_type || "-"}
                     </Badge>
                   }
@@ -304,7 +300,7 @@ function AssessmentDetailPage() {
                 <InfoField
                   label="Industri"
                   value={
-                    <Badge size="xs" color="indigo" className="rounded-full px-2">
+                    <Badge size="xs" color="indigo" className="rounded-full px-2 py-1">
                       {industryDisplay}
                     </Badge>
                   }
@@ -354,7 +350,7 @@ function AssessmentDetailPage() {
                 <div className="flex flex-wrap gap-1.5">
                   {assessment.relevant_regulations ? (
                     assessment.relevant_regulations.split(",").map((r, i) => (
-                      <Badge key={i} size="xs" color="amber" icon={FiBookmark} className="rounded-full px-2 py-0.5">
+                      <Badge key={i} size="xs" color="amber" icon={FiBookmark} className="rounded-full px-2 py-1">
                         {r.trim()}
                       </Badge>
                     ))
@@ -373,15 +369,17 @@ function AssessmentDetailPage() {
           </InfoCard>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-gray-200 flex flex-wrap items-center gap-3">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+        <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center gap-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0">
             <FiAlertTriangle className="text-rose-500" /> Risk Types:
           </span>
-          {assessment.risk_categories?.split(",").map((cat, i) => (
-            <Badge key={i} size="xs" color="rose" className="rounded-full px-3 py-1 shadow-sm border border-rose-200">
-              {cat.trim()}
-            </Badge>
-          ))}
+          <div className="flex flex-wrap gap-2">
+            {assessment.risk_categories?.split(",").map((cat, i) => (
+              <Badge key={i} size="xs" color="rose" className="rounded-full px-3 py-1 shadow-sm border border-rose-200">
+                {cat.trim()}
+              </Badge>
+            ))}
+          </div>
         </div>
       </Card>
 
@@ -399,7 +397,7 @@ function AssessmentDetailPage() {
       {/* CARD 3: RISK REGISTER TABLE (Rose Accent - Fullscreenable) */}
       <div ref={tableCardRef} className={`transition-all duration-300 ${isFullscreen ? "fixed inset-0 z-50 bg-slate-50 p-6 overflow-auto" : ""}`}>
         <Card className="border-t-4 border-rose-500 shadow-md ring-1 ring-gray-100 h-full flex flex-col">
-          <div className="flex justify-between items-center mb-6 shrink-0">
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6 shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-rose-50 rounded-lg text-rose-600">
                 <FiList size={20} />
@@ -409,17 +407,17 @@ function AssessmentDetailPage() {
                 <Text className="text-xs text-gray-500">Total: {assessment.risks?.length} risiko teridentifikasi.</Text>
               </div>
             </div>
-            <div className="flex gap-3 items-center">
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200">
+            <div className="flex flex-wrap gap-3 items-center w-full xl:w-auto">
+              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => handleSelectAll(!isAllSelected)}>
                 <Switch id="select-all" checked={isAllSelected} onChange={handleSelectAll} />
-                <label htmlFor="select-all" className="text-xs font-medium text-gray-600 cursor-pointer">
+                <label htmlFor="select-all" className="text-xs font-medium text-gray-600 cursor-pointer select-none">
                   Select All
                 </label>
               </div>
-              <Button size="xs" variant="secondary" onClick={handleAddToRegister} disabled={selectedRisks.length === 0}>
+              <Button size="xs" variant="secondary" onClick={handleAddToRegister} disabled={selectedRisks.length === 0} className="rounded-md flex-1 sm:flex-none whitespace-nowrap">
                 Add to Register ({selectedRisks.length})
               </Button>
-              <Button size="xs" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} />
+              <Button size="xs" variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} title="Toggle Fullscreen" className="hidden sm:flex" />
             </div>
           </div>
 

@@ -52,7 +52,8 @@ def get_scan_detail(scan_id):
         "sector": scan.sector,
         "created_at": scan.created_at.isoformat(),
         "report_html": scan.executive_summary,
-        "news_data": raw_news
+        "news_data": raw_news,
+        "topics": "Analisis Strategis & Market Intelligence"
     }), 200
     
 @horizon_bp.route('/horizon/scan', methods=['POST'])
@@ -79,6 +80,8 @@ def scan_risks():
         'strategic_driver': data.get('strategic_driver', 'BAU'),
         'risk_categories': data.get('risk_categories', []),
         'value_chain': data.get('value_chain', []),
+        'input_competitors': data.get('input_competitors', ''), 
+        'input_topics': data.get('input_topics', ''),
         'specific_topics': data.get('specific_topics', ''),
         'report_perspective': data.get('report_perspective', 'Board of Directors'),
         'sentiment_mode': data.get('sentiment_mode', 'Balanced'),
@@ -87,9 +90,11 @@ def scan_risks():
     
     print(f"Starting Scan Params: {scan_params}")
     
+    search_query_topic = scan_params['input_topics'] if scan_params['input_topics'] else scan_params['specific_topics']
+    
     news_results = run_horizon_scan(
         sector=scan_params['industry'], 
-        specific_topics=scan_params['specific_topics']
+        specific_topics=search_query_topic
     )
     
     if not news_results:

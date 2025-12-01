@@ -131,16 +131,16 @@ function BPRDesignerPage() {
   return (
     <div className="h-screen w-full flex flex-col bg-slate-50 overflow-hidden">
       {/* --- HEADER TOOLBAR (MODERN) --- */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm z-10">
-        <div className="flex items-center gap-4">
-          <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/addons/bpr")} className="rounded-full p-2 hover:bg-slate-100" />
-          <div>
-            <div className="flex items-center gap-3">
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm z-10">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <Button variant="light" icon={FiArrowLeft} onClick={() => navigate("/addons/bpr")} className="rounded-full p-2 hover:bg-slate-100 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="p-1.5 bg-blue-50 text-blue-600 rounded hidden sm:block">
                 <FiGitMerge />
               </div>
-              <Title className="text-lg font-bold text-slate-800">{docInfo.name}</Title>
-              <Badge size="xs" className="rounded-md px-2" color={docInfo.status === "Final" ? "emerald" : docInfo.status === "In Review" ? "orange" : "slate"}>
+              <Title className="text-lg font-bold text-slate-800 truncate">{docInfo.name}</Title>
+              <Badge size="xs" className="rounded-md px-2 shrink-0" color={docInfo.status === "Final" ? "emerald" : docInfo.status === "In Review" ? "orange" : "slate"}>
                 {docInfo.status}
               </Badge>
             </div>
@@ -154,13 +154,13 @@ function BPRDesignerPage() {
           </div>
         </div>
 
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           {!isReadOnly && (
             <>
-              <Button variant="secondary" className="rounded-md" color="emerald" icon={FiPlus} onClick={onAddNode} size="xs">
+              <Button variant="secondary" className="rounded-md whitespace-nowrap" color="emerald" icon={FiPlus} onClick={onAddNode} size="xs">
                 Langkah
               </Button>
-              <Button variant="secondary" className="rounded-md" color="blue" icon={FiSave} loading={isSaving} onClick={onSave} size="xs">
+              <Button variant="secondary" className="rounded-md whitespace-nowrap" color="blue" icon={FiSave} loading={isSaving} onClick={onSave} size="xs">
                 Simpan
               </Button>
               <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
@@ -169,12 +169,12 @@ function BPRDesignerPage() {
 
           {/* Workflow Actions */}
           {docInfo.status === "Draft" && (
-            <Button icon={FiSend} size="xs" className="rounded-md" color="orange" onClick={() => setStatusConfirm({ isOpen: true, newStatus: "In Review" })}>
+            <Button icon={FiSend} size="xs" className="rounded-md whitespace-nowrap" color="orange" onClick={() => setStatusConfirm({ isOpen: true, newStatus: "In Review" })}>
               Submit Review
             </Button>
           )}
           {docInfo.status === "In Review" && canApprove && (
-            <Button icon={FiCheckSquare} className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600" size="xs" onClick={() => setStatusConfirm({ isOpen: true, newStatus: "Final" })}>
+            <Button icon={FiCheckSquare} className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600 whitespace-nowrap" size="xs" onClick={() => setStatusConfirm({ isOpen: true, newStatus: "Final" })}>
               Approve
             </Button>
           )}
@@ -202,7 +202,7 @@ function BPRDesignerPage() {
             <Controls showInteractive={false} className="bg-white shadow-md border border-gray-200 rounded-lg overflow-hidden m-4" />
             <MiniMap style={{ border: "1px solid #e2e8f0", borderRadius: "8px", margin: "10px" }} nodeColor="#3b82f6" maskColor="rgba(240, 242, 245, 0.7)" />
             <Background color="#cbd5e1" gap={20} size={1} variant="dots" />
-            <Panel position="top-center" className="bg-white/90 px-4 py-1.5 rounded-full shadow-sm border border-gray-200 backdrop-blur text-xs text-slate-500 font-medium mt-4">
+            <Panel position="top-center" className="bg-white/90 px-4 py-1.5 rounded-md shadow-sm border border-gray-200 backdrop-blur text-xs text-slate-500 font-medium mt-4">
               Klik Node untuk edit detail. Tarik garis (handle) untuk menghubungkan.
             </Panel>
           </ReactFlow>

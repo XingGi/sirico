@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../../../api/api";
 import { Title, Text, Button, Textarea, Select, SelectItem, Card, Badge, Flex, Icon, Grid, Subtitle, Dialog, DialogPanel } from "@tremor/react";
 import { toast } from "sonner";
-import { FiCalendar, FiAlertTriangle, FiFileText, FiCheckCircle, FiClock, FiMinusCircle, FiPlus, FiSend } from "react-icons/fi";
+import { FiCalendar, FiAlertTriangle, FiFileText, FiCheckCircle, FiClock, FiMinusCircle, FiPlus, FiSend, FiArrowLeft } from "react-icons/fi";
 
 // --- KOMPONEN BARU UNTUK PERTANYAAN TIPE KONTROL ---
 const ControlAssessmentQuestion = ({ question, answerData, onChange }) => {
@@ -26,7 +26,7 @@ const ControlAssessmentQuestion = ({ question, answerData, onChange }) => {
   const selectedColor = selectedOption ? selectedOption.color : "gray";
 
   return (
-    <Card className="mb-4 bg-white shadow-sm border-l-4" decorationColor={selectedColor}>
+    <Card className="mb-4 bg-white shadow-sm border-l-4" decorationColor="blue">
       <label className="block font-semibold text-gray-800">{question.pertanyaan}</label>
       <Text className="text-sm text-gray-500 mb-2">Kategori: {question.kategori} (Penilaian Kontrol)</Text>
       <div className="mt-2">
@@ -240,13 +240,31 @@ function RscaQuestionnaireForm() {
     <>
       <div className="p-6 sm:p-10 bg-gray-50 min-h-screen">
         {/* 1. Header Halaman yang Konsisten */}
-        <Flex alignItems="center" className="space-x-3 mb-6">
-          <Icon icon={FiFileText} size="lg" variant="light" color="blue" />
-          <div>
-            <Title>Kuesioner RSCA</Title>
-            <Text>Isi pertanyaan di bawah ini untuk departemen Anda.</Text>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-gray-200 pb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="light"
+              icon={FiArrowLeft}
+              onClick={() => navigate("/addons/rsca")} // Pastikan navigate sudah diimport
+              className="rounded-full p-2 hover:bg-slate-200 transition-colors"
+              title="Kembali ke daftar"
+            />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg text-blue-600 hidden sm:block">
+                <FiFileText size={28} />
+              </div>
+              <div>
+                <Title className="text-2xl text-slate-800">Kuesioner RSCA</Title>
+                <Text className="text-slate-500 mt-1">Isi pertanyaan di bawah ini untuk departemen Anda.</Text>
+              </div>
+            </div>
           </div>
-        </Flex>
+
+          {/* Badge Status di Kanan (Opsional, agar seimbang) */}
+          <Badge color={cycleStatus.color} icon={cycleStatus.icon} className="rounded-md px-2 py-1 self-start sm:self-center">
+            {cycleStatus.text}
+          </Badge>
+        </div>
         {/* 2. Bungkus semua dengan <form> di luar <Grid> */}
         <Grid numItemsLg={3} className="gap-6 items-start">
           <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-4">
@@ -288,16 +306,16 @@ function RscaQuestionnaireForm() {
                 <Subtitle>Detail Siklus</Subtitle>
                 <Title className="mt-1 mb-3">{cycle?.nama_siklus || "Memuat..."}</Title>
 
-                <Badge color={cycleStatus.color} icon={cycleStatus.icon}>
+                <Badge className="rounded-md px-2 py-1" color={cycleStatus.color} icon={cycleStatus.icon}>
                   {cycleStatus.text}
                 </Badge>
 
                 <Flex className="mt-4 space-x-2 text-tremor-content" alignItems="center">
-                  <Icon icon={FiCalendar} size="sm" color="gray" variant="solid" />
+                  <Icon className="rounded-md px-2 py1" icon={FiCalendar} size="sm" color="gray" variant="solid" />
                   <Text>Mulai: {formatDate(cycle?.tanggal_mulai)}</Text>
                 </Flex>
                 <Flex className="mt-2 space-x-2" alignItems="center">
-                  <Icon icon={FiCalendar} size="sm" color={isPastDueDate ? "rose" : "gray"} variant="solid" />
+                  <Icon className="rounded-md px-2 py1" icon={FiCalendar} size="sm" color={isPastDueDate ? "rose" : "gray"} variant="solid" />
                   <Text color={isPastDueDate ? "rose" : "inherit"}>Selesai: {formatDate(cycle?.tanggal_selesai)}</Text>
                 </Flex>
               </Card>

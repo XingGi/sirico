@@ -297,11 +297,11 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
                 <label className={labelClass}>Kode Risiko</label>
-                <TextInput name="kode_risiko" value={formData.kode_risiko} onChange={(e) => handleChange("kode_risiko", e.target.value)} placeholder="Otomatis..." />
+                <TextInput name="kode_risiko" value={formData.kode_risiko || ""} onChange={(e) => handleChange("kode_risiko", e.target.value)} placeholder="Otomatis..." />
               </div>
               <div>
                 <label className={labelClass}>Status Risiko</label>
-                <Select value={formData.status_risiko} onValueChange={(v) => handleChange("status_risiko", v)}>
+                <Select value={formData.status_risiko || ""} onValueChange={(v) => handleChange("status_risiko", v)}>
                   {statusRisikoOptions.map((o) => (
                     <SelectItem key={o} value={o}>
                       {o}
@@ -311,7 +311,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
               </div>
               <div>
                 <label className={labelClass}>Peluang / Ancaman</label>
-                <Select value={formData.peluang_ancaman} onValueChange={(v) => handleChange("peluang_ancaman", v)}>
+                <Select value={formData.peluang_ancaman || ""} onValueChange={(v) => handleChange("peluang_ancaman", v)}>
                   {peluangAncamanOptions.map((o) => (
                     <SelectItem key={o} value={o}>
                       {o}
@@ -323,7 +323,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 <label className={labelClass}>
                   Kategori Risiko<span className="text-red-500">*</span>
                 </label>
-                <Select value={formData.kategori_risiko} onValueChange={handleKategoriChange} required>
+                <Select value={formData.kategori_risiko || ""} onValueChange={handleKategoriChange} required>
                   {kategoriRisikoOptions.map((o) => (
                     <SelectItem key={o} value={o}>
                       {o}
@@ -334,14 +334,14 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
               {formData.kategori_risiko === "Risiko Lainnya" && (
                 <div className="lg:col-span-2">
                   <label className={labelClass}>Nama Kategori Lainnya</label>
-                  <TextInput name="kategori_risiko_lainnya" value={formData.kategori_risiko_lainnya} onChange={(e) => handleChange("kategori_risiko_lainnya", e.target.value)} />
+                  <TextInput name="kategori_risiko_lainnya" value={formData.kategori_risiko_lainnya || ""} onChange={(e) => handleChange("kategori_risiko_lainnya", e.target.value)} />
                 </div>
               )}
               <div>
                 <label className={labelClass}>
                   Unit Kerja <span className="text-red-500">*</span>
                 </label>
-                <Select value={formData.unit_kerja} onValueChange={(v) => handleChange("unit_kerja", v)} placeholder="Pilih Unit...">
+                <Select value={formData.unit_kerja || ""} onValueChange={(v) => handleChange("unit_kerja", v)} placeholder="Pilih Unit...">
                   {unitKerjaOptions.map((o) => (
                     <SelectItem key={o} value={o}>
                       {o}
@@ -353,11 +353,11 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 <label className={labelClass}>
                   Tanggal Identifikasi <span className="text-red-500">*</span>
                 </label>
-                <TextInput type="date" value={formData.tanggal_identifikasi} onChange={(e) => handleChange("tanggal_identifikasi", e.target.value)} icon={FiCalendar} />
+                <TextInput type="date" value={formData.tanggal_identifikasi || ""} onChange={(e) => handleChange("tanggal_identifikasi", e.target.value)} icon={FiCalendar} />
               </div>
               <div className="lg:col-span-3">
                 <label className={labelClass}>Sasaran Terkait</label>
-                <Select value={String(formData.sasaran_id)} onValueChange={(v) => handleChange("sasaran_id", v)} placeholder="Pilih Sasaran KPI...">
+                <Select value={String(formData.sasaran_id || "")} onValueChange={(v) => handleChange("sasaran_id", v)} placeholder="Pilih Sasaran KPI...">
                   {validSasaranOptions.map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {s.sasaran_kpi}
@@ -402,11 +402,11 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Prob (1-5)</label>
-                    <NumberInput value={formData.inherent_probabilitas} onValueChange={(v) => handleChange("inherent_probabilitas", clampMatrixValue(v))} min={1} max={5} />
+                    <NumberInput value={formData.inherent_probabilitas || ""} onValueChange={(v) => handleChange("inherent_probabilitas", clampMatrixValue(v))} min={1} max={5} />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Dampak (1-5)</label>
-                    <NumberInput value={formData.inherent_dampak} onValueChange={(v) => handleChange("inherent_dampak", clampMatrixValue(v))} min={1} max={5} />
+                    <NumberInput value={formData.inherent_dampak || ""} onValueChange={(v) => handleChange("inherent_dampak", clampMatrixValue(v))} min={1} max={5} />
                   </div>
                 </div>
                 <div className="mt-3 pt-2 border-t border-blue-200 flex justify-between items-center">
@@ -419,7 +419,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 <div>
                   <label className={labelClass}>Probabilitas Kualitatif (%)</label>
                   <NumberInput
-                    value={formData.inherent_prob_kualitatif}
+                    value={formData.inherent_prob_kualitatif || ""}
                     onValueChange={(v) => handleChange("inherent_prob_kualitatif", clampPercentValue(v))}
                     min={0}
                     max={100}
@@ -429,7 +429,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 <div>
                   <label className={labelClass}>Dampak Finansial</label>
                   <TextInput
-                    value={formatRupiah(formData.inherent_dampak_finansial)}
+                    value={formatRupiah(formData.inherent_dampak_finansial || "")}
                     onChange={(e) => handleChange("inherent_dampak_finansial", parseRupiah(e.target.value))}
                     icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>}
                   />
@@ -451,21 +451,21 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className={labelClass}>Nama Pemilik Risiko</label>
-                <TextInput name="pemilik_risiko" value={formData.pemilik_risiko} onChange={(e) => handleChange("pemilik_risiko", e.target.value)} />
+                <TextInput name="pemilik_risiko" value={formData.pemilik_risiko || ""} onChange={(e) => handleChange("pemilik_risiko", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Jabatan</label>
-                <TextInput name="jabatan_pemilik" value={formData.jabatan_pemilik} onChange={(e) => handleChange("jabatan_pemilik", e.target.value)} />
+                <TextInput name="jabatan_pemilik" value={formData.jabatan_pemilik || ""} onChange={(e) => handleChange("jabatan_pemilik", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Email</label>
-                <TextInput name="kontak_pemilik_email" type="email" value={formData.kontak_pemilik_email} onChange={(e) => handleChange("kontak_pemilik_email", e.target.value)} placeholder="email@perusahaan.com" />
+                <TextInput name="kontak_pemilik_email" type="email" value={formData.kontak_pemilik_email || ""} onChange={(e) => handleChange("kontak_pemilik_email", e.target.value)} placeholder="email@perusahaan.com" />
               </div>
               <div>
                 <label className={labelClass}>No. HP</label>
                 <TextInput
                   name="kontak_pemilik_hp"
-                  value={formData.kontak_pemilik_hp}
+                  value={formData.kontak_pemilik_hp || ""}
                   onChange={(e) => handleChange("kontak_pemilik_hp", e.target.value)}
                   placeholder="08xxxxxxxxxx"
                   error={formData.kontak_pemilik_hp && (formData.kontak_pemilik_hp.length < 10 || formData.kontak_pemilik_hp.length > 13)}
@@ -484,7 +484,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className={labelClass}>Strategi Penanganan</label>
-                <Select value={formData.strategi} onValueChange={(v) => handleChange("strategi", v)} placeholder="Pilih Strategi...">
+                <Select value={formData.strategi || ""} onValueChange={(v) => handleChange("strategi", v)} placeholder="Pilih Strategi...">
                   {strategiOptions.map((o) => (
                     <SelectItem key={o} value={o}>
                       {o}
@@ -494,15 +494,15 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
               </div>
               <div>
                 <label className={labelClass}>Estimasi Biaya Penanganan</label>
-                <TextInput value={formatRupiah(formData.biaya_penanganan)} onChange={(e) => handleChange("biaya_penanganan", parseRupiah(e.target.value))} icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>} />
+                <TextInput value={formatRupiah(formData.biaya_penanganan || "")} onChange={(e) => handleChange("biaya_penanganan", parseRupiah(e.target.value))} icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>} />
               </div>
               <div className="md:col-span-2">
                 <label className={labelClass}>Rencana Penanganan / Mitigasi</label>
-                <Textarea name="rencana_penanganan" value={formData.rencana_penanganan} onChange={(e) => handleChange("rencana_penanganan", e.target.value)} rows={3} />
+                <Textarea name="rencana_penanganan" value={formData.rencana_penanganan || ""} onChange={(e) => handleChange("rencana_penanganan", e.target.value)} rows={3} />
               </div>
               <div>
                 <label className={labelClass}>Status Penanganan</label>
-                <Select value={formData.status_penanganan} onValueChange={(v) => handleChange("status_penanganan", v)} placeholder="Status...">
+                <Select value={formData.status_penanganan || ""} onValueChange={(v) => handleChange("status_penanganan", v)} placeholder="Status...">
                   {["Open", "In Progress", "Done", "Cancelled"].map((o) => (
                     <SelectItem key={o} value={o}>
                       {o}
@@ -512,16 +512,16 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
               </div>
               <div>
                 <label className={labelClass}>PIC Penanganan</label>
-                <TextInput name="pic_penanganan" value={formData.pic_penanganan} onChange={(e) => handleChange("pic_penanganan", e.target.value)} placeholder="Nama Penanggung Jawab" />
+                <TextInput name="pic_penanganan" value={formData.pic_penanganan || ""} onChange={(e) => handleChange("pic_penanganan", e.target.value)} placeholder="Nama Penanggung Jawab" />
               </div>
               <div className="grid grid-cols-2 gap-4 md:col-span-2">
                 <div>
                   <label className={labelClass}>Jadwal Mulai</label>
-                  <TextInput type="date" value={formData.jadwal_mulai_penanganan} onChange={(e) => handleChange("jadwal_mulai_penanganan", e.target.value)} />
+                  <TextInput type="date" value={formData.jadwal_mulai_penanganan || ""} onChange={(e) => handleChange("jadwal_mulai_penanganan", e.target.value)} />
                 </div>
                 <div>
                   <label className={labelClass}>Jadwal Selesai</label>
-                  <TextInput type="date" value={formData.jadwal_selesai_penanganan} onChange={(e) => handleChange("jadwal_selesai_penanganan", e.target.value)} />
+                  <TextInput type="date" value={formData.jadwal_selesai_penanganan || ""} onChange={(e) => handleChange("jadwal_selesai_penanganan", e.target.value)} />
                 </div>
               </div>
               <div className="md:col-span-2">
@@ -545,11 +545,11 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Target P (1-5)</label>
-                    <NumberInput value={formData.residual_probabilitas} onValueChange={(v) => handleChange("residual_probabilitas", clampMatrixValue(v))} min={1} max={5} />
+                    <NumberInput value={formData.residual_probabilitas || ""} onValueChange={(v) => handleChange("residual_probabilitas", clampMatrixValue(v))} min={1} max={5} />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Target I (1-5)</label>
-                    <NumberInput value={formData.residual_dampak} onValueChange={(v) => handleChange("residual_dampak", clampMatrixValue(v))} min={1} max={5} />
+                    <NumberInput value={formData.residual_dampak || ""} onValueChange={(v) => handleChange("residual_dampak", clampMatrixValue(v))} min={1} max={5} />
                   </div>
                 </div>
                 <div className="mt-3 pt-2 border-t border-orange-200 flex justify-between items-center">
@@ -564,7 +564,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 <div>
                   <label className={labelClass}>Probabilitas Kualitatif (%)</label>
                   <NumberInput
-                    value={formData.residual_prob_kualitatif}
+                    value={formData.residual_prob_kualitatif || ""}
                     onValueChange={(v) => handleChange("residual_prob_kualitatif", clampPercentValue(v))}
                     min={0}
                     max={100}
@@ -575,7 +575,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 {/* Dampak Finansial Residual (READ-ONLY, HASIL HITUNG) */}
                 <div>
                   <label className={labelClass}>Dampak Finansial Residual (Hitung)</label>
-                  <TextInput value={formatRupiah(calculatedDampakFinansialResidual)} disabled placeholder="Otomatis" icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>} />
+                  <TextInput value={formatRupiah(calculatedDampakFinansialResidual || "")} disabled placeholder="Otomatis" icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>} />
                 </div>
 
                 {/* Nilai Bersih Residual (READ-ONLY, HASIL HITUNG) */}
@@ -587,7 +587,7 @@ function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, init
                 {/* Tanggal Review */}
                 <div className="sm:col-span-2">
                   <label className={labelClass}>Target Review</label>
-                  <TextInput type="date" value={formData.tanggal_review} onChange={(e) => handleChange("tanggal_review", e.target.value)} />
+                  <TextInput type="date" value={formData.tanggal_review || ""} onChange={(e) => handleChange("tanggal_review", e.target.value)} />
                 </div>
               </div>
             </div>

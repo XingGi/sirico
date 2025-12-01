@@ -272,7 +272,7 @@ function CreateAssessmentForm() {
               </div>
               <div className="w-2/3">
                 <label className="text-sm font-bold text-gray-700 mb-2 block">Batas Risiko (Risk Limit)</label>
-                <TextInput name="risk_limit" value={displayRiskLimit} onChange={handleRiskLimitChange} placeholder="0" />
+                <TextInput name="risk_limit" value={displayRiskLimit} onChange={handleRiskLimitChange} placeholder="Rp" />
               </div>
             </div>
           </div>

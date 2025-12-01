@@ -103,7 +103,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
   return (
     <>
       <Card className="border-l-4 border-blue-500 shadow-md ring-1 ring-gray-100">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
               <FiLayers size={24} />
@@ -121,7 +121,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
             }}
             variant="secondary"
             color="blue"
-            className="rounded-md"
+            className="rounded-md w-full sm:w-auto"
           >
             Tambah Data
           </Button>
@@ -140,7 +140,7 @@ function StrukturOrganisasiCard({ assessmentId, initialData, initialImageUrl, on
               </div>
               {isUploading && <FiLoader className="animate-spin text-blue-500 ml-2" />}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
               {imageUrl && (
                 <>
                   <Button icon={FiEye} variant="secondary" onClick={() => setIsImageModalOpen(true)} size="xs">

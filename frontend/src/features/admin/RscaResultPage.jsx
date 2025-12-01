@@ -223,7 +223,7 @@ function RscaResultPage() {
           onClick={handleAnalyze}
           loading={aiMutation.isPending}
           disabled={answers.length === 0}
-          className={`shadow-lg transition-all rounded-xl ${ai_summary ? "text-white bg-purple-600 hover:bg-purple-700 border-purple-600" : "bg-indigo-600 hover:bg-indigo-700 border-indigo-600"}`}
+          className={`shadow-lg transition-all rounded-xl ${ai_summary ? "text-white bg-purple-600 hover:bg-purple-700 border-purple-600" : "text-white bg-indigo-600 hover:bg-indigo-700 border-indigo-600"}`}
         >
           {ai_summary ? "Analisis Ulang AI" : "Buat Analisis AI"}
         </Button>
