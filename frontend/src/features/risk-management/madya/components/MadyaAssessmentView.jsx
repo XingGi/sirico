@@ -6,23 +6,24 @@ import RiskMapCard from "./RiskMapCard";
 import apiClient from "../../../../api/api";
 import MadyaCriteriaReference from "./MadyaCriteriaReference";
 
-// Helper format (jika belum ada, salin dari BasicAssessmentView atau Form)
 const formatCurrency = (value) => {
   if (value === null || value === undefined || isNaN(value)) return "Rp 0";
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 };
 
-const formatDate = (dateString) => {
+const formatDateIndo = (dateString) => {
   if (!dateString) return "-";
-  try {
-    return new Date(dateString).toLocaleDateString("id-ID", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch (e) {
-    return "-"; // Return strip jika format tidak valid
-  }
+  const date = new Date(dateString);
+  // Cek validitas tanggal agar tidak error
+  if (isNaN(date.getTime())) return dateString;
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    // Opsional: Tambah jam jika perlu
+    // hour: "2-digit", minute: "2-digit"
+  }).format(date);
 };
 
 const getCellColor = (score) => {
@@ -47,9 +48,7 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
   if (!assessmentData) return <Text>Data asesmen tidak tersedia.</Text>;
 
   const API_BASE_URL_FOR_IMAGE = apiClient.defaults.baseURL; // Ambil baseURL (misal: http://127.0.0.1:5000/api)
-  const imageUrlFull = assessmentData.structure_image_url
-    ? `${API_BASE_URL_FOR_IMAGE.replace("/api", "")}${assessmentData.structure_image_url.startsWith("/") ? "" : "/"}${assessmentData.structure_image_url}` // Hapus /api, tambahkan path relatif
-    : null;
+  const imageUrlFull = assessmentData.structure_image_url ? `${API_BASE_URL_FOR_IMAGE.replace("/api", "")}${assessmentData.structure_image_url.startsWith("/") ? "" : "/"}${assessmentData.structure_image_url}` : null;
 
   const getSasaranText = (sasaranId) => {
     const found = assessmentData?.sasaran_kpi_entries?.find((s) => s.id === sasaranId);
@@ -67,11 +66,11 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
           </div>
           <div>
             <Text>ID Asesmen:</Text>
-            <Text className="font-semibold">#{assessmentData.id}</Text>
+            <Text className="font-semibold">RAM-#{assessmentData.id}</Text>
           </div>
           <div>
             <Text>Dibuat Tanggal:</Text>
-            <Text className="font-semibold">{new Date(assessmentData.created_at).toLocaleDateString("id-ID")}</Text>
+            <Text className="font-semibold">{formatDateIndo(assessmentData.created_at)}</Text>
           </div>
           <div>
             <Text>Template Peta Risiko:</Text>
@@ -141,7 +140,6 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
           <TableBody>
             {assessmentData.sasaran_kpi_entries && assessmentData.sasaran_kpi_entries.length > 0 ? (
               assessmentData.sasaran_kpi_entries.map((item, index) => {
-                // Ambil style warna berdasarkan skor
                 const inherentStyle = getCellColor(item.inherent_risk_score);
                 const residualStyle = getCellColor(item.residual_risk_score);
                 const targetStyleClass = riskLevelMapSimple[item.target_level] || "bg-gray-200 text-gray-500";
@@ -232,7 +230,7 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
                       <TableCell>{kategoriDisplay}</TableCell>
                       <TableCell>{r.unit_kerja}</TableCell>
                       <TableCell className="whitespace-normal">{getSasaranText(r.sasaran_id)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(r.tanggal_identifikasi)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateIndo(r.tanggal_identifikasi)}</TableCell>
                       <TableCell className="whitespace-normal">{r.deskripsi_risiko}</TableCell>
                       <TableCell className="whitespace-normal">{r.akar_penyebab || "-"}</TableCell>
                       <TableCell className="whitespace-normal">{r.indikator_risiko || "-"}</TableCell>
@@ -255,8 +253,8 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
                       <TableCell>
                         <Badge color={r.status_penanganan === "Done" ? "emerald" : r.status_penanganan ? "orange" : "gray"}>{r.status_penanganan || "-"}</Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(r.jadwal_mulai_penanganan)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(r.jadwal_selesai_penanganan)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateIndo(r.jadwal_mulai_penanganan)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateIndo(r.jadwal_selesai_penanganan)}</TableCell>
                       <TableCell>{r.pic_penanganan || "-"}</TableCell>
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{r.residual_probabilitas ?? "-"}</TableCell>
                       <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{r.residual_dampak ?? "-"}</TableCell>
@@ -264,7 +262,7 @@ function MadyaAssessmentView({ assessmentData, templateData, riskInputEntries })
                       <TableCell className="text-right">{r.residual_prob_kualitatif !== null ? `${r.residual_prob_kualitatif}%` : "-"}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">{formatCurrency(r.residual_dampak_finansial)}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">{formatCurrency(r.residual_nilai_bersih)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(r.tanggal_review)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateIndo(r.tanggal_review)}</TableCell>
                     </TableRow>
                   );
                 })

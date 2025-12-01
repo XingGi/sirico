@@ -1008,6 +1008,15 @@ def create_risk_map_template():
     current_user_id = get_jwt_identity()
     if not data or not data.get('name'):
         return jsonify({"msg": "Nama template wajib diisi."}), 400
+    
+    user = User.query.get(current_user_id)
+    if not user:
+         return jsonify({"msg": "User tidak ditemukan"}), 404
+         
+    if user.limit_template_peta is not None:
+        current_count = RiskMapTemplate.query.filter_by(user_id=current_user_id, is_default=False).count()
+        if current_count >= user.limit_template_peta:
+            return jsonify({"msg": f"Batas pembuatan Template Peta Risiko telah tercapai ({current_count}/{user.limit_template_peta}). Hubungi admin."}), 403
 
     new_template = RiskMapTemplate(name=data['name'], description=data.get('description'), user_id=current_user_id)
     db.session.add(new_template)
@@ -2081,3 +2090,45 @@ def delete_risk_input(risk_input_id):
     db.session.delete(risk_input)
     db.session.commit()
     return jsonify({"msg": "Risk Input berhasil dihapus."})
+
+# --- TAMBAHAN KHUSUS UNTUK DASHBOARD ---
+@risk_management_levels_bp.route('/risk-inputs', methods=['GET'])
+@jwt_required()
+def get_all_risk_inputs_global():
+    """
+    Mengambil SEMUA risk input (Madya) milik user untuk Dashboard Top Risks & Matrix.
+    """
+    current_user_id = get_jwt_identity()
+    
+    # 1. Ambil semua MadyaAssessment milik user
+    user_assessments = MadyaAssessment.query.filter_by(user_id=current_user_id).all()
+    assessment_ids = [a.id for a in user_assessments]
+    
+    if not assessment_ids:
+        return jsonify([])
+
+    # 2. Ambil semua RiskInputMadya yang terkait
+    all_risks = RiskInputMadya.query.filter(
+        RiskInputMadya.assessment_id.in_(assessment_ids)
+    ).all()
+
+    # 3. Format data manual agar field-nya LENGKAP
+    result = []
+    for r in all_risks:
+        result.append({
+            "id": r.id,
+            "kode_risiko": r.kode_risiko,
+            "deskripsi_risiko": r.deskripsi_risiko,
+            "unit_kerja": r.unit_kerja,
+            "residual_skor": r.residual_skor,
+            "residual_probabilitas": r.residual_probabilitas,
+            "residual_dampak": r.residual_dampak,
+            "inherent_probabilitas": r.inherent_probabilitas,
+            "inherent_dampak": r.inherent_dampak,
+            "rencana_penanganan": r.rencana_penanganan,
+            "status_penanganan": r.status_penanganan,
+            "madya_assessment_id": r.assessment_id,
+            "type": "Madya"
+        })
+    
+    return jsonify(result), 200

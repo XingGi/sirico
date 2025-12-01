@@ -43,34 +43,43 @@ def summarize_text_with_gemini(text_to_summarize: str, api_key: str) -> str | No
         print(f"Error saat memanggil Gemini API: {e}")
         return None
     
-def analyze_rsca_answers_with_gemini(all_answers_text: str, api_key: str) -> str | None:
+def analyze_rsca_answers_with_gemini(text, api_key):
+    """Menganalisis jawaban RSCA dan mengembalikan ringkasan terstruktur dalam Markdown."""
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.5-pro')
+    
+    prompt = f"""
+    PERAN: Anda adalah seorang analis GRC (Governance, Risk, and Compliance) profesional.
+    TUGAS: Analisis jawaban kuesioner RSCA (Risk & Control Self-Assessment) dari berbagai departemen. Buatlah laporan analisis yang rapi, tersusun, dan jelas dalam format MARKDOWN.
+
+    JAWABAN KUESIONER UNTUK DIANALISIS:
+    ---
+    {text}
+    ---
+
+    INSTRUKSI LAPORAN (Harus dalam format Markdown):
+
+    ## 1. Kesimpulan Ringkas (Executive Summary)
+    (Berikan ringkasan 2-3 kalimat tentang temuan utama dan kesehatan kontrol secara keseluruhan berdasarkan jawaban.)
+
+    ## 2. Analisis Profil Risiko & Temuan Utama
+    (Identifikasi tema risiko yang muncul. Apakah ada risiko spesifik, seperti 'Risiko Keamanan Siber' atau 'Risiko Kepatuhan', yang sering dilaporkan 'Tidak Efektif' atau 'Perlu Perbaikan'? Sebutkan temuan paling kritis.)
+
+    ## 3. Prioritas Tindakan Segera
+    (Berdasarkan temuan di atas, berikan daftar 3 prioritas tindakan perbaikan yang paling mendesak.)
+
+    ## 4. Pembahasan Risiko Kritis (Jika Ada)
+    (Jelaskan secara singkat mengapa temuan 'Tidak EfektIF' atau 'Perlu Perbaikan' yang paling menonjol itu penting dan apa potensial dampaknya jika tidak ditangani.)
+
+    ## 5. Rencana Implementasi & Langkah Selanjutnya
+    (Sarankan langkah-langkah umum berikutnya untuk Manajer Risiko, seperti 'Melakukan investigasi mendalam pada Departemen IT' atau 'Menjadwalkan pelatihan kepatuhan'.)
     """
-    Menganalisis kumpulan jawaban RSCA dan mengidentifikasi 3 kelemahan kontrol teratas.
-    """
+    
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-pro')
-
-        prompt = f"""
-        Anda adalah seorang konsultan manajemen risiko senior dengan pengalaman puluhan tahun.
-        Tugas Anda adalah menganalisis kumpulan jawaban dari sebuah Risk & Control Self-Assessment (RSCA) 
-        dari berbagai departemen di sebuah perusahaan.
-
-        Berdasarkan semua data jawaban berikut, identifikasi 3 (tiga) kelemahan kontrol (control weakness) 
-        yang paling umum, signifikan, atau berulang di seluruh perusahaan.
-
-        Sajikan temuan Anda sebagai ringkasan eksekutif dalam format bullet points. 
-        Untuk setiap poin, jelaskan kelemahannya dan berikan contoh dari departemen mana saja yang menunjukkannya.
-
-        Data Jawaban RSCA:
-        ---
-        {all_answers_text}
-        ---
-        """
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        print(f"Error saat menganalisis RSCA dengan Gemini API: {e}")
+        print(f"Error saat memanggil Gemini: {e}")
         return None
     
 def suggest_risks_for_process_step(step_description: str, api_key: str) -> str | None:
@@ -270,3 +279,185 @@ def generate_detailed_risk_analysis_with_gemini(risks: list, api_key: str) -> di
     except Exception as e:
         print(f"Error saat membuat analisis detail dengan Gemini API: {e}")
         return None
+    
+def summarize_horizon_scan(scan_params, news_list, api_key):
+    """
+    Menganalisis daftar berita dan membuat laporan intelijen risiko strategis
+    dengan fokus pada kompetitor dan implikasi bisnis.
+    """
+    if not api_key:
+        return "Konfigurasi Error", "<p>Error: API Key tidak ditemukan.</p>"
+
+    genai.configure(api_key=api_key)
+    
+    generation_config = {
+        "temperature": 0.3,
+        "top_p": 0.8,
+        "top_k": 40,
+        "max_output_tokens": 8192,
+    }
+    
+    model = genai.GenerativeModel('gemini-2.5-pro', generation_config=generation_config)
+
+    # Siapkan data berita untuk prompt
+    news_context = ""
+    for idx, news in enumerate(news_list[:15]): 
+        news_context += f"{idx+1}. [{news.get('source', 'N/A')}] {news.get('title', '')}: {news.get('summary', '')}\n"
+
+    industry = scan_params.get('industry', 'Umum')
+    competitors_raw = scan_params.get('input_competitors', '')
+    topics_raw = scan_params.get('input_topics', '')
+    competitors = competitors_raw if competitors_raw.strip() else '-'
+    topics = topics_raw if topics_raw.strip() else '-'
+
+    risk_cats = scan_params.get('risk_categories', [])
+    value_chains = scan_params.get('value_chain', [])
+    
+    focus_instruction = ""
+    if len(risk_cats) > 4 or len(value_chains) > 4:
+        focus_instruction = "(PENTING: Karena cakupan luas, JANGAN bahas semua kategori satu per satu. Identifikasi dan bahas HANYA 3-5 area dengan dampak paling kritikal/signifikan.)"
+    else:
+        focus_instruction = "(Bahas secara spesifik area-area yang dipilih di atas)."
+        
+    prompt = f"""
+    BERTINDAK SEBAGAI:
+    Chief Risk Officer (CRO) Korporat. Anda menyusun 'Strategic Intelligence Brief' untuk {scan_params.get('report_perspective', 'Board of Directors')}.
+
+    KONTEKS ORGANISASI:
+    • Industri: {industry}
+    • Lingkup: {scan_params.get('geo_scope')}
+    • Horizon: {scan_params.get('time_horizon')}
+    • Selera Risiko: {scan_params.get('risk_appetite')}
+    • Strategi: {scan_params.get('strategic_driver')}
+    
+    LINGKUP ANALISIS (INPUT USER):
+    • KOMPETITOR (ENTITAS BISNIS): {competitors} 
+      (Catatan: Ini adalah nama-nama perusahaan pesaing. Fokus pada pergerakan bisnis, market share, atau strategi mereka.)
+    • TOPIK SPESIFIK (ISU/TREN): {topics}
+      (Catatan: Ini adalah isu spesifik yang sedang dipantau.)
+    • Kategori Risiko Terpilih: {', '.join(risk_cats)}
+    • Value Chain Terpilih: {', '.join(value_chains)}
+    
+    DATA BERITA (NEWS FEED):
+    {news_context}
+
+    INSTRUKSI PENULISAN (STRICT):
+    1. Gunakan Bahasa Indonesia Bisnis Formal (C-Level Executive Style).
+    2. {focus_instruction} <- IKUTI INI AGAR TIDAK STUCK.
+    3. Analisis harus menghubungkan berita eksternal dengan posisi kompetitor dan strategi perusahaan.
+    4. Gunakan struktur HTML di bawah ini (Hanya body, tanpa head/html tag).
+
+    FORMAT OUTPUT JSON:
+    {{
+        "title": "Judul Laporan (Max 8 kata, Tajam & Strategis)",
+        "report_html": "HTML Content..."
+    }}
+
+    STRUKTUR HTML:
+    
+    <h3>1. Executive Intelligence Summary</h3>
+    <p>[Sintesis level tinggi situasi pasar saat ini. Apakah sentimen mendukung strategi '{scan_params.get('strategic_driver')}'? Jawab dalam 1-2 paragraf padat.]</p>
+
+    <h3>2. Competitor Landscape & Market Dynamics</h3>
+    <p>[Analisis pergerakan kompetitor ({competitors}) atau tren pasar. Apakah ada ancaman disrupsi? Fokus pada implikasi bagi kita.]</p>
+
+    <h3>3. Impact on Strategic Objectives</h3>
+    <p>[Analisis dampak langsung terhadap Revenue, Cost, atau Reputasi perusahaan berdasarkan berita yang ada.]</p>
+
+    <h3>4. Key Risks Analysis (Prioritized)</h3>
+    <ul>
+        <li><strong>Critical Threats:</strong> [Sebutkan risiko dengan dampak terbesar saat ini]</li>
+        <li><strong>Emerging Risks:</strong> [Sinyal risiko baru yang perlu diwaspadai di masa depan]</li>
+    </ul>
+
+    <h3>5. Value Chain Vulnerabilities</h3>
+    <p>[Identifikasi titik lemah pada rantai nilai. Fokus pada area yang paling tertekan (misal Supply Chain atau IT).]</p>
+
+    <h3>6. Strategic Opportunities (Upside Risk)</h3>
+    <ul>
+        <li>[Peluang 1: Cara memanfaatkan situasi/kelemahan kompetitor]</li>
+        <li>[Peluang 2: Inovasi atau celah pasar yang terbuka]</li>
+    </ul>
+
+    <h3>7. Priority Mitigation & Action Plan</h3>
+    <ol>
+        <li><strong>Strategic Response:</strong> [Keputusan level direksi]</li>
+        <li><strong>Operational Action:</strong> [Tindakan taktis segera]</li>
+        <li><strong>Monitoring Focus:</strong> [Indikator yang harus dipantau ketat]</li>
+    </ol>
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        text_resp = response.text.strip()
+        
+        # Pembersihan format JSON
+        if text_resp.startswith("```json"): text_resp = text_resp.replace("```json", "", 1)
+        if text_resp.startswith("```"): text_resp = text_resp.replace("```", "", 1)
+        if text_resp.endswith("```"): text_resp = text_resp[:-3]
+            
+        data = json.loads(text_resp)
+        return data.get('title'), data.get('report_html')
+    
+    except Exception as e:
+        print(f"AI Horizon Scan Error: {e}")
+        return f"Laporan Horizon Scan: {industry}", f"<p>Maaf, terjadi kesalahan pemrosesan AI (Timeout/Limit). Mohon kurangi jumlah kategori yang dipilih atau coba lagi. Detail: {str(e)}</p>"
+  
+# Quick Risk Check (QRC)  
+def analyze_qrc_assessment(assessment_type, answers_data, client_name, institution):
+    """
+    Menganalisis hasil Quick Risk Check (QRC) menggunakan Gemini.
+    Mendukung tipe 'standard' (Multiple Choice) dan 'essay' (Kualitatif).
+    """
+    try:
+        # 1. Konstruksi Prompt berdasarkan Tipe
+        prompt_context = f"""
+        Anda adalah Senior Risk Management Consultant profesional.
+        Tugas Anda adalah membuat Laporan Analisis Risiko Eksekutif untuk klien berikut:
+        
+        Nama Klien: {client_name}
+        Institusi: {institution}
+        Tipe Asesmen: {assessment_type.upper()}
+        
+        Data Jawaban Klien:
+        {json.dumps(answers_data, indent=2)}
+        
+        INSTRUKSI KHUSUS:
+        1. Analisis jawaban di atas secara komprehensif.
+        2. Identifikasi Area Kelemahan Utama (Key Vulnerabilities).
+        3. Identifikasi Area Kekuatan (Key Strengths).
+        4. Berikan 3-5 Rekomendasi Strategis yang konkret dan dapat ditindaklanjuti (Actionable Insights).
+        5. Gunakan bahasa Indonesia yang profesional, formal, dan meyakinkan (gaya bahasa konsultan manajemen).
+        6. Format output menggunakan Markdown yang rapi (gunakan Bold, Bullet points). Jangan gunakan sapaan pembuka (Halo/Hai).
+        
+        OUTPUT YANG DIHARAPKAN:
+        
+        ### Ringkasan Eksekutif
+        [Berikan gambaran umum profil risiko klien berdasarkan jawaban secara naratif]
+        
+        ### Analisis Kekuatan & Kelemahan
+        **Kekuatan Utama:**
+        * [Poin 1]
+        * [Poin 2]
+        
+        **Kelemahan/Area Perbaikan:**
+        * [Poin 1]
+        * [Poin 2]
+        
+        ### Rekomendasi Strategis
+        1. **[Judul Rekomendasi 1]:** [Penjelasan detail implementasi]
+        2. **[Judul Rekomendasi 2]:** [Penjelasan detail implementasi]
+        3. **[Judul Rekomendasi 3]:** [Penjelasan detail implementasi]
+        """
+
+        # 2. Panggil Gemini
+        model = genai.GenerativeModel('gemini-2.5-pro')
+        response = model.generate_content(prompt_context)
+        
+        clean_text = response.text.strip()
+        
+        return clean_text
+
+    except Exception as e:
+        print(f"Error in analyze_qrc_assessment: {e}")
+        return "Maaf, terjadi kesalahan saat menghasilkan analisis AI. Silakan coba lagi nanti atau lakukan analisis manual."

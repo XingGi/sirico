@@ -1,6 +1,6 @@
 # backend/app/seeds.py
 
-from .models import User, MasterData, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, Role, Permission
+from .models import User, MasterData, RiskMapTemplate, RiskMapLikelihoodLabel, RiskMapImpactLabel, RiskMapLevelDefinition, RiskMapScore, Role, Permission, QrcAssessment, QrcQuestion
 from . import db, bcrypt
 
 DEFAULT_PERMISSIONS = {
@@ -8,10 +8,10 @@ DEFAULT_PERMISSIONS = {
     # Risk Management AI
     'view_risk_assessment_ai': 'Melihat daftar Risk Assessment AI',
     'create_risk_assessment_ai': 'Membuat Risk Assessment AI baru',
-    'edit_risk_assessment_ai': 'Mengedit Risk Assessment AI', # Termasuk edit item risiko di dalamnya
+    'edit_risk_assessment_ai': 'Mengedit Risk Assessment AI',
     'delete_risk_assessment_ai': 'Menghapus Risk Assessment AI',
     'view_risk_register_main': 'Melihat Risk Register Utama',
-    'manage_risk_register_main': 'Tambah/Edit/Hapus item di Risk Register Utama', # Gabung
+    'manage_risk_register_main': 'Tambah/Edit/Hapus item di Risk Register Utama',
     # Risk Management Levels
     'view_risk_dasar': 'Melihat daftar Asesmen Dasar',
     'manage_risk_dasar': 'Membuat/Edit/Hapus Asesmen Dasar',
@@ -22,18 +22,32 @@ DEFAULT_PERMISSIONS = {
     # Modules
     'view_rsca': 'Melihat tugas & siklus RSCA',
     'submit_rsca': 'Mengisi dan mengirim jawaban RSCA',
-    'view_bpr': 'Melihat Proses Bisnis (BPR)',
-    'manage_bpr': 'Membuat/Edit/Hapus Proses Bisnis (BPR)',
+    'view_bpr': 'Melihat menu Business Process Review',
+    'manage_bpr': 'Membuat dan Mengelola Business Process Review',
+    'approve_bpr': 'Menyetujui, Finalisasi, dan Membuat Header BPR (Manajer)',
     'view_bia': 'Melihat halaman BIA',
     'run_bia_simulation': 'Menjalankan simulasi BIA',
     'manage_critical_assets': 'Mengelola Aset Kritis & Dependensi (BIA)',
+    'view_addons_menu': 'Melihat menu Add-ons',
+    'view_cba_calculator': 'Melihat CBA Calculator',
+    'view_monte_carlo': 'Melihat Monte Carlo Simulator',
+    'view_horizon_scanner': 'Melihat Horizon Scanner',
+    # Quick Risk Check
+    'view_qrc_menu': 'Melihat menu induk Quick Risk Scan',
+    'view_qrc_client': 'Melihat Dashboard QRC Client',
+    'submit_qrc_assessment': 'Mengisi dan mengirim Quick Risk Scan',
+    'view_qrc_consultant': 'Melihat Dashboard QRC Consultant',
+    'review_qrc_assessment': 'Melakukan review dan validasi asesmen QRC',
+    'manage_qrc_templates': 'Mengelola Template Pertanyaan QRC (Admin)',
     # Admin Area
     'view_admin_area': 'Mengakses menu Admin', # Permission umum untuk menu admin
     'manage_users': 'Melihat & Mengelola data pengguna (Admin)',
     'manage_roles': 'Melihat & Mengelola Roles & Permissions (Admin)',
     'manage_master_data': 'Mengelola Master Data (Admin)',
     'manage_regulations': 'Mengelola Master Regulasi (Admin)',
-    'manage_rsca_cycles': 'Membuat/Mengelola siklus RSCA (Admin)', # Specific admin task for RSCA
+    'manage_rsca_cycles': 'Membuat/Mengelola siklus RSCA (Admin)',
+    'manage_departments': 'Membuat/Edit/Hapus Departemen (Admin Institusi)',
+    'view_mitigation_monitor': 'Melihat halaman Pemantauan Mitigasi (Rencana Aksi)',
 }
 
 # --- Perubahan 3: Buat fungsi seed Roles & Permissions ---
@@ -52,53 +66,107 @@ def seed_roles_permissions():
             created_items += 1
 
     if created_items > 0:
-        db.session.flush() # Flush untuk mendapatkan ID jika diperlukan nanti
+        db.session.commit() # Commit agar bisa di-query di bawah
         print(f"  {created_items} new permissions created.")
     else:
         print("  All default permissions already exist.")
+        
+    perms = {p.name: p for p in Permission.query.all()}
+
+    # Helper untuk assign permission ke role dengan aman
+    def assign_perms(role, perm_names):
+        count = 0
+        for p_name in perm_names:
+            perm_obj = perms.get(p_name)
+            if perm_obj and perm_obj not in role.permissions:
+                role.permissions.append(perm_obj)
+                count += 1
+        if count > 0:
+            print(f"  -> Added {count} missing permissions to role '{role.name}'.")
 
     # 2. Seed Role Admin
     admin_role = Role.query.filter_by(name='Admin').first()
     if not admin_role:
         print("  Creating 'Admin' role...")
         admin_role = Role(name='Admin', description='Akses penuh ke semua fitur sistem.')
-        # Assign semua permission yang ada ke Admin
-        all_permissions = Permission.query.all()
-        admin_role.permissions.extend(all_permissions)
         db.session.add(admin_role)
-        db.session.flush() # Pastikan admin_role punya ID
-        print("  'Admin' role created and all permissions assigned.")
-    else:
-        print("  'Admin' role already exists.")
-        # Opsional: Pastikan Admin selalu punya semua permission terbaru
-        current_admin_perm_ids = {p.id for p in admin_role.permissions}
-        all_perm_ids = {p.id for p in Permission.query.all()}
-        if current_admin_perm_ids != all_perm_ids:
-             print("  Updating Admin role permissions...")
-             admin_role.permissions = Permission.query.all()
-             print("  Admin role permissions updated.")
+    
+    # Admin selalu dapat SEMUA permission
+    all_permissions = list(perms.values())
+    for p in all_permissions:
+        if p not in admin_role.permissions:
+            admin_role.permissions.append(p)
 
-
-    # 3. Seed Role User (Contoh: hanya bisa lihat dashboard)
+    # 3. Seed Role User
     user_role = Role.query.filter_by(name='User').first()
     if not user_role:
         print("  Creating 'User' role...")
         user_role = Role(name='User', description='Akses standar untuk pengguna biasa.')
-        # Assign permission spesifik, contoh 'view_dashboard'
-        view_dashboard_perm = Permission.query.filter_by(name='view_dashboard').first()
-        if view_dashboard_perm:
-            user_role.permissions.append(view_dashboard_perm)
-        # Tambahkan permission lain untuk role User jika perlu
-        # misal: view_risk_dasar, submit_rsca, dll.
-
         db.session.add(user_role)
-        print("  'User' role created with basic permissions.")
-    else:
-        print("  'User' role already exists.")
+    
+    assign_perms(user_role, ['view_dashboard'])
+
+    # 4. Seed Role Staf (Lini 1)
+    staff_role = Role.query.filter_by(name='Staf').first()
+    if not staff_role:
+        print("  Creating 'Staf' role...")
+        staff_role = Role(name='Staf', description='Akses Lini 1 (Operasional).')
+        db.session.add(staff_role)
+    
+    # Daftar Permission Wajib untuk Staf
+    staff_perms_list = [
+        'view_dashboard', 'view_addons_menu',
+        'view_rsca', 'submit_rsca',
+        'view_risk_dasar', 'view_risk_madya',
+        'view_bpr', 'manage_bpr' # Permission BPR
+    ]
+    assign_perms(staff_role, staff_perms_list)
+
+    # 5. Seed Role Manajer Risiko (Lini 2)
+    manager_role = Role.query.filter_by(name='Manajer Risiko').first()
+    if not manager_role:
+        print("  Creating 'Manajer Risiko' role...")
+        manager_role = Role(name='Manajer Risiko', description='Akses Lini 2 (Reviewer).')
+        db.session.add(manager_role)
+    
+    # Daftar Permission Wajib untuk Manajer Risiko
+    manager_perms_list = [
+        'view_dashboard',
+        'view_admin_area',
+        'manage_departments', 'manage_rsca_cycles',
+        'view_mitigation_monitor', 'view_addons_menu',
+        'view_horizon_scanner',
+        'view_bpr', 'manage_bpr', 'approve_bpr' # Permission BPR Lengkap
+    ]
+    assign_perms(manager_role, manager_perms_list)
+    
+    qrc_user_role = Role.query.filter_by(name='QRC User').first()
+    if not qrc_user_role:
+        print("  Creating 'QRC User' role...")
+        qrc_user_role = Role(name='QRC User', description='User Eksternal untuk Quick Risk Scan.')
+        db.session.add(qrc_user_role)
+    
+    assign_perms(qrc_user_role, ['view_qrc_menu', 'view_qrc_client', 'submit_qrc_assessment'])
+
+    qrc_consultant_role = Role.query.filter_by(name='QRC Consultant').first()
+    if not qrc_consultant_role:
+        print("  Creating 'QRC Consultant' role...")
+        qrc_consultant_role = Role(name='QRC Consultant', description='Konsultan Profesional Reviewer QRC.')
+        db.session.add(qrc_consultant_role)
+
+    qrc_consultant_perms = [
+        'view_qrc_menu',
+        'view_qrc_consultant', 
+        'review_qrc_assessment',
+        'view_dashboard',
+        'view_admin_area',
+        'manage_qrc_templates'
+    ]
+    assign_perms(qrc_consultant_role, qrc_consultant_perms)
 
     try:
         db.session.commit()
-        print("Roles and Permissions seeding committed.")
+        print("Roles and Permissions seeding committed successfully.")
     except Exception as e:
         db.session.rollback()
         print(f"Error committing roles/permissions: {e}")
@@ -388,3 +456,219 @@ def seed_default_risk_map():
         print("No new default templates needed committing.")
 
     print("Risk map seeding process finished.")
+    
+def seed_qrc_users():
+    """Membuat user dummy khusus untuk testing fitur QRC."""
+    print("Seeding QRC Dummy Users...")
+    
+    # 1. Buat User Client
+    client_email = "client@qrc.com"
+    client_user = User.query.filter_by(email=client_email).first()
+    qrc_user_role = Role.query.filter_by(name='QRC User').first()
+    
+    if not qrc_user_role:
+        print("  Error: Role 'QRC User' not found. Run seed_roles_permissions first.")
+    elif not client_user:
+        hashed_password = bcrypt.generate_password_hash("Sertif123!").decode('utf-8')
+        new_client = User(
+            email=client_email,
+            nama_lengkap="Demo Client QRC",
+            password_hash=hashed_password,
+            institution="PT Maju Mundur Sejahtera",
+            limit_qrc_standard=2,
+            limit_qrc_essay=1
+        )
+        new_client.roles.append(qrc_user_role)
+        db.session.add(new_client)
+        print(f"  Created user: {client_email} (Role: QRC User)")
+    else:
+        print(f"  User {client_email} already exists.")
+
+    # 2. Buat User Consultant
+    consultant_email = "consultant@qrc.com"
+    consultant_user = User.query.filter_by(email=consultant_email).first()
+    qrc_consultant_role = Role.query.filter_by(name='QRC Consultant').first()
+
+    if not qrc_consultant_role:
+        print("  Error: Role 'QRC Consultant' not found. Run seed_roles_permissions first.")
+    elif not consultant_user:
+        hashed_password = bcrypt.generate_password_hash("Sertif123!").decode('utf-8')
+        new_consultant = User(
+            email=consultant_email,
+            nama_lengkap="Expert Manrisk",
+            password_hash=hashed_password,
+            institution="Internal Manrisk Team"
+        )
+        new_consultant.roles.append(qrc_consultant_role)
+        db.session.add(new_consultant)
+        print(f"  Created user: {consultant_email} (Role: QRC Consultant)")
+    else:
+        print(f"  User {consultant_email} already exists.")
+        
+    try:
+        db.session.commit()
+        print("QRC Users seeding committed.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error seeding QRC users: {e}")
+        
+def seed_qrc_questions():
+    print("Seeding QRC Questions...")
+    
+    # Cek jika sudah ada data, skip agar tidak duplikat
+    if QrcQuestion.query.first():
+        print("  QRC Questions already seeded.")
+        return
+
+    # --- DATA PERTANYAAN STANDARD (20 Soal) ---
+    standard_questions = [
+        # Dimensi A
+        {
+            "category": "Tata Kelola & Budaya",
+            "text": "Apakah perusahaan memiliki dokumen kebijakan manajemen risiko yang tertulis?",
+            "options": [{"label": "Tidak ada", "value": 0}, {"label": "Ada tapi hanya formalitas", "value": 5}, {"label": "Ada dan diterapkan aktif", "value": 10}]
+        },
+        {
+            "category": "Tata Kelola & Budaya",
+            "text": "Apakah ada tim atau individu khusus yang ditunjuk untuk mengawasi risiko (Risk Officer)?",
+            "options": [{"label": "Tidak ada", "value": 0}, {"label": "Merangkap jabatan lain", "value": 5}, {"label": "Ada unit khusus independen", "value": 10}]
+        },
+        {
+            "category": "Tata Kelola & Budaya",
+            "text": "Seberapa sadar karyawan terhadap risiko dalam pekerjaan sehari-hari mereka?",
+            "options": [{"label": "Tidak peduli", "value": 0}, {"label": "Hanya level manajer", "value": 5}, {"label": "Seluruh pegawai sadar risiko", "value": 10}]
+        },
+        {
+            "category": "Tata Kelola & Budaya",
+            "text": "Apakah ada mekanisme pelaporan pelanggaran (Whistleblowing) atau anti-fraud?",
+            "options": [{"label": "Tidak ada", "value": 0}, {"label": "Ada tapi jarang dipakai", "value": 5}, {"label": "Ada sistem anonim dan aktif", "value": 10}]
+        },
+        {
+            "category": "Tata Kelola & Budaya",
+            "text": "Seberapa sering Direksi/Pimpinan membahas isu risiko dalam rapat manajemen?",
+            "options": [{"label": "Tidak pernah", "value": 0}, {"label": "Hanya saat ada masalah", "value": 5}, {"label": "Rutin dalam agenda rapat", "value": 10}]
+        },
+        # Dimensi B
+        {
+            "category": "Identifikasi & Proses",
+            "text": "Apakah perusahaan rutin mendata potensi bahaya/risiko (Risk Register)?",
+            "options": [{"label": "Tidak pernah", "value": 0}, {"label": "Kadang-kadang", "value": 5}, {"label": "Rutin minimal setahun sekali", "value": 10}]
+        },
+        {
+            "category": "Identifikasi & Proses",
+            "text": "Dalam 12 bulan terakhir, apakah ada insiden operasional yang menyebabkan kerugian signifikan?",
+            "options": [{"label": "Sering terjadi", "value": 0}, {"label": "Pernah sekali-kali", "value": 5}, {"label": "Tidak ada insiden berarti", "value": 10}]
+        },
+        {
+            "category": "Identifikasi & Proses",
+            "text": "Apakah setiap proses bisnis kritis sudah memiliki SOP (Standard Operating Procedure)?",
+            "options": [{"label": "Belum ada", "value": 0}, {"label": "Sebagian ada", "value": 5}, {"label": "Lengkap dan terintegrasi", "value": 10}]
+        },
+        {
+            "category": "Identifikasi & Proses",
+            "text": "Apakah risiko yang teridentifikasi dinilai dampak dan kemungkinannya (Scoring)?",
+            "options": [{"label": "Hanya didata saja", "value": 0}, {"label": "Dinilai pakai kira-kira", "value": 5}, {"label": "Dinilai dengan matriks terukur", "value": 10}]
+        },
+        {
+            "category": "Identifikasi & Proses",
+            "text": "Apakah status risiko dilaporkan secara berkala kepada manajemen?",
+            "options": [{"label": "Tidak pernah", "value": 0}, {"label": "Kalau diminta saja", "value": 5}, {"label": "Laporan rutin bulanan/kuartalan", "value": 10}]
+        },
+        # Dimensi C
+        {
+            "category": "Ketahanan & Teknologi",
+            "text": "Apakah perusahaan memiliki perlindungan data (firewall, antivirus, backup) yang rutin dicek?",
+            "options": [{"label": "Tidak ada", "value": 0}, {"label": "Standar", "value": 5}, {"label": "Canggih dan rutin diuji", "value": 10}]
+        },
+        {
+            "category": "Ketahanan & Teknologi",
+            "text": "Jika kantor/pabrik utama lumpuh (misal: kebakaran), apakah bisnis bisa tetap jalan?",
+            "options": [{"label": "Bisnis berhenti total", "value": 0}, {"label": "Bisa jalan sebagian", "value": 5}, {"label": "Berjalan normal (punya DRC)", "value": 10}]
+        },
+        {
+            "category": "Ketahanan & Teknologi",
+            "text": "Seberapa bergantung perusahaan pada vendor/supplier tunggal?",
+            "options": [{"label": "Sangat bergantung (Risiko Tinggi)", "value": 0}, {"label": "Ada backup vendor", "value": 5}, {"label": "Vendor sangat beragam", "value": 10}]
+        },
+        {
+            "category": "Ketahanan & Teknologi",
+            "text": "Apakah perusahaan mengelola data nasabah sesuai UU PDP (Privasi)?",
+            "options": [{"label": "Tidak tahu aturannya", "value": 0}, {"label": "Sedang menyesuaikan", "value": 5}, {"label": "Sudah patuh sepenuhnya", "value": 10}]
+        },
+        {
+            "category": "Ketahanan & Teknologi",
+            "text": "Seberapa sering terjadi kerusakan alat/sistem yang mengganggu operasional?",
+            "options": [{"label": "Sering rusak", "value": 0}, {"label": "Kadang-kadang", "value": 5}, {"label": "Sangat jarang (Maintenance Rutin)", "value": 10}]
+        },
+        # Dimensi D
+        {
+            "category": "Keuangan & Strategis",
+            "text": "Apakah perusahaan memiliki dana cadangan darurat untuk operasional 3-6 bulan?",
+            "options": [{"label": "Tidak ada", "value": 0}, {"label": "Kurang dari 3 bulan", "value": 5}, {"label": "Aman (Lebih dari 3 bulan)", "value": 10}]
+        },
+        {
+            "category": "Keuangan & Strategis",
+            "text": "Bagaimana tingkat kepatuhan terhadap regulasi wajib (Pajak, OJK, Izin Usaha)?",
+            "options": [{"label": "Sering telat/kena denda", "value": 0}, {"label": "Cukup patuh", "value": 5}, {"label": "Sangat patuh dan tertib", "value": 10}]
+        },
+        {
+            "category": "Keuangan & Strategis",
+            "text": "Apakah karyawan kunci memiliki skill yang cukup untuk menjalankan strategi masa depan?",
+            "options": [{"label": "Banyak gap skill", "value": 0}, {"label": "Cukup memadai", "value": 5}, {"label": "Sangat kompeten dan terlatih", "value": 10}]
+        },
+        {
+            "category": "Keuangan & Strategis",
+            "text": "Bagaimana sentimen pelanggan di media sosial/internet terhadap brand perusahaan?",
+            "options": [{"label": "Banyak negatif", "value": 0}, {"label": "Netral", "value": 5}, {"label": "Positif dan terjaga", "value": 10}]
+        },
+        {
+            "category": "Keuangan & Strategis",
+            "text": "Seberapa cepat perubahan tren pasar/pesaing mengancam produk utama perusahaan?",
+            "options": [{"label": "Pasar sangat berubah-ubah", "value": 0}, {"label": "Stabil tapi menurun", "value": 5}, {"label": "Stabil dan dikuasai", "value": 10}]
+        },
+    ]
+
+    for idx, q in enumerate(standard_questions):
+        db.session.add(QrcQuestion(
+            question_type='standard',
+            category=q['category'],
+            text=q['text'],
+            options=q['options'],
+            order=idx + 1,
+            is_active=True
+        ))
+
+    # --- DATA PERTANYAAN ESSAY (15 Soal) ---
+    essay_questions = [
+        {"category": "Tata Kelola & Budaya", "text": "Jelaskan bagaimana struktur organisasi manajemen risiko di perusahaan Anda saat ini. Siapa yang bertanggung jawab utama?", "placeholder": "Contoh: Kami memiliki Komite Risiko..."},
+        {"category": "Tata Kelola & Budaya", "text": "Bagaimana budaya risiko diterapkan? Apakah ada program pelatihan atau sosialisasi rutin kepada karyawan?", "placeholder": "Deskripsikan frekuensi pelatihan..."},
+        {"category": "Tata Kelola & Budaya", "text": "Deskripsikan mekanisme pelaporan insiden atau 'whistleblowing' yang tersedia. Apakah sistem tersebut menjamin anonimitas?", "placeholder": "Jelaskan alur pelaporan..."},
+        {"category": "Tata Kelola & Budaya", "text": "Jelaskan bagaimana pernyataan selera risiko (Risk Appetite Statement) didefinisikan dan dikomunikasikan kepada seluruh unit bisnis.", "placeholder": "Apakah ada batasan kuantitatif..."},
+        
+        {"category": "Identifikasi & Proses", "text": "Jelaskan metodologi yang digunakan perusahaan dalam mengidentifikasi dan menilai risiko (Risk Assessment).", "placeholder": "Contoh: Metode ISO 31000..."},
+        {"category": "Identifikasi & Proses", "text": "Sebutkan 3 risiko utama (Top Risks) yang saat ini menjadi perhatian terbesar perusahaan dan alasannya.", "placeholder": "1. Risiko Siber, 2. ..."},
+        {"category": "Identifikasi & Proses", "text": "Bagaimana prosedur penanganan insiden (Incident Response) jika terjadi gangguan operasional yang signifikan?", "placeholder": "Langkah tanggap darurat..."},
+        {"category": "Identifikasi & Proses", "text": "Apakah indikator risiko (KRI) telah terintegrasi dengan indikator kinerja utama (KPI) perusahaan? Berikan contoh konkret.", "placeholder": "Contoh: KPI Penjualan dikaitkan dengan KRI..."},
+        
+        {"category": "Ketahanan & Teknologi", "text": "Gambarkan arsitektur keamanan siber dan perlindungan data yang diterapkan untuk melindungi aset informasi perusahaan.", "placeholder": "Tools keamanan, backup..."},
+        {"category": "Ketahanan & Teknologi", "text": "Apakah perusahaan memiliki rencana kelangsungan bisnis (BCP) dan pemulihan bencana (DRP)? Kapan terakhir kali diuji coba?", "placeholder": "Skenario simulasi terakhir..."},
+        {"category": "Ketahanan & Teknologi", "text": "Bagaimana mekanisme perusahaan dalam memantau dan merespons risiko yang baru muncul (Emerging Risks) seperti perubahan regulasi mendadak atau disrupsi teknologi?", "placeholder": "Tim khusus atau horizon scanning..."},
+        
+        {"category": "Strategis & Keuangan", "text": "Bagaimana strategi perusahaan dalam menjaga likuiditas dan stabilitas keuangan menghadapi ketidakpastian pasar?", "placeholder": "Kebijakan cash buffer..."},
+        {"category": "Strategis & Keuangan", "text": "Apa tantangan regulasi terbesar yang dihadapi perusahaan saat ini dan bagaimana strategi pemenuhannya?", "placeholder": "Isu kepatuhan utama..."},
+        {"category": "Strategis & Keuangan", "text": "Uraikan strategi pembiayaan risiko (Risk Financing) yang diterapkan, termasuk cakupan asuransi utama dan efektivitasnya.", "placeholder": "Aset kritis diasuransikan..."},
+        {"category": "Strategis & Keuangan", "text": "Bagaimana perusahaan mengintegrasikan risiko LST (Lingkungan, Sosial, dan Tata Kelola/ESG) ke dalam strategi jangka panjang?", "placeholder": "Inisiatif keberlanjutan..."}
+    ]
+
+    for idx, q in enumerate(essay_questions):
+        db.session.add(QrcQuestion(
+            question_type='essay',
+            category=q['category'],
+            text=q['text'],
+            placeholder=q['placeholder'],
+            order=idx + 1,
+            is_active=True
+        ))
+
+    db.session.commit()
+    print("  QRC Questions seeded successfully.")

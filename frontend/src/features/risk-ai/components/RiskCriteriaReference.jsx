@@ -97,61 +97,63 @@ function RiskCriteriaReference({ riskLimit }) {
         <Title as="h3" className="text-lg">
           1. Likelihood Criteria
         </Title>
-        <Table className="mt-2">
-          <TableHead>
-            <TableRow>
-              {/* === PERBAIKAN: Background color diubah menjadi bg-slate-100 === */}
-              <TableHeaderCell rowSpan={2} className="align-bottom bg-slate-100">
-                Parameter
-              </TableHeaderCell>
-              <TableHeaderCell colSpan={5} className="text-center bg-slate-100">
-                Rating Scale
-              </TableHeaderCell>
-            </TableRow>
-            <TableRow>
-              <TableHeaderCell className={criteriaStyles.level1}>1</TableHeaderCell>
-              <TableHeaderCell className={criteriaStyles.level2}>2</TableHeaderCell>
-              <TableHeaderCell className={criteriaStyles.level3}>3</TableHeaderCell>
-              <TableHeaderCell className={criteriaStyles.level4}>4</TableHeaderCell>
-              <TableHeaderCell className={criteriaStyles.level5}>5</TableHeaderCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* === PERBAIKAN: Ukuran font diubah menjadi text-xs === */}
-            <TableRow>
-              <TableCell className="font-medium text-xs">Qualitative</TableCell>
-              <TableCell className="text-xs">Almost Never</TableCell>
-              <TableCell className="text-xs">Unlikely</TableCell>
-              <TableCell className="text-xs">Likely</TableCell>
-              <TableCell className="text-xs">Very Likely</TableCell>
-              <TableCell className="text-xs">Almost Certain</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-medium text-xs">Probability</TableCell>
-              <TableCell className="text-xs">&lt; 20%</TableCell>
-              <TableCell className="text-xs">20%-40%</TableCell>
-              <TableCell className="text-xs">40%-60%</TableCell>
-              <TableCell className="text-xs">60%-80%</TableCell>
-              <TableCell className="text-xs">&ge; 80%</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-medium text-xs">Frequency (Transaction)</TableCell>
-              <TableCell className="text-xs">0-2x/year</TableCell>
-              <TableCell className="text-xs">3-5x/year</TableCell>
-              <TableCell className="text-xs">6-7x/year</TableCell>
-              <TableCell className="text-xs">8-10x/year</TableCell>
-              <TableCell className="text-xs">&gt;10x/year</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-medium text-xs">Period (Catastrophe)</TableCell>
-              <TableCell className="text-xs">0-2x/50yrs</TableCell>
-              <TableCell className="text-xs">3-5x/50yrs</TableCell>
-              <TableCell className="text-xs">6-7x/50yrs</TableCell>
-              <TableCell className="text-xs">8-10x/50yrs</TableCell>
-              <TableCell className="text-xs">&gt;10x/50yrs</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <div className="overflow-x-auto mt-2">
+          <Table className="min-w-[600px]">
+            <TableHead>
+              <TableRow>
+                {/* === PERBAIKAN: Background color diubah menjadi bg-slate-100 === */}
+                <TableHeaderCell rowSpan={2} className="align-bottom bg-slate-100">
+                  Parameter
+                </TableHeaderCell>
+                <TableHeaderCell colSpan={5} className="text-center bg-slate-100">
+                  Rating Scale
+                </TableHeaderCell>
+              </TableRow>
+              <TableRow>
+                <TableHeaderCell className={criteriaStyles.level1}>1</TableHeaderCell>
+                <TableHeaderCell className={criteriaStyles.level2}>2</TableHeaderCell>
+                <TableHeaderCell className={criteriaStyles.level3}>3</TableHeaderCell>
+                <TableHeaderCell className={criteriaStyles.level4}>4</TableHeaderCell>
+                <TableHeaderCell className={criteriaStyles.level5}>5</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {/* === PERBAIKAN: Ukuran font diubah menjadi text-xs === */}
+              <TableRow>
+                <TableCell className="font-medium text-xs">Qualitative</TableCell>
+                <TableCell className="text-xs">Almost Never</TableCell>
+                <TableCell className="text-xs">Unlikely</TableCell>
+                <TableCell className="text-xs">Likely</TableCell>
+                <TableCell className="text-xs">Very Likely</TableCell>
+                <TableCell className="text-xs">Almost Certain</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium text-xs">Probability</TableCell>
+                <TableCell className="text-xs">&lt; 20%</TableCell>
+                <TableCell className="text-xs">20%-40%</TableCell>
+                <TableCell className="text-xs">40%-60%</TableCell>
+                <TableCell className="text-xs">60%-80%</TableCell>
+                <TableCell className="text-xs">&ge; 80%</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium text-xs">Frequency (Transaction)</TableCell>
+                <TableCell className="text-xs">0-2x/year</TableCell>
+                <TableCell className="text-xs">3-5x/year</TableCell>
+                <TableCell className="text-xs">6-7x/year</TableCell>
+                <TableCell className="text-xs">8-10x/year</TableCell>
+                <TableCell className="text-xs">&gt;10x/year</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium text-xs">Period (Catastrophe)</TableCell>
+                <TableCell className="text-xs">0-2x/50yrs</TableCell>
+                <TableCell className="text-xs">3-5x/50yrs</TableCell>
+                <TableCell className="text-xs">6-7x/50yrs</TableCell>
+                <TableCell className="text-xs">8-10x/50yrs</TableCell>
+                <TableCell className="text-xs">&gt;10x/50yrs</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <div className="mt-6">
@@ -164,8 +166,8 @@ function RiskCriteriaReference({ riskLimit }) {
           </Text>
           <Text className="text-xs">Batas maksimal kerugian finansial yang dapat ditoleransi organisasi.</Text>
         </Card>
-        <div className="mt-4 border-b border-gray-200">
-          <nav className="-mb-px flex">
+        <div className="mt-4 border-b border-gray-200 overflow-x-auto">
+          <nav className="-mb-px flex min-w-max">
             {Object.keys(impactTabsData).map((tabName) => (
               <button
                 key={tabName}
@@ -183,36 +185,38 @@ function RiskCriteriaReference({ riskLimit }) {
           <Title as="h4" className="text-md font-semibold">
             {activeTab} Impact
           </Title>
-          <Table className="mt-2 table-fixed">
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell rowSpan={2} className="align-bottom bg-slate-100 w-[25%]">
-                  Parameter
-                </TableHeaderCell>
-                <TableHeaderCell colSpan={5} className="text-center bg-slate-100">
-                  Rating Scale
-                </TableHeaderCell>
-              </TableRow>
-              <TableRow>
-                {currentTabData.headers.slice(1).map((header) => (
-                  <TableHeaderCell key={header} className={criteriaStyles[`level${header}`]}>
-                    {header}
+          <div className="overflow-x-auto mt-2">
+            <Table className="min-w-[800px]">
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell rowSpan={2} className="align-bottom bg-slate-100 w-[25%]">
+                    Parameter
                   </TableHeaderCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {currentTabData.rows.map((row) => (
-                <TableRow key={row.Parameter}>
-                  {currentTabData.headers.map((header) => (
-                    <TableCell key={header} className={`text-xs whitespace-normal ${header === "Parameter" ? "font-medium" : "text-center"}`}>
-                      {row[header]}
-                    </TableCell>
+                  <TableHeaderCell colSpan={5} className="text-center bg-slate-100">
+                    Rating Scale
+                  </TableHeaderCell>
+                </TableRow>
+                <TableRow>
+                  {currentTabData.headers.slice(1).map((header) => (
+                    <TableHeaderCell key={header} className={criteriaStyles[`level${header}`]}>
+                      {header}
+                    </TableHeaderCell>
                   ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {currentTabData.rows.map((row) => (
+                  <TableRow key={row.Parameter}>
+                    {currentTabData.headers.map((header) => (
+                      <TableCell key={header} className={`text-xs whitespace-normal ${header === "Parameter" ? "font-medium" : "text-center"}`}>
+                        {row[header]}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
 
@@ -220,32 +224,34 @@ function RiskCriteriaReference({ riskLimit }) {
         <Title as="h3" className="text-lg">
           3. Control Effectiveness Criteria
         </Title>
-        <Table className="mt-2">
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell rowSpan={2} className="align-bottom bg-slate-100">
-                Parameter
-              </TableHeaderCell>
-              <TableHeaderCell colSpan={3} className="text-center bg-slate-100">
-                Rating Scale
-              </TableHeaderCell>
-            </TableRow>
-            <TableRow>
-              <TableHeaderCell className={criteriaStyles.level1}>A</TableHeaderCell>
-              <TableHeaderCell className={criteriaStyles.level3}>B</TableHeaderCell>
-              <TableHeaderCell className={criteriaStyles.level5}>C</TableHeaderCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            <TableRow>
-              <TableCell className="font-medium text-xs">Qualitative</TableCell>
-              {/* === PERBAIKAN DI SINI === */}
-              <TableCell className={`text-xs ${criteriaStyles.level1}`}>Fully Effective</TableCell>
-              <TableCell className={`text-xs ${criteriaStyles.level3}`}>Partially Effective</TableCell>
-              <TableCell className={`text-xs ${criteriaStyles.level5}`}>Not Effective</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <div className="overflow-x-auto mt-2">
+          <Table className="min-w-[500px]">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell rowSpan={2} className="align-bottom bg-slate-100">
+                  Parameter
+                </TableHeaderCell>
+                <TableHeaderCell colSpan={3} className="text-center bg-slate-100">
+                  Rating Scale
+                </TableHeaderCell>
+              </TableRow>
+              <TableRow>
+                <TableHeaderCell className={criteriaStyles.level1}>A</TableHeaderCell>
+                <TableHeaderCell className={criteriaStyles.level3}>B</TableHeaderCell>
+                <TableHeaderCell className={criteriaStyles.level5}>C</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-medium text-xs">Qualitative</TableCell>
+                {/* === PERBAIKAN DI SINI === */}
+                <TableCell className={`text-xs ${criteriaStyles.level1}`}>Fully Effective</TableCell>
+                <TableCell className={`text-xs ${criteriaStyles.level3}`}>Partially Effective</TableCell>
+                <TableCell className={`text-xs ${criteriaStyles.level5}`}>Not Effective</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </Card>
   );

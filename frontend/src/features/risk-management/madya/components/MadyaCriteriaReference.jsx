@@ -1,221 +1,18 @@
 // frontend/src/features/risk-management/madya/components/MadyaCriteriaReference.jsx
 import React, { useState, useEffect } from "react";
 import { TabGroup, TabList, Tab, TabPanels, TabPanel, Title, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Button, Dialog, DialogPanel, TextInput, Textarea } from "@tremor/react";
-import { FiEdit, FiEye } from "react-icons/fi";
+import { FiEdit, FiEye, FiX, FiBarChart2, FiDollarSign, FiShield } from "react-icons/fi";
 import apiClient from "../../../../api/api";
 import { toast } from "sonner";
 
-const initialProbabilityData = [
-  {
-    level: 5,
-    parameter: "Hampir Pasti Terjadi",
-    kemungkinan: "Risiko pernah terjadi sekali dalam 1 bulan",
-    frekuensi: "> 10% dari frekuensi kejadian / jumlah transaksi",
-    persentase: "Probabilitas kejadian Risiko antara 80% sampai dengan 100%",
-  },
-  {
-    level: 4,
-    parameter: "Sangat Mungkin Terjadi",
-    kemungkinan: "Risiko pernah terjadi sekali dalam 2 bulan",
-    frekuensi: "Diatas 5 s/d 10% dari frekuensi kejadian / jumlah transaksi",
-    persentase: "Probabilitas kejadian Risiko antara 60% sampai dengan 80%",
-  },
-  {
-    level: 3,
-    parameter: "Bisa Terjadi",
-    kemungkinan: "Risiko pernah terjadi namun tidak sering, sekali dalam 4 bulan",
-    frekuensi: "Diatas 1% s/d 5% dari frekuensi kejadian / jumlah transaksi",
-    persentase: "Probabilitas kejadian Risiko antara 40% sampai dengan 60%",
-  },
-  {
-    level: 2,
-    parameter: "Jarang Terjadi",
-    kemungkinan: "Risiko mungkin terjadi hanya sekali dalam 6 bulan",
-    frekuensi: "Dari 1 permil s/d 1% dari frekuensi kejadian / jumlah transaksi",
-    persentase: "Probabilitas kejadian Risiko dari 20% sampai dengan 40%",
-  },
-  {
-    level: 1,
-    parameter: "Sangat Jarang Terjadi",
-    kemungkinan: "Risiko mungkin terjadi sangat jarang, paling banyak satu kali dalam setahun",
-    frekuensi: "< 1 permil dari frekuensi kejadian / jumlah transaksi",
-    persentase: "Probabilitas kejadian Risiko lebih kecil dari 20%",
-  },
-];
-
-const initialImpactData = [
-  // SKALA 5
-  {
-    level: 5,
-    kriteriaDampak: "Sangat Tinggi",
-    rangeFinansial: "X > 80%\ndari Batasan Risiko",
-    deskripsiDampak1: "Dampak katastrofe yang dapat mengakibatkan kerusakan/ kerugian/ penurunan > 80% dari nilai Batasan Risiko",
-    stra_dampak: "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda lebih dari 9 bulan",
-    hukum_pelanggaran: "Perusahaan diputuskan kalah di pengadilan tingkat selanjutnya.",
-    kepat_pelanggaran: "Regulator memberlaku-kan sanksi signifikan (misalkan delisting saham, tidak diperkenan-kan mengikuti kliring, menarik produk yang beredar, dan lain-lain)",
-    reput_keluhan: "Keluhan yang menyebar ke skala nasional / internasional dan / atau diajukan secara kolektif yang diselesaikan melebihi 10 hari kerja dan / atau memerlukan penanganan kewenangan Kantor Pusat",
-    reput_berita: "Publikasi negatif mencapai skala internasional yang tersebar di sosial media dan / atau memerlukan penanganan kewenangan Kantor Pusat",
-    reput_saing: "Penurunan pangsa pasar lebih dari 20%",
-    sdm_keluhan: "Demonstrasi terkoordinasi, terjadinya kematian karyawan saat kerja",
-    sdm_turnover: "Turn over pegawai bertalenta >15% setahun",
-    sdm_regretted_turnover: "Turn over pegawai bertalenta >15% setahun",
-    sistem_gangguan: "Infrastruktur vital yang penting tidak berfungsi selama lebih dari 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)",
-    sistem_siber: "Jumlah rata-rata serangan siber per minggu lebih dari 500 kali",
-    sistem_platform: "X ≤ 60%",
-    ops_sla: ">20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)",
-    hsse_fatality_1: "Kasus kematian jamak",
-    hsse_fatality_2: "Wabah ke lingkungan",
-    hsse_fatality_3: "Potensi menyebabkan banyak kematian misalnya bahan kimia beracun berbahaya",
-    hsse_kerusakan_lingkungan: "Sangat serius kerusakan jangka panjang (>5 tahun) dan fungsi ekosistem",
-    hsse_penurunan_esg: "X < 60% atau memperoleh rating '40+ (severe)'",
-    pmn_tunda: "Tertunda > 4 bulan dari target RKAP",
-    bank_fraud: "X > 1.400",
-    asuransi_aset_rating: "Instrumen pada Investment grade < 70%",
-    asuransi_aset_peringkat: "atau Peringkat di bawah BBB (yang setara atau tidak diperingkat)",
-    aktu_rasio: "Rasio klaim > 100%",
-  },
-  // SKALA 4
-  {
-    level: 4,
-    kriteriaDampak: "Tinggi",
-    rangeFinansial: "60% < X ≤ 80%\ndari Batasan Risiko",
-    deskripsiDampak1: "Dampak signifikan yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 60% - 80% dari nilai Batasan Risiko",
-    stra_dampak: "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 6 s/d 9 bulan",
-    hukum_pelanggaran: "Perusahaan diputuskan kalah di pengadilan tingkat pertama.",
-    kepat_pelanggaran: "Regulator memberlaku-kan pembatasan dan / atau pembekuan terhadap aktivitas operasional / produk / jasa tertentu.",
-    reput_keluhan: "Terdapat keluhan pelanggan/ nasabah/ pembeli/ supplier yang signifikan dan dipublikasikan di media massa nasional/ internasional",
-    reput_berita: "Pemberitaan negatif di media massa nasional dan media sosial yang signifikan, menjadi isu utama, dan mudah ditangani",
-    reput_saing: "Kehilangan daya saing signifikan yang ditunjukkan dengan penurunan pangsa pasar 5% - 10%",
-    sdm_keluhan: "Terdapat keluhan karyawan yang menimbulkan gangguan operasional ringan di satu unit",
-    sdm_turnover: "Turn over karyawan bertalenta (regretted turnover) 5% - 7%",
-    sdm_regretted_turnover: "Turn over pegawai bertalenta antara 10% sampai dengan 15% setahun",
-    sistem_gangguan: "Infrastruktur vital yang penting tidak berfungsi selama 2 s/d 6 jam (misalkan Listrik, air, jaringan komunikasi & online system)",
-    sistem_siber: "Jumlah rata-rata serangan siber per minggu 200-500 kali",
-    sistem_platform: "70% ≥ X > 60%",
-    ops_sla: "Antara 10% s/d 20% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)",
-    hsse_fatality_1: "Kasus kematian tunggal / Cacat tetap / Ketidakhadir-an kerja yang lama",
-    hsse_fatality_2: "Efek ireversibel yang menyebabkan kematian",
-    hsse_fatality_3: "[Data L4F3]",
-    hsse_kerusakan_lingkungan: "Efek lingkungan jangka menengah (3-5 tahun) yang serius",
-    hsse_penurunan_esg: "70% ≥ X > 60% atau memperoleh rating '30-40 (high)'",
-    pmn_tunda: "Tertunda 3 bulan dari target RKAP",
-    bank_fraud: "1.201 < X ≤ 1.400",
-    asuransi_aset_rating: "70% ≤ Instrumen pada Investment grade < 80%",
-    asuransi_aset_peringkat: "atau Peringkat BBB (yang setara)",
-    aktu_rasio: "90% < Rasio klaim ≤ 100%",
-  },
-  // SKALA 3
-  {
-    level: 3,
-    kriteriaDampak: "Sedang",
-    rangeFinansial: "40% < X ≤ 60%\ndari Batasan Risiko",
-    deskripsiDampak1: "Dampak sedang yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 40% - 60% dari nilai Batasan Risiko",
-    stra_dampak: "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda 3 s/d 6 bulan",
-    hukum_pelanggaran: "Perusahaan mendapat tuntutan hukum.",
-    kepat_pelanggaran: "Peringatan tertulis / formal, terkena denda.",
-    reput_keluhan: "Terdapat keluhan pelanggan/ nasabah/ pembeli/ supplier yang cukup signifikan dan dipublikasikan di media massa lokal",
-    reput_berita: "Pemberitaan negatif di media massa lokal dan media sosial yang cukup signifikan, namun tidak menjadi isu utama",
-    reput_saing: "Kehilangan daya saing cukup signifikan yang ditunjukkan dengan penurunan pangsa pasar 1% - 5%",
-    sdm_keluhan: "Terdapat keluhan karyawan yang memerlukan eskalasi luas (sampai tingkat Direksi) untuk penyelesaian",
-    sdm_turnover: "Turn over karyawan bertalenta (regretted turnover) 3% - 5%",
-    sdm_regretted_turnover: "Turn over pegawai bertalenta antara 5% sampai dengan 10% setahun",
-    sistem_gangguan: "Infrastruktur vital yang penting tidak berfungsi selama < 1 jam (misalkan Listrik, air, jaringan komunikasi & online system)",
-    sistem_siber: "Jumlah rata-rata serangan siber per minggu 100-199 kali",
-    sistem_platform: "80 % ≥ X > 70%",
-    ops_sla: "Antara 2,5% s/d 10% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)",
-    hsse_fatality_1: "Cacat tidak tetap / Ketidakhadir-an kerja yang terbatas",
-    hsse_fatality_2: "Efek ireversibel tanpa kehilangan nyawa tetapi dengan cacat serius dan rawat inap berkepanjangan",
-    hsse_fatality_3: "[Data L3F3]",
-    hsse_kerusakan_lingkungan: "Efek jangka pendek (1-2 tahun) tetapi tidak mempengaruhi fungsi ekosistem",
-    hsse_penurunan_esg: "80 % ≥ X > 70% atau memperoleh rating '20-30 (medium)'",
-    pmn_tunda: "Tertunda 2 bulan dari target RKAP",
-    bank_fraud: "1.001 < X ≤ 1.200",
-    asuransi_aset_rating: "80% ≤ Instrumen pada Investment grade < 90%",
-    asuransi_aset_peringkat: "atau Peringkat A (yang setara)",
-    aktu_rasio: "82,5% < Rasio klaim ≤ 90%",
-  },
-  // SKALA 2
-  {
-    level: 2,
-    kriteriaDampak: "Kecil",
-    rangeFinansial: "20% < X ≤ 40%\ndari Batasan Risiko",
-    deskripsiDampak1: "Dampak kecil yang dapat mengakibatkan kerusakan/ kerugian/ penurunan 20% - 40% dari nilai Batasan Risiko",
-    stra_dampak: "Minimal 1 parameter tujuan strategis yang harus selesai pada tahun ini tertunda antara 2 - 3 bulan ",
-    hukum_pelanggaran: "Perusahaan mendapat somasi.",
-    kepat_pelanggaran: "Diminta bertemu dengan pihak Regulator (misalkan OJK, Bank Indonesia, IDX, Kementerian terkait, Dirjen Pajak, dan lain-lain)",
-    reput_keluhan: "Terdapat keluhan pelanggan/ nasabah/ pembeli/ supplier yang tidak signifikan dan tidak dipublikasikan di media massa",
-    reput_berita: "Pemberitaan negatif yg terisolasi di wilayah sektoral melalui media konvensional (misalkan Radio lokal, TV lokal, Surat Kabar daerah)",
-    reput_saing: "Kehilangan daya saing tidak signifikan yang ditunjukkan dengan penurunan pangsa pasar < 1%",
-    sdm_keluhan: "Terdapat keluhan karyawan yang memerlukan eskalasi terbatas (sampai tingkat unit SDM) untuk penyelesaian",
-    sdm_turnover: "Turn over karyawan bertalenta (regretted turnover) 1% - 3%",
-    sdm_regretted_turnover: "Turn over pegawai bertalenta dari 1% sampai dengan 5% setahun",
-    sistem_gangguan: "Aplikasi dan Infrastruktur pendukung yang kurang penting tidak berfungsi selama lebih dari 1 hari s/d 3 hari",
-    sistem_siber: "Jumlah rata-rata serangan siber per minggu 50-99 kali",
-    sistem_platform: "90% ≥ X > 80%",
-    ops_sla: "Dari 1% s/d 2,5% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)",
-    hsse_fatality_1: "Kasus Perawatan Medis",
-    hsse_fatality_2: "Efek kesehatan minor dan reversibel (tanpa rawat inap)",
-    hsse_fatality_3: "[Data L2F3]",
-    hsse_kerusakan_lingkungan: "Efek minor pada lingkungan biologis atau fisik",
-    hsse_penurunan_esg: "90% ≥ X > 80% atau memperoleh rating '10-20 (low)'",
-    pmn_tunda: "Tertunda 1 bulan dari target RKAP",
-    bank_fraud: "800 ≤ X ≤ 1.000",
-    asuransi_aset_rating: "90% ≤ Instrumen pada Investment grade < 100%",
-    asuransi_aset_peringkat: "atau Peringkat AA (yang setara)",
-    aktu_rasio: "75% < Rasio klaim ≤ 82,5%",
-  },
-  // SKALA 1
-  {
-    level: 1,
-    kriteriaDampak: "Sangat Kecil",
-    rangeFinansial: "X ≤ 20%\ndari Batasan Risiko",
-    deskripsiDampak1: "Dampak sangat rendah yang dapat mengakibatkan kerusakan/ kerugian/ penurunan kurang dari 20% dari nilai Batasan Risiko",
-    stra_dampak: "Minimal 1 parameter target strategis yang harus selesai pada tahun ini tertunda kurang dari 1 bulan",
-    hukum_pelanggaran: "Tidak ada somasi/ tuntutan hukum",
-    kepat_pelanggaran: "Teguran informal / verbal.",
-    reput_keluhan: "Tidak ada keluhan pelanggan/ nasabah/ pembeli/ supplier",
-    reput_berita: "Publikasi negatif yg terisolasi dan dapat ditangani dalam 1 hari kerja",
-    reput_saing: "Penurunan pangsa pasar sampai dengan 5%",
-    sdm_keluhan: "Terdapat keluhan karyawan yang disalurkan sampai tingkat SP Unit namun dapat diisolir dan diselesaikan oleh Pemimpin Unit",
-    sdm_turnover: "Turn over pegawai bertalenta kurang dari 1% setahun",
-    sdm_regretted_turnover: "Turn over pegawai bertalenta kurang dari 1% setahun",
-    sistem_gangguan: "Aplikasi & Infrastruktur pendukung yang kurang penting tidak berfungsi selama 1 hari",
-    sistem_siber: "Jumlah rata-rata serangan siber per minggu di bawah 50 kali",
-    sistem_platform: "X > 90%",
-    ops_sla: "<1% dari standard SLA yang telah ditetapkan (diukur dari waktu kekosongan atau ketidaksedia-an layanan produk atau tambahan biaya / ongkos)",
-    hsse_fatality_1: "Kasus Pertolongan Pertama",
-    hsse_fatality_2: "Tidak berpengaruh pada Kinerja Kerja",
-    hsse_fatality_3: "[Data L1F3]",
-    hsse_kerusakan_lingkungan: "Kerusakan terbatas pada area minimal dengan signifikansi rendah",
-    hsse_penurunan_esg: "X > 90% atau memperoleh rating '0-10 (negligible)'",
-    pmn_tunda: "Diterima tepat waktu sesuai dengan RKAP",
-    bank_fraud: "X < 800",
-    asuransi_aset_rating: "Instrumen pada investment grade 100%,",
-    asuransi_aset_peringkat: "atau Peringkat AAA (yang setara)",
-    aktu_rasio: "Rasio klaim ≤ 75%",
-  },
-];
-
-// Style warna untuk header skala (seperti di RiskCriteriaReference)
-const criteriaStyles = {
-  level1: "bg-green-500 text-white text-center",
-  level2: "bg-lime-500 text-white text-center",
-  level3: "bg-yellow-400 text-black text-center",
-  level4: "bg-orange-500 text-white text-center",
-  level5: "bg-red-600 text-white text-center",
-};
+import { initialProbabilityData, initialImpactData, criteriaStyles } from "../../../../data/madyaCriteriaData";
 
 // --- Tambah kelas CSS untuk perataan ---
 const cellClassName = "align-middle text-center whitespace-normal border border-slate-300";
 const headerClassName = "align-middle text-center whitespace-normal border border-slate-300";
-const columnStyle = "w-[220px]";
+const columnStyle = "w-[180px]";
 
-function MadyaCriteriaReference({
-  probabilityCriteria = [],
-  impactCriteria = [],
-  onCriteriaSave, // Fungsi refresh dari parent
-  readOnly = false,
-}) {
+function MadyaCriteriaReference({ probabilityCriteria = [], impactCriteria = [], onCriteriaSave, readOnly = false }) {
   const [criteriaData, setCriteriaData] = useState(initialProbabilityData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -231,7 +28,8 @@ function MadyaCriteriaReference({
   const [impactFormData, setImpactFormData] = useState(null);
 
   useEffect(() => {
-    setCriteriaData(probabilityCriteria);
+    // setCriteriaData(probabilityCriteria);
+    if (probabilityCriteria.length > 0) setCriteriaData(probabilityCriteria);
   }, [probabilityCriteria]);
 
   useEffect(() => {
@@ -288,11 +86,11 @@ function MadyaCriteriaReference({
 
   return (
     <div className="space-y-6 text-xs">
-      {/* --- TABEL PROBABILITAS (Tidak Berubah) --- */}
+      {/* --- TABEL PROBABILITAS --- */}
       <div>
         <Title className="text-xl">Kriteria Probabilitas</Title>
         <Table className="mt-2">
-          <TableHead>
+          <TableHead className="text-sm">
             <TableRow className="bg-slate-100">
               <TableHeaderCell rowSpan={2} className="align-middle w-16">
                 Skala
@@ -314,7 +112,7 @@ function MadyaCriteriaReference({
             {criteriaData
               .sort((a, b) => b.level - a.level) // Urutkan dari 5 ke 1
               .map((item) => (
-                <TableRow key={item.level}>
+                <TableRow className="text-xs" key={item.level}>
                   <TableCell className={`font-semibold align-top ${criteriaStyles[`level${item.level}`]}`}>{item.level}</TableCell>
                   <TableCell className="align-top whitespace-normal max-w-xs">
                     <Text>{item.parameter}</Text>
@@ -402,7 +200,7 @@ function MadyaCriteriaReference({
               </TableRow>
 
               {/* Baris 3 (SEKARANG KOSONG) */}
-              <TableRow className="bg-slate-100">{/* Baris ini sengaja dibiarkan kosong karena semua kategori di Baris 2 sudah memiliki rowSpan={2} */}</TableRow>
+              <TableRow className="bg-slate-100"></TableRow>
 
               {/* Baris 4 (Semua sub-parameter level akhir) */}
               <TableRow className="bg-slate-100">
@@ -448,9 +246,6 @@ function MadyaCriteriaReference({
                 <TableHeaderCell className={`${headerClassName} ${columnStyle}`}>Rasio Klaim</TableHeaderCell>
               </TableRow>
             </TableHead>
-            {/* =================================================================== */}
-            {/* =================== AKHIR PENYESUAIAN HEADER ==================== */}
-            {/* =================================================================== */}
 
             {/* --- TableBody (Tidak Berubah, urutan sel sudah benar) --- */}
             <TableBody>
@@ -499,195 +294,273 @@ function MadyaCriteriaReference({
 
       {!readOnly && (
         <>
-          {/* --- MODAL PROBABILITAS --- */}
+          {/* --- MODAL PROBABILITAS (MODERN) --- */}
           <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} static={true}>
-            <DialogPanel>
-              <Title as="h3">Edit Kriteria Probabilitas (Skala {formData.level})</Title>
-              <div className="mt-6 space-y-4">
+            <DialogPanel className="max-w-xl p-0 overflow-hidden rounded-xl bg-white shadow-xl">
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-200 bg-blue-50/50 flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl shadow-sm border border-blue-200">
+                    <FiEdit size={22} />
+                  </div>
+                  <div>
+                    <Title className="text-lg font-bold text-slate-800">Edit Kriteria Probabilitas</Title>
+                    <Text className="text-xs text-gray-500 mt-0.5 font-mono">Skala Level {formData.level}</Text>
+                  </div>
+                </div>
+                <Button icon={FiX} variant="light" color="slate" onClick={() => setIsModalOpen(false)} className="rounded-full hover:bg-gray-200 p-2" />
+              </div>
+
+              {/* Body */}
+              <div className="p-8 space-y-5 bg-white">
                 <div>
-                  <Text>Parameter</Text>
-                  <TextInput name="parameter" value={formData.parameter} onChange={handleInputChange} className="mt-1" />
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Parameter Utama</label>
+                  <TextInput name="parameter" value={formData.parameter} onChange={handleInputChange} placeholder="Contoh: Hampir Pasti" className="font-semibold" />
                 </div>
                 <div>
-                  <Text>Kemungkinan terjadi</Text>
-                  <Textarea name="kemungkinan" value={formData.kemungkinan} onChange={handleInputChange} className="mt-1" rows={3} />
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Kemungkinan Terjadi</label>
+                  <Textarea name="kemungkinan" value={formData.kemungkinan} onChange={handleInputChange} rows={3} placeholder="Deskripsi kemungkinan..." />
                 </div>
-                <div>
-                  <Text>Frekuensi kejadian</Text>
-                  <Textarea name="frekuensi" value={formData.frekuensi} onChange={handleInputChange} className="mt-1" rows={3} />
-                </div>
-                <div>
-                  <Text>Persentase</Text>
-                  <Textarea name="persentase" value={formData.persentase} onChange={handleInputChange} className="mt-1" rows={3} />
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Frekuensi</label>
+                    <Textarea name="frekuensi" value={formData.frekuensi} onChange={handleInputChange} rows={3} placeholder="Contoh: > 10 kali/tahun" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Persentase</label>
+                    <Textarea name="persentase" value={formData.persentase} onChange={handleInputChange} rows={3} placeholder="Contoh: > 90%" />
+                  </div>
                 </div>
               </div>
-              <div className="mt-8 flex justify-end space-x-2">
-                <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                <Button variant="secondary" className="rounded-md" color="rose" onClick={() => setIsModalOpen(false)}>
                   Batal
                 </Button>
-                <Button onClick={handleSave}>Simpan</Button>
+                <Button onClick={handleSave} className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg shadow-blue-100 rounded-md">
+                  Simpan Perubahan
+                </Button>
               </div>
             </DialogPanel>
           </Dialog>
 
-          {/* --- MODAL DAMPAK --- */}
+          {/* --- MODAL DAMPAK (MODERN & GROUPED) --- */}
           <Dialog open={isImpactModalOpen} onClose={() => setIsImpactModalOpen(false)} static={true}>
             {impactFormData && (
-              <DialogPanel className="max-w-5xl">
-                <Title as="h3">Edit Kriteria Dampak (Skala {impactFormData.level})</Title>
+              <DialogPanel className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden rounded-xl bg-white shadow-2xl">
+                <div className="px-8 py-5 border-b border-gray-200 bg-orange-50/50 flex justify-between items-center shrink-0">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2.5 bg-orange-100 text-orange-600 rounded-xl shadow-sm border border-orange-200">
+                      <FiBarChart2 size={22} />
+                    </div>
+                    <div>
+                      <Title className="text-xl font-bold text-slate-800">Edit Kriteria Dampak</Title>
+                      <Text className="text-xs text-gray-500 mt-0.5 font-mono">Skala Level {impactFormData.level}</Text>
+                    </div>
+                  </div>
+                  <Button icon={FiX} variant="light" color="slate" onClick={() => setIsImpactModalOpen(false)} className="rounded-full hover:bg-gray-200 p-2" />
+                </div>
 
-                <div className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto pr-4 pl-2 pb-2">
-                  <Title as="h5" className="text-tremor-content-strong">
-                    Kuantitatif
-                  </Title>
-                  <div>
-                    <Text>Kriteria Dampak</Text>
-                    <TextInput name="kriteriaDampak" value={impactFormData.kriteriaDampak} onChange={handleImpactInputChange} className="mt-1" />
-                  </div>
-                  <div>
-                    <Text>Range Dampak Finansial</Text>
-                    <Textarea name="rangeFinansial" value={impactFormData.rangeFinansial} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Deskripsi Dampak (Kuantitatif)</Text>
-                    <Textarea name="deskripsiDampak1" value={impactFormData.deskripsiDampak1} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-
-                  <hr />
-                  <Title as="h5" className="text-tremor-content-strong">
-                    Kualitatif
-                  </Title>
-                  <div>
-                    <Text>Risiko Strategis - Dampak keterlambatan...</Text>
-                    <Textarea name="stra_dampak" value={impactFormData.stra_dampak} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Risiko Hukum - Pelanggaran hukum</Text>
-                    <Textarea name="hukum_pelanggaran" value={impactFormData.hukum_pelanggaran} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Risiko Kepatuhan - Pelanggaran ketentuan...</Text>
-                    <Textarea name="kepat_pelanggaran" value={impactFormData.kepat_pelanggaran} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-
-                  <hr />
-                  <Title as="h6" className="text-tremor-content-strong">
-                    Kualitatif - Reputasi
-                  </Title>
-                  <div>
-                    <Text>Keluhan pelanggan...</Text>
-                    <Textarea name="reput_keluhan" value={impactFormData.reput_keluhan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Pemberitaan negatif...</Text>
-                    <Textarea name="reput_berita" value={impactFormData.reput_berita} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Kehilangan daya saing</Text>
-                    <Textarea name="reput_saing" value={impactFormData.reput_saing} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                <div className="flex-grow overflow-y-auto p-8 bg-slate-50/50 space-y-8">
+                  {/* Section 1: Kuantitatif & Finansial */}
+                  <div className="bg-white p-6 rounded-xl border-l-4 border-emerald-500 shadow-sm ring-1 ring-gray-200">
+                    <h3 className="text-sm font-bold text-emerald-700 mb-5 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3">
+                      <FiDollarSign /> Dampak Kuantitatif & Finansial
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Kriteria Umum</label>
+                        <TextInput name="kriteriaDampak" value={impactFormData.kriteriaDampak} onChange={handleImpactInputChange} className="font-semibold" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Range Finansial</label>
+                        <Textarea name="rangeFinansial" value={impactFormData.rangeFinansial} onChange={handleImpactInputChange} rows={2} />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Deskripsi Detail</label>
+                        <Textarea name="deskripsiDampak1" value={impactFormData.deskripsiDampak1} onChange={handleImpactInputChange} rows={2} />
+                      </div>
+                    </div>
                   </div>
 
-                  <hr />
-                  <Title as="h6" className="text-tremor-content-strong">
-                    Kualitatif - SDM
-                  </Title>
-                  <div>
-                    <Text>Keluhan karyawan</Text>
-                    <Textarea name="sdm_keluhan" value={impactFormData.sdm_keluhan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Turn over karyawan...</Text>
-                    <Textarea name="sdm_turnover" value={impactFormData.sdm_turnover} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>regretted turnover</Text>
-                    <Textarea name="sdm_regretted_turnover" value={impactFormData.sdm_regretted_turnover} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-
-                  <hr />
-                  <Title as="h6" className="text-tremor-content-strong">
-                    Kualitatif - Sistem & Operasional
-                  </Title>
-                  <div>
-                    <Text>Gangguan aplikasi...</Text>
-                    <Textarea name="sistem_gangguan" value={impactFormData.sistem_gangguan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Serangan siber</Text>
-                    <Textarea name="sistem_siber" value={impactFormData.sistem_siber} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Hasil penilaian platform security</Text>
-                    <Textarea name="sistem_platform" value={impactFormData.sistem_platform} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Pelampauan pemenuhan SLA...</Text>
-                    <Textarea name="ops_sla" value={impactFormData.ops_sla} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  {/* Section 2: Kualitatif Umum */}
+                  <div className="bg-white p-6 rounded-xl border-l-4 border-blue-500 shadow-sm ring-1 ring-gray-200">
+                    <h3 className="text-sm font-bold text-blue-700 mb-5 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3">
+                      <FiShield /> Dampak Kualitatif Umum
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Strategis</label>
+                        <Textarea name="stra_dampak" value={impactFormData.stra_dampak} onChange={handleImpactInputChange} rows={4} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Hukum</label>
+                        <Textarea name="hukum_pelanggaran" value={impactFormData.hukum_pelanggaran} onChange={handleImpactInputChange} rows={4} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Kepatuhan</label>
+                        <Textarea name="kepat_pelanggaran" value={impactFormData.kepat_pelanggaran} onChange={handleImpactInputChange} rows={4} />
+                      </div>
+                    </div>
                   </div>
 
-                  <hr />
-                  <Title as="h6" className="text-tremor-content-strong">
-                    Kualitatif - HSSE & PMN
-                  </Title>
-                  <div>
-                    <Text>HSSE - Kasus kematian jamak</Text>
-                    <Textarea name="hsse_fatality_1" value={impactFormData.hsse_fatality_1} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>HSSE - Wabah ke lingkungan</Text>
-                    <Textarea name="hsse_fatality_2" value={impactFormData.hsse_fatality_2} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>HSSE - Potensi menyebabkan banyak kematian...</Text>
-                    <Textarea name="hsse_fatality_3" value={impactFormData.hsse_fatality_3} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>HSSE - Kerusakan Lingkungan</Text>
-                    <Textarea name="hsse_kerusakan_lingkungan" value={impactFormData.hsse_kerusakan_lingkungan} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>HSSE - Penurunan ESG rating...</Text>
-                    <Textarea name="hsse_penurunan_esg" value={impactFormData.hsse_penurunan_esg} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>PMN - Penundaan pencairan PMN</Text>
-                    <Textarea name="pmn_tunda" value={impactFormData.pmn_tunda} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  {/* Section 3: Reputasi & SDM */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="bg-white p-6 rounded-xl border-l-4 border-purple-500 shadow-sm ring-1 ring-gray-200">
+                      <h3 className="text-sm font-bold text-purple-700 mb-4 uppercase tracking-wider border-b border-gray-100 pb-2">Reputasi</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Keluhan Pelanggan</label>
+                          <Textarea name="reput_keluhan" value={impactFormData.reput_keluhan} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Pemberitaan Negatif</label>
+                          <Textarea name="reput_berita" value={impactFormData.reput_berita} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Daya Saing</label>
+                          <Textarea name="reput_saing" value={impactFormData.reput_saing} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl border-l-4 border-pink-500 shadow-sm ring-1 ring-gray-200">
+                      <h3 className="text-sm font-bold text-pink-700 mb-4 uppercase tracking-wider border-b border-gray-100 pb-2">Sumber Daya Manusia</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Keluhan Karyawan</label>
+                          <Textarea name="sdm_keluhan" value={impactFormData.sdm_keluhan} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Turnover</label>
+                          <Textarea name="sdm_turnover" value={impactFormData.sdm_turnover} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Regretted Turnover</label>
+                          <Textarea name="sdm_regretted_turnover" value={impactFormData.sdm_regretted_turnover} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <hr />
-                  <Title as="h6" className="text-tremor-content-strong">
-                    Kualitatif - Khusus Industri
-                  </Title>
-                  <div>
-                    <Text>Bank - Total jumlah fraud internal dan eksternal</Text>
-                    <Textarea name="bank_fraud" value={impactFormData.bank_fraud} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+                  {/* Section 4: Sistem & HSSE */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="bg-white p-6 rounded-xl border-l-4 border-cyan-500 shadow-sm ring-1 ring-gray-200">
+                      <h3 className="text-sm font-bold text-cyan-700 mb-4 uppercase tracking-wider border-b border-gray-100 pb-2">Sistem & Operasional</h3>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-xs font-bold text-gray-400 block mb-1">Gangguan Aplikasi</label>
+                            <Textarea name="sistem_gangguan" value={impactFormData.sistem_gangguan} onChange={handleImpactInputChange} rows={2} />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-gray-400 block mb-1">Serangan Siber</label>
+                            <Textarea name="sistem_siber" value={impactFormData.sistem_siber} onChange={handleImpactInputChange} rows={2} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Platform Security</label>
+                          <Textarea name="sistem_platform" value={impactFormData.sistem_platform} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">SLA Operasional</label>
+                          <Textarea name="ops_sla" value={impactFormData.ops_sla} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl border-l-4 border-rose-500 shadow-sm ring-1 ring-gray-200">
+                      <h3 className="text-sm font-bold text-rose-700 mb-4 uppercase tracking-wider border-b border-gray-100 pb-2">HSSE, Lingkungan & PMN</h3>
+                      <div className="space-y-4">
+                        {/* Grid Fatality Lengkap (3 Kolom) */}
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="col-span-3 sm:col-span-1">
+                            <label className="text-xs font-bold text-gray-400 block mb-1">Fatality (Jamak)</label>
+                            <Textarea name="hsse_fatality_1" value={impactFormData.hsse_fatality_1} onChange={handleImpactInputChange} rows={2} className="text-xs" />
+                          </div>
+                          <div className="col-span-3 sm:col-span-1">
+                            <label className="text-xs font-bold text-gray-400 block mb-1">Wabah / Penyakit</label>
+                            <Textarea name="hsse_fatality_2" value={impactFormData.hsse_fatality_2} onChange={handleImpactInputChange} rows={2} className="text-xs" />
+                          </div>
+                          <div className="col-span-3 sm:col-span-1">
+                            <label className="text-xs font-bold text-gray-400 block mb-1">Fatality (Tunggal)</label>
+                            <Textarea name="hsse_fatality_3" value={impactFormData.hsse_fatality_3} onChange={handleImpactInputChange} rows={2} className="text-xs" />
+                          </div>
+                        </div>
+
+                        {/* Lingkungan & ESG */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-xs font-bold text-gray-400 block mb-1">Dampak Lingkungan</label>
+                            <Textarea name="hsse_kerusakan_lingkungan" value={impactFormData.hsse_kerusakan_lingkungan} onChange={handleImpactInputChange} rows={2} />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-gray-400 block mb-1">Rating ESG</label>
+                            <Textarea name="hsse_penurunan_esg" value={impactFormData.hsse_penurunan_esg} onChange={handleImpactInputChange} rows={2} />
+                          </div>
+                        </div>
+
+                        {/* PMN (Ditambahkan) */}
+                        <div className="pt-2 border-t border-gray-100">
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Penundaan Pencairan PMN</label>
+                          <Textarea name="pmn_tunda" value={impactFormData.pmn_tunda} onChange={handleImpactInputChange} rows={2} placeholder="Dampak penundaan..." />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Text>Asuransi - Instrumen pada Investment grade</Text>
-                    <Textarea name="asuransi_aset_rating" value={impactFormData.asuransi_aset_rating} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Asuransi - atau Peringkat bank penerbit deposito</Text>
-                    <Textarea name="asuransi_aset_peringkat" value={impactFormData.asuransi_aset_peringkat} onChange={handleImpactInputChange} className="mt-1" rows={3} />
-                  </div>
-                  <div>
-                    <Text>Aktuarial - Rasio Klaim</Text>
-                    <Textarea name="aktu_rasio" value={impactFormData.aktu_rasio} onChange={handleImpactInputChange} className="mt-1" rows={3} />
+
+                  {/* Section 5: Industri Khusus (Perbankan, Asuransi, Aktuarial) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Perbankan */}
+                    <div className="bg-white p-6 rounded-xl border-l-4 border-amber-500 shadow-sm ring-1 ring-gray-200">
+                      <h3 className="text-sm font-bold text-amber-700 mb-4 uppercase tracking-wider border-b border-gray-100 pb-2">Perbankan</h3>
+                      <div>
+                        <label className="text-xs font-bold text-gray-400 block mb-1">Total Fraud</label>
+                        <Textarea name="bank_fraud" value={impactFormData.bank_fraud} onChange={handleImpactInputChange} rows={3} />
+                      </div>
+                    </div>
+
+                    {/* Asuransi */}
+                    <div className="bg-white p-6 rounded-xl border-l-4 border-indigo-500 shadow-sm ring-1 ring-gray-200">
+                      <h3 className="text-sm font-bold text-indigo-700 mb-4 uppercase tracking-wider border-b border-gray-100 pb-2">Asuransi</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Rating Surat Utang</label>
+                          <Textarea name="asuransi_aset_rating" value={impactFormData.asuransi_aset_rating} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 block mb-1">Peringkat Bank</label>
+                          <Textarea name="asuransi_aset_peringkat" value={impactFormData.asuransi_aset_peringkat} onChange={handleImpactInputChange} rows={2} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Aktuarial */}
+                    <div className="bg-white p-6 rounded-xl border-l-4 border-teal-500 shadow-sm ring-1 ring-gray-200">
+                      <h3 className="text-sm font-bold text-teal-700 mb-4 uppercase tracking-wider border-b border-gray-100 pb-2">Aktuarial</h3>
+                      <div>
+                        <label className="text-xs font-bold text-gray-400 block mb-1">Rasio Klaim</label>
+                        <Textarea name="aktu_rasio" value={impactFormData.aktu_rasio} onChange={handleImpactInputChange} rows={3} />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-8 flex justify-end space-x-2">
-                  <Button variant="secondary" onClick={() => setIsImpactModalOpen(false)}>
+                {/* Footer */}
+                <div className="px-8 py-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+                  <Button variant="secondary" className="rounded-md" color="rose" onClick={() => setIsImpactModalOpen(false)}>
                     Batal
                   </Button>
-                  <Button onClick={handleImpactSave}>Simpan</Button>
+                  <Button onClick={handleImpactSave} className="text-white bg-orange-600 hover:bg-orange-700 border-orange-600 shadow-lg shadow-orange-100 rounded-md">
+                    Simpan Perubahan
+                  </Button>
                 </div>
               </DialogPanel>
             )}
           </Dialog>
         </>
       )}
-      {/* --- AKHIR PERUBAHAN 4 --- */}
     </div>
   );
 }

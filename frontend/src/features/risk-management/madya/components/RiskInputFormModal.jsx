@@ -1,9 +1,12 @@
 // frontend/src/features/risk-management/madya/components/RiskInputFormModal.jsx
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogPanel, Title, Text, Button, TextInput, Textarea, Select, SelectItem, NumberInput, Grid, Card } from "@tremor/react";
-import { FiSave, FiX, FiInfo, FiClipboard, FiTrendingUp, FiUserCheck, FiTool, FiCheckCircle } from "react-icons/fi";
+import { FiSave, FiX, FiInfo, FiClipboard, FiTrendingUp, FiUserCheck, FiTool, FiCheckCircle, FiAlertTriangle, FiCalendar, FiTarget, FiPlus } from "react-icons/fi";
 import apiClient from "../../../../api/api";
+import { toast } from "sonner";
 
+// --- CONSTANTS ---
 const statusRisikoOptions = ["Risiko Aktif", "Risiko Retired"];
 const peluangAncamanOptions = ["Ancaman", "Peluang"];
 const strategiOptions = [
@@ -16,30 +19,17 @@ const strategiOptions = [
   "Mempertahankan (Retain) Risiko",
   "Mengubah Kemungkinan dan Dampak",
 ];
-const kategoriRisikoOptions = [
-  "Risiko Kredit",
-  "Risiko Pasar",
-  "Risiko Likuiditas",
-  "Risiko Operasional",
-  "Risiko Kepatuhan",
-  "Risiko Hukum",
-  "Risiko Strategik",
-  "Risiko Reputasi",
-  "Risiko Lainnya", // Nanti akan jadi 'Lainnya'
-];
+const kategoriRisikoOptions = ["Risiko Kredit", "Risiko Pasar", "Risiko Likuiditas", "Risiko Operasional", "Risiko Kepatuhan", "Risiko Hukum", "Risiko Strategik", "Risiko Reputasi", "Risiko Lainnya"];
 
+// --- HELPERS ---
 const formatDateForInput = (date) => {
   if (!date) return "";
   try {
-    // Cek jika sudah string YYYY-MM-DD
-    if (typeof date === "string" && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return date;
-    }
-    // Jika objek Date atau string format lain, coba format
+    if (typeof date === "string" && date.match(/^\d{4}-\d{2}-\d{2}$/)) return date;
     const d = new Date(date);
     return d.toISOString().split("T")[0];
   } catch (e) {
-    return ""; // Return string kosong jika format tidak valid
+    return "";
   }
 };
 
@@ -47,17 +37,17 @@ const parseFloatSafely = (value) => {
   if (value === null || value === undefined || value === "") return null;
   const cleaned = String(value)
     .replace(/[^0-9.,]/g, "")
-    .replace(",", "."); // Handle koma desimal
+    .replace(",", ".");
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
 };
 
-// Helper baru untuk format Rupiah
 const formatRupiah = (value) => {
   const num = parseFloatSafely(value);
   if (num === null) return "";
   return new Intl.NumberFormat("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
 };
+
 const parseRupiah = (value) => {
   if (value === null || value === undefined || value === "") return null;
   const cleaned = String(value).replace(/[^0-9]/g, "");
@@ -65,13 +55,18 @@ const parseRupiah = (value) => {
   return isNaN(num) ? null : num;
 };
 
-// --- Helper BARU untuk clamping nilai P & I ---
-const clampValue = (value, min = 1, max = 5) => {
+// Helper: Skor Matriks (1-5)
+const clampMatrixValue = (value) => {
   const num = parseInt(value, 10);
-  if (value === "" || value === undefined || value === null || isNaN(num)) {
-    return ""; // Memungkinkan user menghapus isi field
-  }
-  return Math.max(min, Math.min(num, max));
+  if (value === "" || value === undefined || value === null || isNaN(num)) return "";
+  return Math.max(1, Math.min(num, 5));
+};
+
+// Helper: Persentase (0-100) - PERBAIKAN MAX 100
+const clampPercentValue = (value) => {
+  const num = parseFloat(value);
+  if (value === "" || value === undefined || value === null || isNaN(num)) return "";
+  return Math.max(0, Math.min(num, 100));
 };
 
 const getDefaultFormState = () => ({
@@ -111,23 +106,13 @@ const getDefaultFormState = () => ({
   tanggal_review: "",
 });
 
-function RiskInputFormModal({
-  isOpen,
-  onClose,
-  onSaveSuccess,
-  assessmentId,
-  initialData = null, // Data untuk mode edit
-  sasaranOptions = [], // Opsi dari Card 3
-  unitKerjaOptions = [], // Opsi dari Card 1
-  templateScores = [],
-}) {
+function RiskInputFormModal({ isOpen, onClose, onSaveSuccess, assessmentId, initialData = null, sasaranOptions = [], unitKerjaOptions = [], templateScores = [] }) {
   const isEditMode = Boolean(initialData?.id);
   const [formData, setFormData] = useState(getDefaultFormState);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const validSasaranOptions = Array.isArray(sasaranOptions) ? sasaranOptions : [];
 
-  // Inisialisasi atau reset form state saat modal dibuka atau initialData berubah
   useEffect(() => {
     if (isOpen) {
       const defaultState = getDefaultFormState();
@@ -140,19 +125,22 @@ function RiskInputFormModal({
           jadwal_mulai_penanganan: formatDateForInput(initialData.jadwal_mulai_penanganan),
           jadwal_selesai_penanganan: formatDateForInput(initialData.jadwal_selesai_penanganan),
           tanggal_review: formatDateForInput(initialData.tanggal_review),
-          inherent_probabilitas: clampValue(initialData.inherent_probabilitas) || 1,
-          inherent_dampak: clampValue(initialData.inherent_dampak) || 1,
-          residual_probabilitas: clampValue(initialData.residual_probabilitas) || null,
-          residual_dampak: clampValue(initialData.residual_dampak) || null,
+          inherent_probabilitas: clampMatrixValue(initialData.inherent_probabilitas) || 1,
+          inherent_dampak: clampMatrixValue(initialData.inherent_dampak) || 1,
+          residual_probabilitas: clampMatrixValue(initialData.residual_probabilitas) || null,
+          residual_dampak: clampMatrixValue(initialData.residual_dampak) || null,
         };
         setFormData({ ...defaultState, ...formattedInitialData, assessment_id: assessmentId });
       } else {
         setFormData(defaultState);
       }
-      setError(""); // Reset error
+      setError("");
     }
   }, [isOpen, initialData, assessmentId, isEditMode]);
 
+  // --- LOGIC PERHITUNGAN (DIPERBAIKI & DIKEMBALIKAN KE ASAL) ---
+
+  // 1. Nilai Bersih Inheren = Prob% * DampakRp
   const calculatedInherenNilaiBersih = useMemo(() => {
     const prob = parseFloatSafely(formData.inherent_prob_kualitatif);
     const dampak = parseRupiah(formData.inherent_dampak_finansial);
@@ -160,100 +148,91 @@ function RiskInputFormModal({
     return (prob / 100.0) * dampak;
   }, [formData.inherent_prob_kualitatif, formData.inherent_dampak_finansial]);
 
+  // 2. Dampak Finansial Residual = DampakInheren * (ProbResidual% / 100)
+  // (Rumus dari file asli: Dampak turun karena probabilitas turun? Atau ini asumsi mitigasi?)
   const calculatedDampakFinansialResidual = useMemo(() => {
     const dampakInheren = parseRupiah(formData.inherent_dampak_finansial);
     const probResidualKualitatif = parseFloatSafely(formData.residual_prob_kualitatif);
-
-    if (dampakInheren === null || probResidualKualitatif === null) {
-      return null;
-    }
+    if (dampakInheren === null || probResidualKualitatif === null) return null;
+    // Mengikuti logika file asli: Dampak Inheren * Persen Residual
     return dampakInheren * (probResidualKualitatif / 100.0);
   }, [formData.inherent_dampak_finansial, formData.residual_prob_kualitatif]);
 
+  // 3. Nilai Bersih Residual = DampakResidual * (ProbResidual% / 100)
+  // (Rumus dari file asli: Dampak Residual dikali lagi dengan Probabilitas Residual)
   const calculatedResidualNilaiBersih = useMemo(() => {
     const dampakResidual = calculatedDampakFinansialResidual;
     const probResidualKualitatif = parseFloatSafely(formData.residual_prob_kualitatif);
-
-    if (dampakResidual === null || probResidualKualitatif === null) {
-      return null;
-    }
+    if (dampakResidual === null || probResidualKualitatif === null) return null;
     return dampakResidual * (probResidualKualitatif / 100.0);
   }, [calculatedDampakFinansialResidual, formData.residual_prob_kualitatif]);
 
-  // Handler generik untuk input & select
+  // --- HANDLERS ---
   const handleChange = (name, value) => {
+    if (name === "kontak_pemilik_hp") {
+      const numericValue = value.replace(/\D/g, ""); // Hapus karakter non-angka
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleClampedNumberChange = (name, value) => {
-    const clamped = clampValue(value, 1, 5); // Clamp antara 1 dan 5, atau '' jika input kosong/invalid
-    setFormData((prev) => ({ ...prev, [name]: clamped }));
-  };
-
-  // Handler khusus untuk Kategori Risiko (menangani 'Lainnya')
   const handleKategoriChange = (value) => {
     handleChange("kategori_risiko", value);
-    if (value !== "Risiko Lainnya") {
-      handleChange("kategori_risiko_lainnya", "");
-    }
+    if (value !== "Risiko Lainnya") handleChange("kategori_risiko_lainnya", "");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+
     if (formData.kategori_risiko === "Risiko Lainnya" && !formData.kategori_risiko_lainnya?.trim()) {
-      /*...validasi...*/
       setError("Harap isi nama Kategori Risiko Lainnya.");
       setIsLoading(false);
       return;
     }
+
+    // 1. Validasi Email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (formData.kontak_pemilik_email && !emailRegex.test(formData.kontak_pemilik_email)) {
+      setError("Format email tidak valid (contoh: nama@domain.com).");
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Validasi No HP (10-13 Digit)
+    if (formData.kontak_pemilik_hp) {
+      if (formData.kontak_pemilik_hp.length < 10 || formData.kontak_pemilik_hp.length > 13) {
+        setError("Nomor HP harus terdiri dari 10 hingga 13 digit angka.");
+        setIsLoading(false);
+        return;
+      }
+    }
+
     const inherentP = parseInt(formData.inherent_probabilitas, 10);
     const inherentI = parseInt(formData.inherent_dampak, 10);
-    const residualP = formData.residual_probabilitas !== "" ? parseInt(formData.residual_probabilitas, 10) : null;
-    const residualI = formData.residual_dampak !== "" ? parseInt(formData.residual_dampak, 10) : null;
-
     if (isNaN(inherentP) || inherentP < 1 || inherentP > 5 || isNaN(inherentI) || inherentI < 1 || inherentI > 5) {
       setError("Probabilitas dan Dampak Inheren harus antara 1 dan 5.");
       setIsLoading(false);
       return;
     }
-    if ((residualP !== null && (isNaN(residualP) || residualP < 1 || residualP > 5)) || (residualI !== null && (isNaN(residualI) || residualI < 1 || residualI > 5))) {
-      setError("Probabilitas dan Dampak Residual harus antara 1 dan 5 (jika diisi).");
-      setIsLoading(false);
-      return;
-    }
 
-    // Siapkan payload, pastikan tipe data angka benar
     const payload = {
       ...formData,
       inherent_probabilitas: inherentP,
       inherent_dampak: inherentI,
-      residual_probabilitas: residualP,
-      residual_dampak: residualI,
+      residual_probabilitas: formData.residual_probabilitas ? parseInt(formData.residual_probabilitas, 10) : null,
+      residual_dampak: formData.residual_dampak ? parseInt(formData.residual_dampak, 10) : null,
       sasaran_id: formData.sasaran_id ? parseInt(formData.sasaran_id, 10) : null,
       inherent_prob_kualitatif: parseFloatSafely(formData.inherent_prob_kualitatif),
       residual_prob_kualitatif: parseFloatSafely(formData.residual_prob_kualitatif),
       inherent_dampak_finansial: parseRupiah(formData.inherent_dampak_finansial),
-      residual_dampak_finansial: parseRupiah(formData.residual_dampak_finansial),
+      // GUNAKAN HASIL HITUNG UNTUK DATA RESIDUAL
+      residual_dampak_finansial: calculatedDampakFinansialResidual,
       biaya_penanganan: parseRupiah(formData.biaya_penanganan),
-      tanggal_identifikasi: formData.tanggal_identifikasi || null,
-      jadwal_mulai_penanganan: formData.jadwal_mulai_penanganan || null,
-      jadwal_selesai_penanganan: formData.jadwal_selesai_penanganan || null,
-      tanggal_review: formData.tanggal_review || null,
     };
-
-    // for (const dateField of ["tanggal_identifikasi", "jadwal_mulai_penanganan", "jadwal_selesai_penanganan", "tanggal_review"]) {
-    //   if (!payload[dateField]) {
-    //     payload[dateField] = null;
-    //   }
-    // }
-    delete payload.inherent_skor_display;
-    delete payload.residual_skor_display;
-    delete payload.inherent_nilai_bersih_display;
-    delete payload.residual_nilai_bersih_display;
-
-    console.log("Payload to backend (template-aware score calculated by backend):", payload);
 
     try {
       let response;
@@ -262,302 +241,366 @@ function RiskInputFormModal({
       } else {
         response = await apiClient.post(`/madya-assessments/${assessmentId}/risk-inputs`, payload);
       }
-      onSaveSuccess(response.data, isEditMode); // Kirim data hasil save/update ke parent
-      onClose(); // Tutup modal jika sukses
+      onSaveSuccess(response.data, isEditMode);
+      onClose();
     } catch (err) {
-      setError(err.response?.data?.msg || `Gagal ${isEditMode ? "memperbarui" : "menyimpan"} Risk Input.`);
-      console.error("Save/Update error:", err);
+      setError(err.response?.data?.msg || "Gagal menyimpan Risk Input.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const renderField = (label, name, component, isRequired = false, props = {} /* ... sama ... */) => (
-    <div className={props.span === 2 ? "md:col-span-2" : ""}>
-      <label className="text-sm font-medium text-tremor-content">
-        {label}
-        {isRequired && " *"}
-      </label>
-      {React.cloneElement(component, { name: name, value: formData[name] || "", onChange: (e) => handleChange(name, e.target.value), required: isRequired, className: "mt-1", ...props })}
-    </div>
-  );
-  const renderSelectField = (label, name, options, isRequired = false, props = {}, optionValueKey = "value", optionLabelKey = "label" /* ... sama ... */) => (
-    <div className={props.span === 2 ? "md:col-span-2" : ""}>
-      <label className="text-sm font-medium text-tremor-content">
-        {label}
-        {isRequired && " *"}
-      </label>
-      <Select name={name} value={String(formData[name] || "")} onValueChange={(v) => handleChange(name, v)} required={isRequired} className="mt-1" {...props}>
-        <SelectItem value="">{props.placeholder || `Pilih ${label}...`}</SelectItem>
-        {options.map((opt, index) => (
-          <SelectItem key={typeof opt === "object" ? opt[optionValueKey] : index} value={String(typeof opt === "object" ? opt[optionValueKey] : opt)}>
-            {typeof opt === "object" ? opt[optionLabelKey] : opt}
-          </SelectItem>
-        ))}
-      </Select>
-    </div>
-  );
-  const renderNumberField = (label, name, isRequired = false, props = {}) => (
-    <div className={props.span === 2 ? "md:col-span-2" : ""}>
-      <label className="text-sm font-medium text-tremor-content">
-        {label}
-        {isRequired && " *"}
-      </label>
-      <NumberInput
-        name={name}
-        value={formData[name] ?? ""}
-        onValueChange={(v) => {
-          if (name.includes("probabilitas") || name.includes("dampak")) {
-            const clampedValue = clampValue(v, 1, 5);
-            handleChange(name, clampedValue);
-          } else {
-            handleChange(name, v);
-          }
-        }}
-        required={isRequired}
-        className="mt-1"
-        enableStepper={name.includes("probabilitas") || name.includes("dampak")}
-        {...props}
-      />
-    </div>
-  );
+  const getScore = (pVal, iVal) => {
+    const p = parseInt(pVal, 10);
+    const i = parseInt(iVal, 10);
+    if (isNaN(p) || p < 1 || p > 5 || isNaN(i) || i < 1 || i > 5) return "";
+    const scoreData = templateScores.find((s) => parseInt(s.likelihood_level) === p && parseInt(s.impact_level) === i);
+    return scoreData ? String(scoreData.score) : (p * i).toString();
+  };
 
-  const renderRupiahField = (label, name, props = {}) => (
-    <div className={props.span === 2 ? "md:col-span-2" : ""}>
-      <label className="text-sm font-medium text-tremor-content">{label}</label>
-      <TextInput
-        icon={() => <span className="text-gray-500 text-sm">Rp</span>}
-        name={name}
-        value={formatRupiah(formData[name])}
-        onChange={(e) => handleChange(name, parseRupiah(e.target.value))}
-        placeholder={props.placeholder || "0"}
-        className="mt-1"
-        {...props}
-      />
-    </div>
-  );
+  const inherentSkor = useMemo(() => getScore(formData.inherent_probabilitas, formData.inherent_dampak), [formData.inherent_probabilitas, formData.inherent_dampak, templateScores]);
+  const residualSkor = useMemo(() => getScore(formData.residual_probabilitas, formData.residual_dampak), [formData.residual_probabilitas, formData.residual_dampak, templateScores]);
 
-  const inherentPForScore = parseInt(formData.inherent_probabilitas, 10);
-  const inherentIForScore = parseInt(formData.inherent_dampak, 10);
-  const inherentSkor = useMemo(() => {
-    const p = parseInt(formData.inherent_probabilitas, 10);
-    const i = parseInt(formData.inherent_dampak, 10);
-
-    console.log(`inherentSkor useMemo: P=${formData.inherent_probabilitas} (parsed=${p}), I=${formData.inherent_dampak} (parsed=${i})`);
-
-    if (isNaN(p) || p < 1 || p > 5 || isNaN(i) || i < 1 || i > 5) {
-      console.log("--> Invalid P/I, returning empty string.");
-      return "";
-    }
-
-    if (!Array.isArray(templateScores)) {
-      console.error("--> templateScores is not an array!", templateScores);
-      return "";
-    }
-
-    let foundScoreData = null;
-    templateScores.forEach((s, index) => {
-      const s_p = parseInt(s.likelihood_level, 10);
-      const s_i = parseInt(s.impact_level, 10);
-      console.log(`  Comparing with item ${index}: s_p=${s_p} (${typeof s_p}), s_i=${s_i} (${typeof s_i}). Match? ${s_p === p && s_i === i}`);
-      if (s_p === p && s_i === i) {
-        foundScoreData = s;
-      }
-    });
-
-    const scoreData = foundScoreData;
-
-    console.log(`--> Found scoreData for P=${p}, I=${i}:`, scoreData);
-
-    return scoreData ? String(scoreData.score) : "";
-  }, [formData.inherent_probabilitas, formData.inherent_dampak, templateScores]);
-
-  const residualSkor = useMemo(() => {
-    const pStr = formData.residual_probabilitas;
-    const iStr = formData.residual_dampak;
-    const p = pStr !== "" && pStr !== null && pStr !== undefined ? parseInt(pStr, 10) : null;
-    const i = iStr !== "" && iStr !== null && iStr !== undefined ? parseInt(iStr, 10) : null;
-
-    console.log(`residualSkor useMemo: P=${formData.residual_probabilitas} (parsed=${p}), I=${formData.residual_dampak} (parsed=${i})`);
-
-    if (p === null || isNaN(p) || p < 1 || p > 5 || i === null || isNaN(i) || i < 1 || i > 5) {
-      console.log("--> Invalid or empty P/I residual, returning empty string.");
-      return ""; // Tampilkan string kosong jika P atau I residual tidak valid/kosong
-    }
-
-    if (!Array.isArray(templateScores)) {
-      console.error("--> templateScores is not an array!", templateScores);
-      return "";
-    }
-
-    let foundScoreData = null;
-    templateScores.forEach((s, index) => {
-      const s_p = parseInt(s.likelihood_level, 10);
-      const s_i = parseInt(s.impact_level, 10);
-      if (s_p === p && s_i === i) {
-        foundScoreData = s;
-      }
-    });
-
-    const scoreData = foundScoreData;
-
-    console.log(`--> Found scoreData for residual P=${p}, I=${i}:`, scoreData);
-
-    return scoreData ? String(scoreData.score) : "";
-    // Alternatif fallback: return scoreData ? scoreData.score : p * i;
-  }, [formData.residual_probabilitas, formData.residual_dampak, templateScores]);
+  const labelClass = "text-xs font-bold text-gray-500 uppercase mb-1 block";
 
   return (
     <Dialog open={isOpen} onClose={onClose} static={true} className="z-[100]">
-      <DialogPanel className="max-w-5xl">
-        <div className="flex justify-between items-start">
-          <Title>{isEditMode ? "Edit" : "Tambah"} Risk Input Baru</Title>
-          <Button icon={FiX} variant="light" className="-mt-1 -mr-1" onClick={onClose} />
-        </div>
-        {error && <Text className="text-red-500 mt-2">{error}</Text>}
-        {/* Buat form scrollable jika kontennya panjang */}
-        <form onSubmit={handleSubmit} className="mt-6 max-h-[75vh] overflow-y-auto pr-4 -mr-4 space-y-6">
-          {/* --- BAGIAN IDENTIFIKASI --- */}
-          <Card className="border border-gray-200 shadow-sm">
-            {/* ... field identifikasi ... */}
-            <div className="flex items-center gap-3 mb-4 border-b pb-2">
-              <FiClipboard className="w-5 h-5 text-gray-500" />
-              <Title order={5} className="text-tremor-content-strong">
-                Identifikasi Risiko
-              </Title>
+      <DialogPanel className="max-w-6xl p-0 overflow-hidden rounded-xl bg-white shadow-2xl transform transition-all">
+        {/* HEADER */}
+        <div className="px-6 py-5 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shadow-sm border border-indigo-100">{isEditMode ? <FiClipboard size={22} /> : <FiPlus size={22} />}</div>
+            <div>
+              <Title className="text-xl text-slate-800 font-bold">{isEditMode ? "Edit Risiko" : "Identifikasi Risiko Baru"}</Title>
+              <Text className="text-xs text-gray-500 mt-0.5">Lengkapi formulir detail risiko di bawah ini.</Text>
             </div>
-            <Grid numItemsMd={2} className="gap-x-6 gap-y-4">
-              {renderField("Kode Risiko", "kode_risiko", <TextInput placeholder="Otomatis atau manual..." />)} {renderSelectField("Status Risiko", "status_risiko", statusRisikoOptions, true, { defaultValue: "Risiko Aktif" })}
-              {renderSelectField("Peluang / Ancaman", "peluang_ancaman", peluangAncamanOptions, true, { defaultValue: "Ancaman" })}
+          </div>
+          <Button icon={FiX} variant="light" color="slate" onClick={onClose} className="rounded-full hover:bg-gray-200 p-2" />
+        </div>
+
+        {/* ERROR MESSAGE */}
+        {error && (
+          <div className="px-6 py-3 bg-red-50 border-b border-red-100 text-red-600 text-sm flex items-center gap-2">
+            <FiAlertTriangle /> {error}
+          </div>
+        )}
+
+        {/* BODY FORM */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-8 max-h-[75vh] overflow-y-auto bg-slate-50/30">
+          {/* 1. IDENTIFIKASI RISIKO */}
+          <Card className="p-6 rounded-xl border border-gray-200 shadow-sm bg-white">
+            <div className="flex items-center gap-2 mb-6 pb-3 border-b border-gray-100">
+              <FiClipboard className="text-blue-500" />
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Identifikasi Risiko</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
-                <label className="text-sm font-medium text-tremor-content">Kategori Risiko *</label>
-                <Select name="kategori_risiko" value={formData.kategori_risiko || ""} onValueChange={handleKategoriChange} required className="mt-1">
-                  <SelectItem value="">Pilih Kategori...</SelectItem>
-                  {kategoriRisikoOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
+                <label className={labelClass}>Kode Risiko</label>
+                <TextInput name="kode_risiko" value={formData.kode_risiko || ""} onChange={(e) => handleChange("kode_risiko", e.target.value)} placeholder="Otomatis..." />
+              </div>
+              <div>
+                <label className={labelClass}>Status Risiko</label>
+                <Select value={formData.status_risiko || ""} onValueChange={(v) => handleChange("status_risiko", v)}>
+                  {statusRisikoOptions.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
                     </SelectItem>
                   ))}
                 </Select>
               </div>
-              {formData.kategori_risiko === "Risiko Lainnya" && renderField("Nama Kategori Lainnya", "kategori_risiko_lainnya", <TextInput />, true, { span: 2 })}
-              {renderSelectField("Unit Kerja", "unit_kerja", unitKerjaOptions, true, { disabled: unitKerjaOptions.length === 0, placeholder: "Pilih Unit Kerja..." })}
               <div>
-                <label className="text-sm font-medium text-tremor-content">Sasaran Terkait (Opsional)</label>
-                <Select name="sasaran_id" value={String(formData.sasaran_id || "")} onValueChange={(v) => handleChange("sasaran_id", v)} disabled={validSasaranOptions.length === 0} className="mt-1">
-                  <SelectItem value="">Pilih Sasaran/KPI...</SelectItem>
-                  {validSasaranOptions.map((opt) => {
-                    const displayText = typeof opt.sasaran_kpi === "string" || typeof opt.sasaran_kpi === "number" ? String(opt.sasaran_kpi) : `Invalid Option (ID: ${opt.id})`;
-                    return (
-                      <SelectItem key={opt.id} value={String(opt.id)}>
-                        {displayText}
-                      </SelectItem>
-                    );
-                  })}
+                <label className={labelClass}>Peluang / Ancaman</label>
+                <Select value={formData.peluang_ancaman || ""} onValueChange={(v) => handleChange("peluang_ancaman", v)}>
+                  {peluangAncamanOptions.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
                 </Select>
               </div>
-              {renderField("Tanggal Identifikasi", "tanggal_identifikasi", <TextInput type="date" />, true)} {renderField("Deskripsi Risiko", "deskripsi_risiko", <Textarea rows={3} />, true, { span: 2 })}
-              {renderField("Akar Penyebab", "akar_penyebab", <Textarea rows={3} />, false, { span: 2 })} {renderField("Indikator Risiko Kunci (KRI)", "indikator_risiko", <Textarea rows={3} />, false, { span: 2 })}
-              {renderField("Kontrol Internal Yang Ada", "internal_control", <Textarea rows={3} />, false, { span: 2 })} {renderField("Deskripsi Dampak", "deskripsi_dampak", <Textarea rows={3} />, false, { span: 2 })}
-            </Grid>
-          </Card>
-
-          {/* --- BAGIAN ANALISIS INHEREN --- */}
-          <Card className="border border-blue-200 shadow-sm">
-            <div className="flex items-center gap-3 mb-4 border-b border-blue-200 pb-2">
-              <Title order={5} className="text-tremor-content-strong text-blue-700">
-                Analisis Risiko Inheren
-              </Title>
-            </div>
-            <Grid numItemsMd={2} className="gap-x-6 gap-y-4 items-end">
-              {renderNumberField("Probabilitas (P)", "inherent_probabilitas", true, { min: 1, max: 5 })}
-              {renderNumberField("Dampak (I)", "inherent_dampak", true, { min: 1, max: 5 })}
               <div>
-                <label className="text-sm font-medium text-tremor-content">Skor Risiko</label>
-                <TextInput name="inherent_skor_display" value={inherentSkor} disabled placeholder={templateScores.length > 0 ? "Otomatis" : "Pilih P & I"} className="mt-1" />
+                <label className={labelClass}>
+                  Kategori Risiko<span className="text-red-500">*</span>
+                </label>
+                <Select value={formData.kategori_risiko || ""} onValueChange={handleKategoriChange} required>
+                  {kategoriRisikoOptions.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </Select>
               </div>
-              {renderNumberField("Probabilitas Kualitatif (%)", "inherent_prob_kualitatif", false, { icon: FiInfo, placeholder: "0 - 100", min: 0, max: 100 })}
-              {renderRupiahField("Dampak Finansial (Rp)", "inherent_dampak_finansial", { placeholder: "1.000.000" })}
+              {formData.kategori_risiko === "Risiko Lainnya" && (
+                <div className="lg:col-span-2">
+                  <label className={labelClass}>Nama Kategori Lainnya</label>
+                  <TextInput name="kategori_risiko_lainnya" value={formData.kategori_risiko_lainnya || ""} onChange={(e) => handleChange("kategori_risiko_lainnya", e.target.value)} />
+                </div>
+              )}
               <div>
-                <label className="text-sm font-medium text-tremor-content">Nilai Bersih Risiko Inheren</label>
-                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedInherenNilaiBersih)} disabled placeholder="Hasil % x Rp" className="mt-1" />
+                <label className={labelClass}>
+                  Unit Kerja <span className="text-red-500">*</span>
+                </label>
+                <Select value={formData.unit_kerja || ""} onValueChange={(v) => handleChange("unit_kerja", v)} placeholder="Pilih Unit...">
+                  {unitKerjaOptions.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </Select>
               </div>
-            </Grid>
-          </Card>
-
-          {/* --- BAGIAN PEMILIK RISIKO --- */}
-          <Card className="border border-yellow-300 shadow-sm">
-            <div className="flex items-center gap-3 mb-4 border-b border-yellow-300 pb-2">
-              <FiUserCheck className="w-5 h-5 text-yellow-600" />
-              <Title order={5} className="text-tremor-content-strong text-yellow-700">
-                Pemilik Risiko
-              </Title>
-            </div>
-            <Grid numItemsMd={2} className="gap-x-6 gap-y-4">
-              {renderField("Nama Pemilik Risiko", "pemilik_risiko", <TextInput placeholder="Nama..." />)} {renderField("Jabatan", "jabatan_pemilik", <TextInput placeholder="Jabatan..." />)}
-              {renderField("No. HP", "kontak_pemilik_hp", <TextInput placeholder="08..." />)} {renderField("Email", "kontak_pemilik_email", <TextInput type="email" placeholder="email@..." />)}
-            </Grid>
-          </Card>
-
-          {/* --- BAGIAN PENANGANAN --- */}
-          <Card className="border border-green-300 shadow-sm">
-            {/* ... field penanganan ... */}
-            <div className="flex items-center gap-3 mb-4 border-b border-green-300 pb-2">
-              <FiTool className="w-5 h-5 text-green-600" />
-              <Title order={5} className="text-tremor-content-strong text-green-700">
-                Evaluasi & Penanganan Risiko
-              </Title>
-            </div>
-            <Grid numItemsMd={2} className="gap-x-6 gap-y-4">
-              {renderSelectField("Strategi Penanganan", "strategi", strategiOptions, true)} {renderField("Rencana Penanganan / Mitigasi", "rencana_penanganan", <Textarea rows={4} />, true, { span: 2 })}
-              {renderRupiahField("Estimasi Biaya Penanganan (Rp)", "biaya_penanganan", { placeholder: "500.000" })}
-              {renderSelectField("Status Penanganan", "status_penanganan", ["Open", "In Progress", "Done", "Cancelled"], false, { placeholder: "Pilih Status..." })}
-              {renderField("Jadwal Mulai", "jadwal_mulai_penanganan", <TextInput type="date" />)} {renderField("Jadwal Selesai", "jadwal_selesai_penanganan", <TextInput type="date" />)}
-              {renderField("PIC Penanganan", "pic_penanganan", <TextInput placeholder="Nama PIC..." />, false, { span: 2 })} {renderField("Penanganan Yang Telah Dilakukan", "penanganan_dilakukan", <Textarea rows={3} />, false, { span: 2 })}
-            </Grid>
-          </Card>
-
-          {/* --- BAGIAN ANALISIS RESIDUAL --- */}
-          <Card className="border border-red-200 shadow-sm">
-            {/* ... field residual ... */}
-            <div className="flex items-center gap-3 mb-4 border-b border-red-200 pb-2">
-              <FiCheckCircle className="w-5 h-5 text-red-500" />
-              <Title order={5} className="text-tremor-content-strong text-red-700">
-                Analisis Risiko Residual
-              </Title>
-            </div>
-            <Grid numItemsMd={2} className="gap-x-6 gap-y-4 items-end">
-              {renderNumberField("Probabilitas (P)", "residual_probabilitas", false, { min: 1, max: 5, placeholder: "1-5" })}
-              {renderNumberField("Dampak (I)", "residual_dampak", false, { min: 1, max: 5, placeholder: "1-5" })}
               <div>
-                <label className="text-sm font-medium text-tremor-content">Skor Risiko</label>
+                <label className={labelClass}>
+                  Tanggal Identifikasi <span className="text-red-500">*</span>
+                </label>
+                <TextInput type="date" value={formData.tanggal_identifikasi || ""} onChange={(e) => handleChange("tanggal_identifikasi", e.target.value)} icon={FiCalendar} />
+              </div>
+              <div className="lg:col-span-3">
+                <label className={labelClass}>Sasaran Terkait</label>
+                <Select value={String(formData.sasaran_id || "")} onValueChange={(v) => handleChange("sasaran_id", v)} placeholder="Pilih Sasaran KPI...">
+                  {validSasaranOptions.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.sasaran_kpi}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+              <div className="lg:col-span-3">
+                <label className={labelClass}>
+                  Deskripsi Risiko <span className="text-red-500">*</span>
+                </label>
+                <Textarea name="deskripsi_risiko" value={formData.deskripsi_risiko} onChange={(e) => handleChange("deskripsi_risiko", e.target.value)} required rows={3} />
+              </div>
+              <div className="lg:col-span-1">
+                <label className={labelClass}>Akar Penyebab</label>
+                <Textarea name="akar_penyebab" value={formData.akar_penyebab} onChange={(e) => handleChange("akar_penyebab", e.target.value)} rows={3} />
+              </div>
+              <div className="lg:col-span-1">
+                <label className={labelClass}>Indikator Risiko Kunci (KRI)</label>
+                <Textarea name="indikator_risiko" value={formData.indikator_risiko} onChange={(e) => handleChange("indikator_risiko", e.target.value)} rows={3} />
+              </div>
+              <div className="lg:col-span-1">
+                <label className={labelClass}>Kontrol Internal Yang Ada</label>
+                <Textarea name="internal_control" value={formData.internal_control} onChange={(e) => handleChange("internal_control", e.target.value)} rows={3} placeholder="SOP, Sistem, dll..." />
+              </div>
+              <div className="lg:col-span-3">
+                <label className={labelClass}>Deskripsi Dampak</label>
+                <Textarea name="deskripsi_dampak" value={formData.deskripsi_dampak} onChange={(e) => handleChange("deskripsi_dampak", e.target.value)} rows={2} />
+              </div>
+            </div>
+          </Card>
+
+          {/* 2. ANALISIS RISIKO INHEREN */}
+          <Card className="p-6 rounded-xl border-l-4 border-blue-500 shadow-sm ring-1 ring-gray-200 bg-white">
+            <div className="flex items-center gap-2 mb-6 pb-3 border-b border-gray-100">
+              <FiTrendingUp className="text-blue-600" />
+              <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider">Analisis Risiko Inheren</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 md:col-span-1">
+                <Text className="text-xs font-bold text-blue-700 mb-3 uppercase border-b border-blue-200 pb-1">Skor Kuantitatif</Text>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Prob (1-5)</label>
+                    <NumberInput value={formData.inherent_probabilitas || ""} onValueChange={(v) => handleChange("inherent_probabilitas", clampMatrixValue(v))} min={1} max={5} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Dampak (1-5)</label>
+                    <NumberInput value={formData.inherent_dampak || ""} onValueChange={(v) => handleChange("inherent_dampak", clampMatrixValue(v))} min={1} max={5} />
+                  </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-blue-200 flex justify-between items-center">
+                  <span className="text-xs font-bold text-blue-600">Skor Risiko</span>
+                  <span className="text-xl font-bold text-slate-800">{inherentSkor || "-"}</span>
+                </div>
+              </div>
+              <div className="md:col-span-2 grid grid-cols-2 gap-6">
+                {/* Probabilitas 0-100% */}
+                <div>
+                  <label className={labelClass}>Probabilitas Kualitatif (%)</label>
+                  <NumberInput
+                    value={formData.inherent_prob_kualitatif || ""}
+                    onValueChange={(v) => handleChange("inherent_prob_kualitatif", clampPercentValue(v))}
+                    min={0}
+                    max={100}
+                    icon={() => <span className="text-gray-400 text-xs ml-2">%</span>}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Dampak Finansial</label>
+                  <TextInput
+                    value={formatRupiah(formData.inherent_dampak_finansial || "")}
+                    onChange={(e) => handleChange("inherent_dampak_finansial", parseRupiah(e.target.value))}
+                    icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>}
+                  />
+                </div>
+                <div className="col-span-2 bg-gray-50 p-3 rounded border border-gray-200 flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-500 uppercase">Nilai Bersih Risiko Inhheren (Net Risk)</span>
+                  <span className="text-base font-bold text-slate-700">Rp {formatRupiah(calculatedInherenNilaiBersih)}</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* 3. PEMILIK RISIKO */}
+          <Card className="p-6 rounded-xl border-l-4 border-yellow-400 shadow-sm ring-1 ring-gray-200 bg-white">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-100">
+              <FiUserCheck className="text-yellow-600" />
+              <h3 className="text-sm font-bold text-yellow-800 uppercase tracking-wider">Pemilik Risiko</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className={labelClass}>Nama Pemilik Risiko</label>
+                <TextInput name="pemilik_risiko" value={formData.pemilik_risiko || ""} onChange={(e) => handleChange("pemilik_risiko", e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>Jabatan</label>
+                <TextInput name="jabatan_pemilik" value={formData.jabatan_pemilik || ""} onChange={(e) => handleChange("jabatan_pemilik", e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>Email</label>
+                <TextInput name="kontak_pemilik_email" type="email" value={formData.kontak_pemilik_email || ""} onChange={(e) => handleChange("kontak_pemilik_email", e.target.value)} placeholder="email@perusahaan.com" />
+              </div>
+              <div>
+                <label className={labelClass}>No. HP</label>
                 <TextInput
-                  name="residual_skor_display"
-                  value={residualSkor} // <-- Langsung gunakan variabel hasil useMemo
-                  disabled
-                  placeholder={templateScores.length > 0 ? "Otomatis" : "Pilih P & I"}
-                  className="mt-1"
+                  name="kontak_pemilik_hp"
+                  value={formData.kontak_pemilik_hp || ""}
+                  onChange={(e) => handleChange("kontak_pemilik_hp", e.target.value)}
+                  placeholder="08xxxxxxxxxx"
+                  error={formData.kontak_pemilik_hp && (formData.kontak_pemilik_hp.length < 10 || formData.kontak_pemilik_hp.length > 13)}
+                  errorMessage="Harus 10-13 digit"
                 />
               </div>
-              {renderNumberField("Probabilitas Kualitatif (%)", "residual_prob_kualitatif", false, { icon: FiInfo, placeholder: "0 - 100", min: 0, max: 100 })}
+            </div>
+          </Card>
+
+          {/* 4. EVALUASI & PENANGANAN */}
+          <Card className="p-6 rounded-xl border-l-4 border-emerald-500 shadow-sm ring-1 ring-gray-200 bg-white">
+            <div className="flex items-center gap-2 mb-6 pb-3 border-b border-gray-100">
+              <FiTool className="text-emerald-600" />
+              <h3 className="text-sm font-bold text-emerald-800 uppercase tracking-wider">Evaluasi & Penanganan</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-tremor-content">Dampak Finansial (Rp)</label>
-                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedDampakFinansialResidual)} disabled placeholder="Hasil Hitung Otomatis" className="mt-1" />
+                <label className={labelClass}>Strategi Penanganan</label>
+                <Select value={formData.strategi || ""} onValueChange={(v) => handleChange("strategi", v)} placeholder="Pilih Strategi...">
+                  {strategiOptions.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </Select>
               </div>
               <div>
-                <label className="text-sm font-medium text-tremor-content">Nilai Bersih Risiko Residual</label>
-                <TextInput icon={() => <span className="text-gray-500 text-sm">Rp</span>} value={formatRupiah(calculatedResidualNilaiBersih)} disabled placeholder="Hasil % x Rp" className="mt-1" />
+                <label className={labelClass}>Estimasi Biaya Penanganan</label>
+                <TextInput value={formatRupiah(formData.biaya_penanganan || "")} onChange={(e) => handleChange("biaya_penanganan", parseRupiah(e.target.value))} icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>} />
               </div>
-              {renderField("Tanggal Review", "tanggal_review", <TextInput type="date" />)}
-            </Grid>
+              <div className="md:col-span-2">
+                <label className={labelClass}>Rencana Penanganan / Mitigasi</label>
+                <Textarea name="rencana_penanganan" value={formData.rencana_penanganan || ""} onChange={(e) => handleChange("rencana_penanganan", e.target.value)} rows={3} />
+              </div>
+              <div>
+                <label className={labelClass}>Status Penanganan</label>
+                <Select value={formData.status_penanganan || ""} onValueChange={(v) => handleChange("status_penanganan", v)} placeholder="Status...">
+                  {["Open", "In Progress", "Done", "Cancelled"].map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label className={labelClass}>PIC Penanganan</label>
+                <TextInput name="pic_penanganan" value={formData.pic_penanganan || ""} onChange={(e) => handleChange("pic_penanganan", e.target.value)} placeholder="Nama Penanggung Jawab" />
+              </div>
+              <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                <div>
+                  <label className={labelClass}>Jadwal Mulai</label>
+                  <TextInput type="date" value={formData.jadwal_mulai_penanganan || ""} onChange={(e) => handleChange("jadwal_mulai_penanganan", e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelClass}>Jadwal Selesai</label>
+                  <TextInput type="date" value={formData.jadwal_selesai_penanganan || ""} onChange={(e) => handleChange("jadwal_selesai_penanganan", e.target.value)} />
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className={labelClass}>Penanganan Yang Telah Dilakukan</label>
+                <Textarea name="penanganan_dilakukan" value={formData.penanganan_dilakukan} onChange={(e) => handleChange("penanganan_dilakukan", e.target.value)} rows={3} placeholder="Tindakan yang sudah dieksekusi..." />
+              </div>
+            </div>
+          </Card>
+
+          {/* 5. ANALISIS RISIKO RESIDUAL (FIXED) */}
+          <Card className="p-6 rounded-xl border-l-4 border-orange-500 shadow-sm ring-1 ring-gray-200 bg-white">
+            <div className="flex items-center gap-2 mb-6 pb-3 border-b border-gray-100">
+              <FiTarget className="text-orange-600" />
+              <h3 className="text-sm font-bold text-orange-800 uppercase tracking-wider">Analisis Risiko Residual</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+              {/* Skor Matriks */}
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 md:col-span-1">
+                <Text className="text-xs font-bold text-orange-700 mb-3 uppercase border-b border-orange-200 pb-1">Target Skor Matriks</Text>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Target P (1-5)</label>
+                    <NumberInput value={formData.residual_probabilitas || ""} onValueChange={(v) => handleChange("residual_probabilitas", clampMatrixValue(v))} min={1} max={5} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Target I (1-5)</label>
+                    <NumberInput value={formData.residual_dampak || ""} onValueChange={(v) => handleChange("residual_dampak", clampMatrixValue(v))} min={1} max={5} />
+                  </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-orange-200 flex justify-between items-center">
+                  <span className="text-xs font-bold text-orange-600">Skor Risiko</span>
+                  <span className="text-xl font-bold text-slate-800">{residualSkor || "-"}</span>
+                </div>
+              </div>
+
+              {/* Analisis Finansial Residual */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Probabilitas Kualitatif - IZINKAN 0-100 */}
+                <div>
+                  <label className={labelClass}>Probabilitas Kualitatif (%)</label>
+                  <NumberInput
+                    value={formData.residual_prob_kualitatif || ""}
+                    onValueChange={(v) => handleChange("residual_prob_kualitatif", clampPercentValue(v))}
+                    min={0}
+                    max={100}
+                    icon={() => <span className="text-gray-400 text-xs ml-2">%</span>}
+                  />
+                </div>
+
+                {/* Dampak Finansial Residual (READ-ONLY, HASIL HITUNG) */}
+                <div>
+                  <label className={labelClass}>Dampak Finansial Residual (Hitung)</label>
+                  <TextInput value={formatRupiah(calculatedDampakFinansialResidual || "")} disabled placeholder="Otomatis" icon={() => <span className="text-gray-400 text-xs ml-2">Rp</span>} />
+                </div>
+
+                {/* Nilai Bersih Residual (READ-ONLY, HASIL HITUNG) */}
+                <div className="sm:col-span-2 bg-orange-50/50 p-3 rounded border border-orange-100 flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-500 uppercase">Nilai Bersih Risiko Residual</span>
+                  <span className="text-base font-bold text-slate-700">Rp {formatRupiah(calculatedResidualNilaiBersih)}</span>
+                </div>
+
+                {/* Tanggal Review */}
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>Target Review</label>
+                  <TextInput type="date" value={formData.tanggal_review || ""} onChange={(e) => handleChange("tanggal_review", e.target.value)} />
+                </div>
+              </div>
+            </div>
           </Card>
         </form>
-        <div className="mt-8 pt-4 border-t flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} icon={FiX}>
+
+        {/* FOOTER */}
+        <div className="px-8 py-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <Button variant="secondary" className="rounded-md" color="rose" onClick={onClose}>
             Batal
           </Button>
-          <Button onClick={handleSubmit} loading={isLoading} icon={FiSave}>
-            {isEditMode ? "Update Risk Input" : "Simpan Risk Input"}
+          <Button onClick={handleSubmit} loading={isLoading} icon={FiSave} className="text-white bg-indigo-600 border-indigo-600 hover:bg-indigo-700 hover:border-indigo-700 shadow-lg shadow-indigo-100 rounded-md">
+            {isEditMode ? "Update Risiko" : "Simpan Risiko"}
           </Button>
         </div>
       </DialogPanel>

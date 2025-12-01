@@ -1,194 +1,152 @@
 // frontend/src/features/risk-management/madya/components/RiskInputCard.jsx
-import React, { useState, useMemo, useEffect } from "react";
+
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Card, Title, Text, Button, TextInput, Select, SelectItem, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell, Badge } from "@tremor/react";
-import { FiPlus, FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiList, FiMaximize, FiMinimize, FiFilter } from "react-icons/fi";
 import apiClient from "../../../../api/api";
 import RiskInputFormModal from "./RiskInputFormModal";
 
+// Helper Format Currency
 const formatCurrency = (value) => {
-  const num = parseFloat(String(value).replace(/[^0-9.-]+/g, ""));
-  if (value === null || value === undefined || isNaN(num)) return "Rp 0";
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
+  if (!value) return "Rp 0";
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 };
 
+// Helper Format Date
 const formatDate = (dateString) => {
   if (!dateString) return "-";
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("id-ID", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return date.toLocaleDateString("id-ID", { year: "numeric", month: "short", day: "numeric" });
   } catch (e) {
-    console.error("Error formatting date:", dateString, e);
     return "-";
   }
 };
 
+// Helper Risk Level Style
 const getRiskLevelStyle = (score) => {
   if (score === null || score === undefined) return { text: "#N/A", colorClass: "bg-gray-200 text-gray-500" };
-  if (score >= 20) return { text: String(score), colorClass: "bg-red-600 text-white" }; // E
-  if (score >= 16) return { text: String(score), colorClass: "bg-orange-500 text-white" }; // H
-  if (score >= 12) return { text: String(score), colorClass: "bg-yellow-400 text-black" }; // M
-  if (score >= 6) return { text: String(score), colorClass: "bg-lime-400 text-black" }; // L
-  if (score >= 1) return { text: String(score), colorClass: "bg-green-500 text-white" }; // R
+  if (score >= 20) return { text: String(score), colorClass: "bg-red-600 text-white" };
+  if (score >= 16) return { text: String(score), colorClass: "bg-orange-500 text-white" };
+  if (score >= 12) return { text: String(score), colorClass: "bg-yellow-400 text-black" };
+  if (score >= 6) return { text: String(score), colorClass: "bg-lime-400 text-black" };
+  if (score >= 1) return { text: String(score), colorClass: "bg-green-500 text-white" };
   return { text: "#N/A", colorClass: "bg-gray-200 text-gray-500" };
 };
 
-const statusPenangananColors = {
-  Open: "gray",
-  "In Progress": "orange",
-  Done: "emerald",
-  Cancelled: "rose",
-  "-": "gray", // Default
-};
-
 function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries = [], templateScores = [], onRiskInputSaveSuccess, initialFilters, onFilterChange, initialRiskInputData = [], isDataLoading = false }) {
-  console.log("RiskInputCard rendered/updated. Received structureEntries:", structureEntries);
-  console.log("RiskInputCard received templateScores:", templateScores);
-  // const [organisasi, setOrganisasi] = useState("");
-  // const [selectedDirektorat, setSelectedDirektorat] = useState("");
-  // const [selectedDivisi, setSelectedDivisi] = useState("");
-  // const [selectedDepartemen, setSelectedDepartemen] = useState("");
   const uniqueDirektorat = useMemo(() => [...new Set(structureEntries.map((e) => e.direktorat).filter(Boolean))], [structureEntries]);
   const uniqueDivisi = useMemo(() => [...new Set(structureEntries.map((e) => e.divisi).filter(Boolean))], [structureEntries]);
   const uniqueUnitKerja = useMemo(() => [...new Set(structureEntries.map((e) => e.unit_kerja).filter(Boolean))], [structureEntries]);
 
-  // const [riskInputEntries, setRiskInputEntries] = useState([]);
-  // const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRiskData, setEditingRiskData] = useState(null); // Untuk data edit
+  const [editingRiskData, setEditingRiskData] = useState(null);
   const [sasaranOptions, setSasaranOptions] = useState([]);
   const riskInputEntries = initialRiskInputData;
   const isLoading = isDataLoading;
 
-  console.log("Unique Direktorat:", uniqueDirektorat);
-  console.log("Unique Divisi:", uniqueDivisi);
-  console.log("Unique Unit Kerja:", uniqueUnitKerja);
-  console.log("Direktorat disabled?", uniqueDirektorat.length === 0);
-
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     setIsLoading(true);
-  //     try {
-  //       const riskResponse = await apiClient.get(`/madya-assessments/${assessmentId}/risk-inputs`);
-  //       setRiskInputEntries(riskResponse.data);
-  //       const validSasaranProps = Array.isArray(sasaranKPIEntries) ? sasaranKPIEntries : [];
-  //       if (validSasaranProps.length > 0) {
-  //         console.log("Menggunakan sasaranKPIEntries dari props:", validSasaranProps);
-  //         setSasaranOptions(validSasaranProps.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
-  //       } else {
-  //         console.log("sasaranKPIEntries dari props kosong/bukan array, fetch ulang...");
-  //         const sasaranResponse = await apiClient.get(`/madya-assessments/${assessmentId}/sasaran-kpi`);
-  //         if (Array.isArray(sasaranResponse.data)) {
-  //           setSasaranOptions(sasaranResponse.data.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
-  //         } else {
-  //           console.error("API /sasaran-kpi tidak mengembalikan array:", sasaranResponse.data);
-  //           setSasaranOptions([]);
-  //         }
-  //       }
-  //     } catch (error) {
-  //       console.error("Gagal memuat data Risk Input:", error);
-  //       setSasaranOptions([]);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
-
-  //   if (assessmentId) {
-  //     fetchData();
-  //   } else {
-  //     setRiskInputEntries([]);
-  //     setSasaranOptions([]);
-  //     setIsLoading(false);
-  //   }
-  // }, [assessmentId, sasaranKPIEntries]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const cardRef = useRef(null);
 
   useEffect(() => {
-    // Logika untuk mengisi sasaranOptions dari props sasaranKPIEntries
     const validSasaranProps = Array.isArray(sasaranKPIEntries) ? sasaranKPIEntries : [];
-    if (validSasaranProps.length > 0) {
-      setSasaranOptions(validSasaranProps.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
-    } else {
-      setSasaranOptions([]);
-    }
+    if (validSasaranProps.length > 0) setSasaranOptions(validSasaranProps.map((s) => ({ id: s.id, sasaran_kpi: s.sasaran_kpi })));
+    else setSasaranOptions([]);
   }, [sasaranKPIEntries]);
 
+  const filteredRiskInputs = useMemo(() => {
+    return riskInputEntries.filter((risk) => {
+      if (initialFilters.departemen && risk.unit_kerja !== initialFilters.departemen) return false;
+
+      const structure = structureEntries.find((s) => s.unit_kerja === risk.unit_kerja);
+      const filterOrg = initialFilters.organisasi ? initialFilters.organisasi.toLowerCase() : "";
+      const filterDir = initialFilters.direktorat;
+      const filterDiv = initialFilters.divisi;
+
+      if (filterOrg || filterDir || filterDiv) {
+        if (!structure) return false;
+        if (filterOrg && !structure.organisasi?.toLowerCase().includes(filterOrg)) return false;
+        if (filterDir && structure.direktorat !== filterDir) return false;
+        if (filterDiv && structure.divisi !== filterDiv) return false;
+      }
+      return true;
+    });
+  }, [riskInputEntries, initialFilters, structureEntries]);
+
   const handleOpenAddModal = () => {
-    setEditingRiskData(null); // Pastikan mode tambah
+    setEditingRiskData(null);
     setIsModalOpen(true);
   };
-
   const handleOpenEditModal = (riskData) => {
-    setEditingRiskData(riskData); // Set data untuk diedit
+    setEditingRiskData(riskData);
     setIsModalOpen(true);
   };
-
   const handleSaveRiskInput = (responseData, isUpdate) => {
-    console.log("Data diterima di RiskInputCard handleSaveRiskInput:", responseData);
-    setIsModalOpen(false); // Tutup modal otomatis
-
-    if (onRiskInputSaveSuccess) {
-      onRiskInputSaveSuccess(responseData, isUpdate);
-    }
+    setIsModalOpen(false);
+    if (onRiskInputSaveSuccess) onRiskInputSaveSuccess(responseData, isUpdate);
   };
 
   const handleDeleteRiskInput = async (riskInputId) => {
     if (window.confirm("Anda yakin ingin menghapus data risk input ini?")) {
-      // setIsLoading(true);
       try {
         await apiClient.delete(`/risk-inputs/${riskInputId}`);
-        // setRiskInputEntries((prev) => prev.filter((entry) => entry.id !== riskInputId));
-        alert("Data Risk Input berhasil dihapus.");
-        if (onRiskInputSaveSuccess) {
-          onRiskInputSaveSuccess(); // Panggil refresh setelah hapus
-        }
+        if (onRiskInputSaveSuccess) onRiskInputSaveSuccess();
       } catch (error) {
-        alert("Gagal menghapus data: " + (error.response?.data?.msg || "Error"));
-      } finally {
-        setIsLoading(false);
+        alert("Gagal menghapus data.");
       }
     }
   };
 
-  const getSasaranText = (sasaranId) => {
-    const found = sasaranOptions.find((s) => s.id === sasaranId);
-    return found?.sasaran_kpi || "-";
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      cardRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else document.exitFullscreen();
   };
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   return (
     <>
-      <Card>
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <Title as="h3">4. Risk Input</Title>
-            <Text>Identifikasi dan analisis detail risiko untuk unit kerja terpilih.</Text>
+      <Card className={`border-l-4 border-rose-500 shadow-md ring-1 ring-gray-100 bg-slate-50 ${isFullscreen ? "fixed inset-0 z-50 h-screen overflow-auto m-0 rounded-none" : "relative"}`} ref={cardRef}>
+        {/* Header Card */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-50 rounded-lg text-rose-600">
+              <FiList size={24} />
+            </div>
+            <div>
+              <Title>4. Risk Input</Title>
+              <Text>Identifikasi dan analisis detail risiko.</Text>
+            </div>
           </div>
-          <Button icon={FiPlus} onClick={handleOpenAddModal} loading={isLoading}>
-            Tambah Risk Input
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button icon={FiPlus} onClick={handleOpenAddModal} loading={isLoading} variant="secondary" className="rounded-md w-full sm:w-auto" color="rose">
+              Tambah Risk Input
+            </Button>
+            <Button variant="light" icon={isFullscreen ? FiMinimize : FiMaximize} onClick={toggleFullscreen} />
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 border rounded-lg bg-slate-50">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Organisasi</label>
-            <TextInput
-              value={initialFilters.organisasi || ""} // Gunakan dari props
-              onChange={(e) => onFilterChange("organisasi", e.target.value)} // Panggil handler props
-              placeholder="Nama Perusahaan..."
-              className="mt-1"
-            />
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 border border-rose-100 rounded-xl bg-rose-50/30">
+          <div className="col-span-1 md:col-span-4 flex items-center gap-2 text-rose-700 mb-1">
+            <FiFilter size={14} />
+            <span className="text-xs font-bold uppercase tracking-wider">Filter Data</span>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Direktorat</label>
-            <Select
-              value={initialFilters.direktorat || ""} // Gunakan dari props
-              onValueChange={(value) => onFilterChange("direktorat", value)} // Panggil handler props
-              className="mt-1"
-              disabled={uniqueDirektorat.length === 0}
-            >
-              <SelectItem value="">Pilih Direktorat...</SelectItem>
+            <label className="text-xs font-semibold text-gray-500 uppercase">Organisasi</label>
+            <TextInput value={initialFilters.organisasi || ""} onChange={(e) => onFilterChange("organisasi", e.target.value)} placeholder="Filter..." className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase">Direktorat</label>
+            <Select value={initialFilters.direktorat || ""} onValueChange={(value) => onFilterChange("direktorat", value)} className="mt-1">
+              <SelectItem value="">Semua</SelectItem>
               {uniqueDirektorat.map((dir) => (
                 <SelectItem key={dir} value={dir}>
                   {dir}
@@ -197,14 +155,9 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
             </Select>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Divisi</label>
-            <Select
-              value={initialFilters.divisi || ""} // Gunakan dari props
-              onValueChange={(value) => onFilterChange("divisi", value)} // Panggil handler props
-              className="mt-1"
-              disabled={uniqueDivisi.length === 0}
-            >
-              <SelectItem value="">Pilih Divisi...</SelectItem>
+            <label className="text-xs font-semibold text-gray-500 uppercase">Divisi</label>
+            <Select value={initialFilters.divisi || ""} onValueChange={(value) => onFilterChange("divisi", value)} className="mt-1">
+              <SelectItem value="">Semua</SelectItem>
               {uniqueDivisi.map((div) => (
                 <SelectItem key={div} value={div}>
                   {div}
@@ -213,14 +166,9 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
             </Select>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Departemen</label>
-            <Select
-              value={initialFilters.departemen || ""} // Gunakan dari props
-              onValueChange={(value) => onFilterChange("departemen", value)} // Panggil handler props
-              className="mt-1"
-              disabled={uniqueUnitKerja.length === 0}
-            >
-              <SelectItem value="">Pilih Unit Kerja...</SelectItem>
+            <label className="text-xs font-semibold text-gray-500 uppercase">Departemen</label>
+            <Select value={initialFilters.departemen || ""} onValueChange={(value) => onFilterChange("departemen", value)} className="mt-1">
+              <SelectItem value="">Semua</SelectItem>
               {uniqueUnitKerja.map((unit) => (
                 <SelectItem key={unit} value={unit}>
                   {unit}
@@ -229,122 +177,149 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
             </Select>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <Table className="min-w-[4500px] mt-4">
-            <TableHead>
-              <TableRow className="bg-gray-100 text-xs">
-                {/* Header Kolom Lengkap */}
-                <TableHeaderCell className="w-12">No</TableHeaderCell>
-                <TableHeaderCell>Kode Risiko</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Ancaman/Peluang</TableHeaderCell>
-                <TableHeaderCell>Kategori Risiko</TableHeaderCell>
-                <TableHeaderCell>Unit Kerja</TableHeaderCell>
-                <TableHeaderCell className="min-w-[200px]">Sasaran</TableHeaderCell>
-                <TableHeaderCell>Tgl Identifikasi</TableHeaderCell>
-                <TableHeaderCell className="min-w-[300px]">Deskripsi Risiko</TableHeaderCell>
-                <TableHeaderCell className="min-w-[250px]">Akar Penyebab</TableHeaderCell>
-                <TableHeaderCell className="min-w-[200px]">Indikator</TableHeaderCell>
-                <TableHeaderCell className="min-w-[250px]">Kontrol Internal</TableHeaderCell>
-                <TableHeaderCell className="min-w-[250px]">Deskripsi Dampak</TableHeaderCell>
-                <TableHeaderCell className="text-center">P (In)</TableHeaderCell>
-                <TableHeaderCell className="text-center">I (In)</TableHeaderCell>
-                <TableHeaderCell className="text-center">Skor (In)</TableHeaderCell>
-                <TableHeaderCell className="text-center">Prob Kualitatif (%) In</TableHeaderCell>
-                <TableHeaderCell className="text-center">Dampak Finansial (Rp) In</TableHeaderCell>
-                <TableHeaderCell className="text-center">Nilai Bersih (Rp) In</TableHeaderCell>
-                <TableHeaderCell>Pemilik Risiko</TableHeaderCell>
-                <TableHeaderCell>Jabatan Pemilik</TableHeaderCell>
-                <TableHeaderCell>Kontak HP</TableHeaderCell>
-                <TableHeaderCell>Kontak Email</TableHeaderCell>
-                <TableHeaderCell>Strategi</TableHeaderCell>
-                <TableHeaderCell className="min-w-[300px]">Rencana Penanganan</TableHeaderCell>
-                <TableHeaderCell className="text-center">Biaya Penanganan (Rp)</TableHeaderCell>
-                <TableHeaderCell className="min-w-[250px]">Penanganan Dilakukan</TableHeaderCell>
-                <TableHeaderCell>Status Penanganan</TableHeaderCell>
-                <TableHeaderCell>Jadwal Mulai</TableHeaderCell>
-                <TableHeaderCell>Jadwal Selesai</TableHeaderCell>
-                <TableHeaderCell>PIC Penanganan</TableHeaderCell>
-                <TableHeaderCell className="text-center">P (Res)</TableHeaderCell>
-                <TableHeaderCell className="text-center">I (Res)</TableHeaderCell>
-                <TableHeaderCell className="text-center">Skor (Res)</TableHeaderCell>
-                <TableHeaderCell className="text-center">Prob Kualitatif (%) Res</TableHeaderCell>
-                <TableHeaderCell className="text-center">Dampak Finansial (Rp) Res</TableHeaderCell>
-                <TableHeaderCell className="text-center">Nilai Bersih (Rp) Res</TableHeaderCell>
-                <TableHeaderCell>Tgl Review</TableHeaderCell>
-                <TableHeaderCell>Aksi</TableHeaderCell>
+
+        {/* TABLE SCROLLABLE */}
+        <div className="overflow-x-auto pb-2">
+          <Table className="min-w-[5000px]">
+            <TableHead className="text-sm">
+              <TableRow className="border-b border-rose-200">
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold w-12 sticky left-0 z-10 border-r border-rose-100">No</TableHeaderCell>
+
+                {/* Identifikasi */}
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold">Kode</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold">Status</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold">Kategori</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold">Unit Kerja</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[200px]">Sasaran</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold w-32">Tgl Identifikasi</TableHeaderCell>
+
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[300px]">Kejadian Risiko</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[250px]">Akar Penyebab</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[200px]">Indikator (KRI)</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[250px]">Kontrol Internal</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[250px]">Dampak</TableHeaderCell>
+
+                {/* ANALISIS INHEREN (Biru) */}
+                <TableHeaderCell className="bg-blue-100 text-blue-900 font-bold text-center border-l border-blue-200 w-16">P (In)</TableHeaderCell>
+                <TableHeaderCell className="bg-blue-100 text-blue-900 font-bold text-center w-16">I (In)</TableHeaderCell>
+                <TableHeaderCell className="bg-blue-100 text-blue-900 font-bold text-center w-20">Skor</TableHeaderCell>
+
+                {/* Kolom Inheren Lengkap */}
+                <TableHeaderCell className="bg-blue-100 text-blue-900 font-bold text-center w-24">Prob (%)</TableHeaderCell>
+                <TableHeaderCell className="bg-blue-100 text-blue-900 font-bold text-center w-32">Dampak (Rp)</TableHeaderCell>
+                <TableHeaderCell className="bg-blue-100 text-blue-900 font-bold text-center w-32">Nilai Bersih (In)</TableHeaderCell>
+
+                {/* ANALISIS RESIDUAL (Oranye) */}
+                <TableHeaderCell className="bg-orange-100 text-orange-900 font-bold text-center border-l border-orange-200 w-16">P (Res)</TableHeaderCell>
+                <TableHeaderCell className="bg-orange-100 text-orange-900 font-bold text-center w-16">I (Res)</TableHeaderCell>
+                <TableHeaderCell className="bg-orange-100 text-orange-900 font-bold text-center w-20">Skor</TableHeaderCell>
+
+                {/* Kolom Residual Lengkap */}
+                <TableHeaderCell className="bg-orange-100 text-orange-900 font-bold text-center w-24">Prob (%)</TableHeaderCell>
+                <TableHeaderCell className="bg-orange-100 text-orange-900 font-bold text-center w-32">Dampak (Rp)</TableHeaderCell>
+                <TableHeaderCell className="bg-orange-100 text-orange-900 font-bold text-center w-32">Nilai Bersih (Res)</TableHeaderCell>
+
+                {/* Lainnya (Pemilik & Penanganan) */}
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[150px]">Pemilik Risiko</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[150px]">Jabatan</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[200px]">Kontak (HP/Email)</TableHeaderCell>
+
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[150px]">Strategi</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[300px]">Rencana Penanganan</TableHeaderCell>
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold min-w-[150px]">Biaya Penanganan</TableHeaderCell>
+
+                <TableHeaderCell className="bg-rose-50 text-rose-900 font-bold sticky right-0 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.1)] z-10 w-24 text-center">Aksi</TableHeaderCell>
               </TableRow>
             </TableHead>
+
             <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={24} className="text-center py-5">
-                    <Text>Memuat data...</Text>
-                  </TableCell>
-                </TableRow>
-              ) : riskInputEntries.length > 0 ? (
-                riskInputEntries.map((item, index) => {
+              {filteredRiskInputs.length > 0 ? (
+                filteredRiskInputs.map((item, index) => {
                   const inherentStyle = getRiskLevelStyle(item.inherent_skor);
                   const residualStyle = getRiskLevelStyle(item.residual_skor);
-                  const sasaranLinked = Array.isArray(sasaranOptions) ? sasaranOptions.find((s) => s.id === item.sasaran_id) : null;
-                  const kategoriDisplay = item.kategori_risiko === "Risiko Lainnya" && item.kategori_risiko_lainnya ? item.kategori_risiko_lainnya : item.kategori_risiko;
-                  const statusPenangananColor = statusPenangananColors[item.status_penanganan || "-"] || "gray";
+                  const sasaranLinked = sasaranOptions.find((s) => s.id === item.sasaran_id);
+
+                  // Kalkulasi Nilai Bersih Inheren
+                  const inherenNet = (item.inherent_dampak_finansial || 0) * ((item.inherent_prob_kualitatif || 0) / 100);
+                  // Kalkulasi Nilai Bersih Residual (sesuai logic modal: Dampak Inheren * Prob Residual)
+                  // Cek dulu apakah ada data residual_dampak_finansial langsung
+                  let residualNet = 0;
+                  if (item.residual_dampak_finansial) {
+                    // Jika backend sudah menghitung
+                    residualNet = (item.residual_dampak_finansial || 0) * ((item.residual_prob_kualitatif || 0) / 100);
+                  } else {
+                    // Fallback rumus manual (sama seperti di modal)
+                    const dampakResidualHitung = (item.inherent_dampak_finansial || 0) * ((item.residual_prob_kualitatif || 0) / 100);
+                    residualNet = dampakResidualHitung * ((item.residual_prob_kualitatif || 0) / 100);
+                  }
 
                   return (
-                    <TableRow key={item.id} className="text-xs [&>td]:py-1 [&>td]:px-2">
-                      <TableCell className="text-center">{index + 1}</TableCell>
-                      <TableCell>{item.kode_risiko}</TableCell>
+                    <TableRow key={item.id} className="hover:bg-rose-50/20 transition-colors text-xs group">
+                      <TableCell className="text-center font-medium text-slate-500 sticky left-0 bg-white z-10 border-r border-rose-100 group-hover:bg-rose-50/20">{index + 1}</TableCell>
+                      <TableCell className="font-mono">{item.kode_risiko}</TableCell>
                       <TableCell>
-                        <Badge color={item.status_risiko === "Risiko Aktif" ? "blue" : "gray"}>{item.status_risiko}</Badge>
+                        <Badge size="xs" className="rounded-md" color={item.status_risiko === "Risiko Aktif" ? "blue" : "gray"}>
+                          {item.status_risiko}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{item.peluang_ancaman}</TableCell>
-                      <TableCell>{item.kategori_risiko === "Risiko Lainnya" ? item.kategori_risiko_lainnya : item.kategori_risiko}</TableCell>
+                      <TableCell>{item.kategori_risiko}</TableCell>
                       <TableCell>{item.unit_kerja}</TableCell>
                       <TableCell className="whitespace-normal">{sasaranLinked?.sasaran_kpi || "-"}</TableCell>
-                      <TableCell>{item.tanggal_identifikasi ? new Date(item.tanggal_identifikasi).toLocaleDateString("id-ID") : "-"}</TableCell>
-                      <TableCell className="whitespace-normal">{item.deskripsi_risiko}</TableCell>
+                      <TableCell>{formatDate(item.tanggal_identifikasi)}</TableCell>
+
+                      <TableCell className="whitespace-normal font-medium text-slate-800">{item.deskripsi_risiko}</TableCell>
                       <TableCell className="whitespace-normal">{item.akar_penyebab}</TableCell>
                       <TableCell className="whitespace-normal">{item.indikator_risiko}</TableCell>
                       <TableCell className="whitespace-normal">{item.internal_control}</TableCell>
                       <TableCell className="whitespace-normal">{item.deskripsi_dampak}</TableCell>
-                      <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{item.inherent_probabilitas}</TableCell>
+
+                      {/* INHERENT (P & I) */}
+                      <TableCell className={`text-center font-semibold border-l border-blue-100 ${inherentStyle.colorClass}`}>{item.inherent_probabilitas}</TableCell>
                       <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{item.inherent_dampak}</TableCell>
-                      <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{inherentStyle.text}</TableCell>
-                      <TableCell className="text-right">{item.inherent_prob_kualitatif !== null ? `${item.inherent_prob_kualitatif}%` : "-"}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.inherent_dampak_finansial)}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.inherent_nilai_bersih)}</TableCell>
-                      <TableCell>{item.pemilik_risiko || "-"}</TableCell>
-                      <TableCell>{item.jabatan_pemilik || "-"}</TableCell>
-                      <TableCell>{item.kontak_pemilik_hp || "-"}</TableCell>
-                      <TableCell>{item.kontak_pemilik_email || "-"}</TableCell>
-                      <TableCell>{item.strategi}</TableCell>
-                      <TableCell className="whitespace-normal">{item.rencana_penanganan}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.biaya_penanganan)}</TableCell>
-                      <TableCell className="whitespace-normal">{item.penanganan_dilakukan || "-"}</TableCell>
-                      <TableCell>
-                        <Badge color={item.status_penanganan === "Done" ? "emerald" : "orange"}>{item.status_penanganan || "-"}</Badge>
+                      <TableCell className={`text-center font-semibold ${inherentStyle.colorClass}`}>{item.inherent_skor}</TableCell>
+
+                      <TableCell className="text-center">{item.inherent_prob_kualitatif}%</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.inherent_dampak_finansial)}</TableCell>
+                      <TableCell className="text-right font-bold text-blue-700">{formatCurrency(inherenNet)}</TableCell>
+
+                      {/* RESIDUAL (P & I) */}
+                      <TableCell className={`text-center font-semibold border-l border-orange-100 ${residualStyle.colorClass}`}>{item.residual_probabilitas}</TableCell>
+                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_dampak}</TableCell>
+                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_skor}</TableCell>
+
+                      <TableCell className="text-center">{item.residual_prob_kualitatif}%</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.residual_dampak_finansial)}</TableCell>
+                      <TableCell className="text-right font-bold text-orange-700">{formatCurrency(residualNet)}</TableCell>
+
+                      {/* LAINNYA */}
+                      <TableCell className="whitespace-nowrap font-medium">{item.pemilik_risiko}</TableCell>
+                      <TableCell className="whitespace-nowrap text-gray-500">{item.jabatan_pemilik || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">
+                        <div>{item.kontak_pemilik_hp || "-"}</div>
+                        <div className="text-gray-400">{item.kontak_pemilik_email}</div>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(item.jadwal_mulai_penanganan)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(item.jadwal_selesai_penanganan)}</TableCell>
-                      <TableCell>{item.pic_penanganan}</TableCell>
-                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_probabilitas ?? "-"}</TableCell>
-                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{item.residual_dampak ?? "-"}</TableCell>
-                      <TableCell className={`text-center font-semibold ${residualStyle.colorClass}`}>{residualStyle.text}</TableCell>
-                      <TableCell className="text-right">{item.residual_prob_kualitatif !== null ? `${item.residual_prob_kualitatif}%` : "-"}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.residual_dampak_finansial)}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(item.residual_nilai_bersih)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(item.tanggal_review)}</TableCell>
-                      <TableCell className="sticky right-0 bg-white z-10 flex gap-1 p-1">
-                        <Button size="xs" variant="light" icon={FiEdit2} color="blue" onClick={() => handleOpenEditModal(item)} />
-                        <Button size="xs" variant="light" icon={FiTrash2} color="red" onClick={() => handleDeleteRiskInput(item.id)} loading={isLoading} />
+
+                      <TableCell>
+                        <Badge size="xs" className="rounded-md" color="cyan">
+                          {item.strategi || "-"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-normal">{item.rencana_penanganan}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.biaya_penanganan)}</TableCell>
+
+                      <TableCell className="sticky right-0 bg-white group-hover:bg-rose-50/20 transition-colors shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.1)] z-10 text-center">
+                        <div className="flex justify-center gap-1">
+                          <Button size="xs" variant="light" icon={FiEdit2} color="blue" onClick={() => handleOpenEditModal(item)} />
+                          <Button size="xs" variant="light" icon={FiTrash2} color="red" onClick={() => handleDeleteRiskInput(item.id)} />
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={24} className="text-center py-5">
-                    <Text>Belum ada data risk input yang ditambahkan.</Text>
+                  <TableCell colSpan={30} className="text-center py-8 text-gray-400 italic">
+                    Belum ada data.
                   </TableCell>
                 </TableRow>
               )}
@@ -352,6 +327,7 @@ function RiskInputCard({ assessmentId, structureEntries = [], sasaranKPIEntries 
           </Table>
         </div>
       </Card>
+
       <RiskInputFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

@@ -1,4 +1,4 @@
-// frontend/src/components/CreateAssessmentForm.jsx
+// frontend/src/features/risk-ai/components/CreateAssessmentForm.jsx
 
 import React, { useState, useEffect } from "react";
 import apiClient from "../../../api/api";
@@ -6,12 +6,12 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import AsyncSelect from "react-select/async";
 import { components } from "react-select";
-import { Card, Title, Text, Button, TextInput, Textarea, Select, SearchSelect, SelectItem, SearchSelectItem, ProgressBar, Dialog, DialogPanel, Switch, Icon } from "@tremor/react";
-import { FiCpu, FiArchive, FiBriefcase, FiFlag, FiCheckSquare, FiPlusSquare, FiHome, FiShield, FiDollarSign, FiTarget, FiBookOpen, FiUsers, FiClipboard, FiCheckCircle } from "react-icons/fi";
+import { Card, Title, Text, Button, TextInput, Textarea, Select, SearchSelect, SelectItem, SearchSelectItem, ProgressBar, Dialog, DialogPanel, Switch } from "@tremor/react";
+import { FiCpu, FiArchive, FiBriefcase, FiFlag, FiCheckSquare, FiPlusSquare, FiHome, FiShield, FiDollarSign, FiTarget, FiBookOpen, FiUsers, FiClipboard, FiCheckCircle, FiGlobe } from "react-icons/fi";
 import { toast } from "sonner";
 import NotificationModal from "../../../components/common/NotificationModal";
 
-// Data untuk kategori risiko (sekarang dengan deskripsi singkat)
+// Data Kategori Risiko
 const RISK_CATEGORIES = [
   { name: "Credit Risk", desc: "Default, concentration, counterparty risks" },
   { name: "Market Risk", desc: "Price, volatility, liquidity risks" },
@@ -31,8 +31,8 @@ const RegulationOption = (props) => {
   return (
     <components.Option {...props}>
       <div className="flex flex-col">
-        <span className="font-semibold">{props.data.label}</span>
-        <span className="text-sm text-gray-500 mt-1">{props.data.description}</span>
+        <span className="font-semibold text-gray-800">{props.data.label}</span>
+        <span className="text-xs text-gray-500 mt-0.5">{props.data.description}</span>
       </div>
     </components.Option>
   );
@@ -54,7 +54,6 @@ function CreateAssessmentForm() {
     additional_risk_context: "",
   });
 
-  // State untuk menampung pilihan dropdown dari API
   const [options, setOptions] = useState({
     industry: [],
     companyType: [],
@@ -69,7 +68,6 @@ function CreateAssessmentForm() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  //=== 1. State baru untuk mengontrol pop-up dan checkbox ===
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
   const [hasAgreedTerms, setHasAgreedTerms] = useState(false);
   const [hasAgreedUsage, setHasAgreedUsage] = useState(false);
@@ -78,7 +76,7 @@ function CreateAssessmentForm() {
     assessmentId: null,
   });
 
-  // useEffect untuk mengambil data master dropdown
+  // useEffect Fetch Data
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -103,6 +101,7 @@ function CreateAssessmentForm() {
     fetchOptions();
   }, []);
 
+  // useEffect Progress
   useEffect(() => {
     let completed = 0;
     requiredFields.forEach((field) => {
@@ -115,13 +114,9 @@ function CreateAssessmentForm() {
     setProgress(Math.round((completed / requiredFields.length) * 100));
   }, [formData]);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSelectChange = (value, name) => {
-    setFormData({ ...formData, [name]: value });
-  };
+  // Handlers
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleSelectChange = (value, name) => setFormData({ ...formData, [name]: value });
 
   const handleRiskLimitChange = (event) => {
     const rawValue = event.target.value.replace(/,/g, "");
@@ -142,19 +137,16 @@ function CreateAssessmentForm() {
   };
 
   const loadRegulationOptions = (inputValue, callback) => {
-    // Jangan cari jika input kurang dari 2 karakter
     if (inputValue.length < 2) {
       callback([]);
       return;
     }
-    // Panggil API pencarian
     apiClient.get(`/regulations/search?q=${inputValue}`).then((response) => {
       callback(response.data);
     });
   };
 
   const handleRegulationChange = (selectedOptions) => {
-    // Ubah format dari array of objects menjadi string dipisahkan koma
     const regulationNames = selectedOptions.map((option) => option.label).join(", ");
     setFormData({ ...formData, relevant_regulations: regulationNames });
   };
@@ -172,15 +164,15 @@ function CreateAssessmentForm() {
     setIsAgreementModalOpen(false);
     setIsLoading(true);
     try {
-      const response = await apiClient.post("/assessments/analyze", formData);
+      // Logic POST ke Backend
+      const response = await apiClient.post("/assessments/analyze", { ...formData, output_language: outputLanguage });
       setIsLoading(false);
-      // alert("Analisis AI berhasil! Anda akan diarahkan ke halaman hasil.");
-      // navigate(`/risk-ai/assessments/${response.data.assessment_id}`);
       setSuccessModal({
         isOpen: true,
         assessmentId: response.data.assessment_id,
       });
     } catch (error) {
+      setIsLoading(false);
       toast.error("Analisis AI Gagal", {
         description: error.response?.data?.msg || "Gagal membuat dan menganalisis asesmen.",
       });
@@ -188,43 +180,54 @@ function CreateAssessmentForm() {
   };
 
   const handleCloseSuccessModal = () => {
-    const { assessmentId } = successModal; // Ambil ID yang disimpan
+    const { assessmentId } = successModal;
     setSuccessModal({ isOpen: false, assessmentId: null });
-
-    // Lakukan navigasi SEKARANG, setelah user klik "Mengerti"
-    if (assessmentId) {
-      navigate(`/risk-ai/assessments/${assessmentId}`);
-    }
+    if (assessmentId) navigate(`/risk-ai/assessments/${assessmentId}`);
   };
 
   const canProceed = hasAgreedTerms && hasAgreedUsage;
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <Card className="rounded-xl shadow-lg">
-          <div className="flex items-center gap-2">
-            <FiArchive className="w-6 h-6 text-gray-500" />
-            <Title>Project Name *</Title>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* 1. PROJECT NAME (Blue Accent) */}
+        <Card className="border-l-4 border-blue-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+              <FiArchive size={24} />
+            </div>
+            <div>
+              <Title>Nama Proyek</Title>
+              <Text className="text-xs text-gray-500">Identitas utama asesmen risiko ini.</Text>
+            </div>
           </div>
-          <TextInput name="nama_asesmen" value={formData.nama_asesmen} onChange={handleChange} required className="mt-2" />
+          <div>
+            <label className="text-sm font-bold text-gray-700">
+              Nama Asesmen <span className="text-red-500">*</span>
+            </label>
+            <TextInput name="nama_asesmen" value={formData.nama_asesmen} onChange={handleChange} required className="mt-2" placeholder="Contoh: Asesmen Risiko IT Q3 2025" />
+          </div>
         </Card>
 
-        <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
-          <div className="bg-blue-50 p-5">
-            <div className="flex items-center gap-2">
-              <FiBriefcase className="w-6 h-6 text-blue-600" />
-              <Title className="text-blue-900">Company Information</Title>
+        {/* 2. COMPANY INFORMATION (Indigo Accent) */}
+        <Card className="border-l-4 border-indigo-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+              <FiBriefcase size={24} />
             </div>
-            <Text className="text-blue-800">Tell us about your organization and business context</Text>
-          </div>
-          <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <div className="flex items-center gap-x-2 mb-1">
-                <FiHome className="h-5 w-5 text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">Industry *</label>
-              </div>
-              <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_industry")} placeholder="e.g., Banking, Insurance, Technology" disabled={isOptionsLoading}>
+              <Title>Informasi Perusahaan</Title>
+              <Text className="text-xs text-gray-500">Konteks organisasi dan skala bisnis.</Text>
+            </div>
+          </div>
+
+          {/* Grid Responsif: 1 kolom di HP, 2 kolom di Tablet/Desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <FiHome /> Industri *
+              </label>
+              <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_industry")} placeholder="Pilih Industri..." disabled={isOptionsLoading}>
                 {options.industry.map((item) => (
                   <SearchSelectItem key={item.key} value={item.key}>
                     {item.value}
@@ -233,11 +236,10 @@ function CreateAssessmentForm() {
               </SearchSelect>
             </div>
             <div>
-              <div className="flex items-center gap-x-2 mb-1">
-                <FiShield className="h-5 w-5 text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">Company Type *</label>
-              </div>
-              <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_type")} placeholder="e.g., Public Company, Private Company, Startup" disabled={isOptionsLoading}>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <FiShield /> Tipe Perusahaan *
+              </label>
+              <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_type")} placeholder="Pilih Tipe..." disabled={isOptionsLoading}>
                 {options.companyType.map((item) => (
                   <SearchSelectItem key={item.key} value={item.key}>
                     {item.value}
@@ -246,11 +248,10 @@ function CreateAssessmentForm() {
               </SearchSelect>
             </div>
             <div>
-              <div className="flex items-center gap-x-2 mb-1">
-                <FiDollarSign className="h-5 w-5 text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">Company Assets *</label>
-              </div>
-              <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_assets")} placeholder="e.g., $1M - $10M, $10M - $50M" disabled={isOptionsLoading}>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <FiDollarSign /> Aset Perusahaan *
+              </label>
+              <SearchSelect onValueChange={(v) => handleSelectChange(v, "company_assets")} placeholder="Rentang Aset..." disabled={isOptionsLoading}>
                 {options.companyAssets.map((item) => (
                   <SearchSelectItem key={item.key} value={item.key}>
                     {item.value}
@@ -258,11 +259,9 @@ function CreateAssessmentForm() {
                 ))}
               </SearchSelect>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-4">
               <div className="w-1/3">
-                <div className="mb-1">
-                  <label className="text-sm font-medium text-gray-700">Currency</label>
-                </div>
+                <label className="text-sm font-bold text-gray-700 mb-2 block">Mata Uang</label>
                 <Select defaultValue="IDR" onValueChange={(v) => handleSelectChange(v, "currency")} disabled={isOptionsLoading}>
                   {options.currency.map((item) => (
                     <SelectItem key={item.key} value={item.key}>
@@ -272,230 +271,246 @@ function CreateAssessmentForm() {
                 </Select>
               </div>
               <div className="w-2/3">
-                <div className="mb-1">
-                  <label className="text-sm font-medium text-gray-700">Risk Limit</label>
-                </div>
-                <TextInput name="risk_limit" value={displayRiskLimit} onChange={handleRiskLimitChange} placeholder="e.g. 5,000,000" />
+                <label className="text-sm font-bold text-gray-700 mb-2 block">Batas Risiko (Risk Limit)</label>
+                <TextInput name="risk_limit" value={displayRiskLimit} onChange={handleRiskLimitChange} placeholder="Rp" />
               </div>
             </div>
           </div>
         </Card>
 
-        <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
-          <div className="bg-orange-50 p-5">
-            <div className="flex items-center gap-2">
-              <FiFlag className="w-6 h-6 text-orange-600" />
-              <Title className="text-orange-900">Risk Categories *</Title>
+        {/* 3. RISK CATEGORIES (Orange Accent) */}
+        <Card className="border-l-4 border-orange-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+              <FiFlag size={24} />
             </div>
-            <Text className="text-orange-800">
-              Select risk types relevant to your assessment. <span className="font-semibold bg-orange-200 text-orange-900 px-2 py-1 rounded-md">Select at least 1.</span>
+            <div>
+              <Title>Kategori Risiko</Title>
+              <Text className="text-xs text-gray-500">Pilih jenis risiko yang relevan untuk dianalisis.</Text>
+            </div>
+          </div>
+          <div className="p-4 bg-orange-50/30 rounded-lg mb-4 border border-orange-100">
+            <Text className="text-orange-800 text-sm flex items-center gap-2">
+              <FiCheckCircle /> Pilih minimal 1 kategori.
             </Text>
           </div>
-          <div className="p-5 bg-white">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {RISK_CATEGORIES.map((category) => (
+
+          {/* Grid Kategori: 1 col (HP), 2 col (Tablet), 3 col (Desktop) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {RISK_CATEGORIES.map((category) => {
+              const isSelected = formData.risk_categories.includes(category.name);
+              return (
                 <motion.div
                   key={category.name}
                   onClick={() => handleCategoryChange(category.name)}
-                  whileTap={{ scale: 0.97 }}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 flex justify-between items-start ${
-                    formData.risk_categories.includes(category.name) ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" : "bg-white hover:bg-gray-50 hover:border-gray-300"
-                  }`}
+                  whileTap={{ scale: 0.98 }}
+                  className={`
+                    relative p-4 border rounded-xl cursor-pointer transition-all duration-200 flex flex-col gap-2
+                    ${isSelected ? "border-orange-500 bg-orange-50 shadow-sm ring-1 ring-orange-200" : "border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm"}
+                  `}
                 >
-                  <div>
-                    <p className="font-semibold text-gray-800">{category.name}</p>
-                    <p className="text-sm text-gray-500 mt-1">{category.desc}</p>
+                  <div className="flex justify-between items-start">
+                    <p className={`font-bold ${isSelected ? "text-orange-800" : "text-gray-700"}`}>{category.name}</p>
+                    {isSelected ? <FiCheckSquare className="text-orange-600" size={20} /> : <div className="w-5 h-5 border-2 border-gray-300 rounded flex-shrink-0" />}
                   </div>
-                  <div className={`w-5 h-5 border-2 rounded flex-shrink-0 mt-1 ${formData.risk_categories.includes(category.name) ? "bg-blue-500 border-blue-500" : "border-gray-300"}`}>
-                    {formData.risk_categories.includes(category.name) && (
-                      <svg className="w-full h-full text-white fill-current" viewBox="0 0 24 24">
-                        <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z" />
-                      </svg>
-                    )}
-                  </div>
+                  <p className={`text-xs ${isSelected ? "text-orange-700" : "text-gray-500"}`}>{category.desc}</p>
                 </motion.div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </Card>
-        <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
-          <div className="bg-green-50 p-5">
-            <div className="flex items-center gap-2">
-              <FiCheckSquare className="w-6 h-6 text-green-600" />
-              <Title className="text-green-900">Project Context</Title>
+
+        {/* 4. PROJECT CONTEXT (Emerald Accent) */}
+        <Card className="border-l-4 border-emerald-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+              <FiCheckSquare size={24} />
             </div>
-            <Text className="text-green-800">Provide detailed context for comprehensive risk analysis.</Text>
+            <div>
+              <Title>Konteks Proyek</Title>
+              <Text className="text-xs text-gray-500">Detail tujuan dan regulasi yang melingkupi proyek.</Text>
+            </div>
           </div>
-          <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <div>
-              <div className="flex items-center gap-x-2 mb-1">
-                <FiTarget className="h-5 w-5 text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">Project Objective *</label>
-              </div>
-              <Textarea name="project_objective" value={formData.project_objective} onChange={handleChange} required placeholder="e.g., Implement new digital banking platform to enhance customer experience and operational efficiency..." />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <FiTarget /> Tujuan Proyek (Objectives) *
+              </label>
+              <Textarea name="project_objective" value={formData.project_objective} onChange={handleChange} required rows={3} placeholder="Jelaskan tujuan utama proyek ini..." />
             </div>
+
             <div>
-              <div className="flex items-center gap-x-2 mb-1">
-                <FiBookOpen className="h-5 w-5 text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">Relevant Regulations</label>
-              </div>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <FiUsers /> Departemen Terlibat *
+              </label>
+              <Textarea name="involved_departments" value={formData.involved_departments} onChange={handleChange} required rows={3} placeholder="Divisi IT, Keuangan, Operasional..." />
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <FiClipboard /> Tindakan yang Sudah Dilakukan
+              </label>
+              <Textarea name="completed_actions" value={formData.completed_actions} onChange={handleChange} rows={3} placeholder="Contoh: Asesmen awal keamanan, due diligence vendor..." />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <FiBookOpen /> Regulasi Terkait
+              </label>
               <AsyncSelect
-                isMulti // Izinkan memilih lebih dari satu
+                isMulti
                 cacheOptions
                 defaultOptions
                 loadOptions={loadRegulationOptions}
                 onChange={handleRegulationChange}
                 placeholder="Ketik untuk mencari regulasi..."
-                // Style kustom agar cocok dengan Tremor
+                className="text-sm"
                 styles={{
-                  control: (baseStyles, state) => ({
-                    ...baseStyles,
-                    borderRadius: "0.75rem",
-                    borderColor: state.isFocused ? "#3b82f6" : "#d1d5db",
-                    boxShadow: state.isFocused ? "0 0 0 1px #3b82f6" : "none",
-                    "&:hover": {
-                      borderColor: "#9ca3af",
-                    },
-                    // Menyamakan tinggi dengan Textarea
-                    minHeight: "65px",
-                    alignItems: "flex-start", // Membuat tag/placeholder mulai dari atas
+                  control: (base, state) => ({
+                    ...base,
+                    borderRadius: "0.5rem",
+                    borderColor: state.isFocused ? "#10b981" : "#e5e7eb",
+                    boxShadow: state.isFocused ? "0 0 0 1px #10b981" : "none",
+                    "&:hover": { borderColor: "#d1d5db" },
+                    minHeight: "50px",
                   }),
-                  option: (base, state) => ({ ...base, backgroundColor: state.isFocused ? "#eff6ff" : "white", color: "black" }),
+                  option: (base, state) => ({ ...base, backgroundColor: state.isFocused ? "#ecfdf5" : "white", color: "black" }),
                 }}
                 components={{ Option: RegulationOption }}
               />
             </div>
+          </div>
+        </Card>
+
+        {/* 5. ADDITIONAL CONTEXT (Purple Accent) */}
+        <Card className="border-l-4 border-purple-500 shadow-md ring-1 ring-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+              <FiPlusSquare size={24} />
+            </div>
             <div>
-              <div className="flex items-center gap-x-2 mb-1">
-                <FiUsers className="h-5 w-5 text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">Involved Departments *</label>
-              </div>
-              <Textarea name="involved_departments" value={formData.involved_departments} onChange={handleChange} required placeholder="e.g., IT Department, Risk Management, Legal & Compliance, Operations, Customer Service..." />
+              <Title>Konteks Tambahan</Title>
+              <Text className="text-xs text-gray-500">Informasi spesifik lainnya untuk AI.</Text>
             </div>
-            <div>
-              <div className="flex items-center gap-x-2 mb-1">
-                <FiClipboard className="h-5 w-5 text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">Completed Actions</label>
-              </div>
-              <Textarea name="completed_actions" value={formData.completed_actions} onChange={handleChange} placeholder="e.g., Initial security assessment completed, vendor due diligence performed, pilot testing with 100 users..." />
-            </div>
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-2 block">Konteks Risiko Tambahan *</label>
+            <Textarea name="additional_risk_context" value={formData.additional_risk_context} onChange={handleChange} required rows={4} placeholder="Jelaskan kekhawatiran khusus, batasan waktu, atau integrasi pihak ketiga..." />
           </div>
         </Card>
-        <Card className="p-0 overflow-hidden rounded-xl shadow-lg">
-          <div className="bg-purple-50 p-5">
-            <div className="flex items-center gap-2">
-              <FiPlusSquare className="w-6 h-6 text-purple-600" />
-              <Title className="text-purple-900">Additional Context</Title>
-            </div>
-          </div>
-          <div className="p-5 bg-white">
-            <label className="text-sm font-medium text-gray-700">Additional Risk Context *</label>
-            <Textarea
-              name="additional_risk_context"
-              value={formData.additional_risk_context}
-              onChange={handleChange}
-              required
-              className="mt-1"
-              rows={4}
-              placeholder="e.g., We are particularly concerned about data privacy during the migration process, tight time constraints, third-party integrations..."
-            />
-          </div>
-        </Card>
-        <Card className="rounded-xl shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="w-1/4">
-              <Text>{progress}% complete</Text>
-              <ProgressBar value={progress} color="blue" className="mt-1" />
-            </div>
-            <div className="flex items-center gap-4">
-              <Text>Output Language</Text>
-              <div className="flex rounded-lg border p-1">
-                <button type="button" onClick={() => setOutputLanguage("ID")} className={`px-3 py-1 text-sm rounded-md transition-colors ${outputLanguage === "ID" ? "bg-blue-500 text-white" : "hover:bg-gray-100"}`}>
-                  ID
-                </button>
-                <button type="button" onClick={() => setOutputLanguage("EN")} className={`px-3 py-1 text-sm rounded-md transition-colors ${outputLanguage === "EN" ? "bg-blue-500 text-white" : "hover:bg-gray-100"}`}>
-                  EN
-                </button>
+
+        {/* ACTION BAR */}
+        <div className="sticky bottom-6 z-10">
+          <Card className="shadow-2xl border-t-4 border-blue-600 rounded-xl bg-white/95 backdrop-blur-sm">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="w-full md:w-1/3">
+                <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                  <span>Kelengkapan Data</span>
+                  <span>{progress}%</span>
+                </div>
+                <ProgressBar value={progress} color="blue" className="h-2" />
               </div>
-              <Button type="submit" icon={FiCpu} size="lg" loading={isLoading} disabled={isLoading || progress < 100}>
-                Start AI Risk Analysis
-              </Button>
+
+              <div className="flex items-center gap-4 w-full md:w-auto justify-end">
+                <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setOutputLanguage("ID")}
+                    className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${outputLanguage === "ID" ? "bg-white shadow text-blue-700" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    ID
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOutputLanguage("EN")}
+                    className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${outputLanguage === "EN" ? "bg-white shadow text-blue-700" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    EN
+                  </button>
+                </div>
+
+                <Button type="submit" icon={FiCpu} size="lg" loading={isLoading} disabled={isLoading || progress < 100} className="shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all">
+                  Mulai Analisis AI
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </form>
-      {/* === 4. JSX untuk Pop-up Persetujuan Penggunaan AI === */}
+
+      {/* --- MODALS --- */}
       <Dialog open={isAgreementModalOpen} onClose={() => setIsAgreementModalOpen(false)} static={true}>
-        <DialogPanel>
-          <Title>Kebijakan Penggunaan AI</Title>
-          <Text className="mt-2">Baca dan pahami kebijakan penggunaan AI yang bertanggung jawab.</Text>
-          <div className="mt-4 border rounded-lg p-4 h-64 overflow-y-auto space-y-4">
-            <h3 className="font-semibold">Penggunaan yang Dilarang</h3>
-            <ul className="list-disc list-inside text-sm text-gray-600">
+        <DialogPanel className="max-w-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+              <FiCpu size={24} />
+            </div>
+            <Title>Kebijakan Penggunaan AI</Title>
+          </div>
+
+          <div className="mt-4 border border-gray-200 rounded-lg p-4 h-64 overflow-y-auto space-y-4 bg-gray-50 text-sm">
+            <h3 className="font-bold text-gray-800">1. Penggunaan yang Dilarang</h3>
+            <ul className="list-disc list-inside text-gray-600 space-y-1 pl-2">
               <li>Melanggar regulasi OJK, BI, atau regulator keuangan lainnya.</li>
               <li>Manipulasi input untuk menghasilkan risk level yang tidak akurat.</li>
               <li>Penyalahgunaan data sensitif tanpa consent yang proper.</li>
-              <li>Diskriminasi berdasarkan karakteristik yang dilindungi hukum</li>
             </ul>
-            <h3 className="font-semibold">Persyaratan Khusus Risk Management</h3>
-            <ul className="list-disc list-inside text-sm text-gray-600">
+
+            <h3 className="font-bold text-gray-800">2. Persyaratan Khusus Risk Management</h3>
+            <ul className="list-disc list-inside text-gray-600 space-y-1 pl-2">
               <li>Data Governance: Pastikan data akurat dan maintain audit trail.</li>
-              <li>Model Validation: Lakukan back-testing dan stress testing</li>
-              <li>Regulatory Compliance: Sesuai regulasi dan framework yang berlaku.</li>
-              <li>Business Continuity: Maintain alternative assessment methods</li>
-            </ul>
-            <h3 className="font-semibold">Pelaporan pelanggaran</h3>
-            <ul className="list-disc list-inside text-sm text-gray-600">
-              <li>Email: it.sertifikasiku.com</li>
-              <li>Portal: Risk Reporting System dalam aplikasi</li>
-              <li>Berlaku efektif: Oktober 2025</li>
+              <li>Model Validation: Lakukan back-testing dan stress testing.</li>
+              <li>Business Continuity: Maintain alternative assessment methods.</li>
             </ul>
           </div>
-          <div className="mt-6 space-y-4">
+
+          <div className="mt-6 space-y-3 bg-white p-4 rounded-lg border border-gray-100">
             <div className="flex items-center space-x-3">
-              <Switch id="terms" checked={hasAgreedTerms} onChange={setHasAgreedTerms} />
-              <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer">
+              <Switch id="terms" checked={hasAgreedTerms} onChange={setHasAgreedTerms} color="blue" />
+              <label htmlFor="terms" className="text-sm font-medium text-gray-700 cursor-pointer">
                 Saya telah membaca dan memahami kebijakan AI
               </label>
             </div>
             <div className="flex items-center space-x-3">
-              <Switch id="usage" checked={hasAgreedUsage} onChange={setHasAgreedUsage} />
-              <label htmlFor="usage" className="text-sm text-gray-600 cursor-pointer">
+              <Switch id="usage" checked={hasAgreedUsage} onChange={setHasAgreedUsage} color="blue" />
+              <label htmlFor="usage" className="text-sm font-medium text-gray-700 cursor-pointer">
                 Saya menyetujui penggunaan AI sesuai kebijakan
               </label>
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-8">
+
+          <div className="flex justify-end gap-3 mt-8 border-t pt-4">
             <Button variant="secondary" onClick={() => setIsAgreementModalOpen(false)}>
               Batal
             </Button>
-            <Button onClick={handleConfirmAndAnalyze} disabled={!canProceed}>
+            <Button onClick={handleConfirmAndAnalyze} disabled={!canProceed} icon={FiCheckCircle}>
               Setuju & Lanjutkan
             </Button>
           </div>
         </DialogPanel>
       </Dialog>
-      {/* === 5. JSX untuk Pop-up Proses Analisis === */}
+
       <Dialog open={isLoading} onClose={() => {}} static={true}>
-        <DialogPanel className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-            <FiCpu className="h-6 w-6 text-blue-500 animate-pulse" />
+        <DialogPanel className="text-center max-w-sm">
+          <div className="mx-auto w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center mb-4 relative">
+            <FiCpu className="h-8 w-8 text-indigo-600 animate-pulse" />
+            <div className="absolute inset-0 rounded-full border-4 border-indigo-100 border-t-indigo-500 animate-spin"></div>
           </div>
-          <Title className="mt-4">AI Sedang Menganalisis Risiko Anda</Title>
-          <Text>Proses canggih yang mengubah data menjadi wawasan strategis.</Text>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 mt-6">
-            <motion.div className="bg-blue-600 h-2.5 rounded-full" initial={{ width: "0%" }} animate={{ width: "90%" }} transition={{ duration: 15, ease: "linear" }} />
+          <Title className="text-xl">AI Sedang Bekerja</Title>
+          <Text className="mt-2">Menganalisis profil risiko berdasarkan data yang Anda berikan...</Text>
+          <div className="w-full bg-gray-100 rounded-full h-2 mt-6 overflow-hidden">
+            <motion.div className="bg-indigo-600 h-2 rounded-full" initial={{ width: "0%" }} animate={{ width: "90%" }} transition={{ duration: 15, ease: "linear" }} />
           </div>
-          <Text className="mt-2 text-xs">AI sedang memproses, ini mungkin memakan waktu beberapa saat...</Text>
         </DialogPanel>
       </Dialog>
+
       <NotificationModal
         isOpen={successModal.isOpen}
         onClose={handleCloseSuccessModal}
         title="Analisis Selesai!"
-        message="Analisis AI berhasil! Daftar risiko awal telah dibuat. Anda akan diarahkan ke halaman hasil untuk meninjaunya."
-        // Kita gunakan ikon FiCheckCircle untuk sukses
-        icon={<FiCheckCircle className="w-6 h-6 text-blue-600" />}
+        message="Analisis AI berhasil! Daftar risiko awal telah dibuat. Anda akan diarahkan ke halaman hasil."
+        icon={<FiCheckCircle className="w-10 h-10 text-green-500" />}
       />
     </>
   );

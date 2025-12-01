@@ -61,18 +61,15 @@ function RiskResultsTable({ risks, selectedRisks, onRowSelect, onEditClick }) {
               <TableCell className="text-xs whitespace-normal">
                 {risk.objective}
                 <div className="mt-1">
-                  <Button
-                    variant="light"
-                    size="xs"
-                    icon={FiEdit2}
-                    onClick={() => onEditClick(risk)} // Panggil fungsi saat diklik
-                  >
+                  <Button variant="light" size="xs" icon={FiEdit2} onClick={() => onEditClick(risk)}>
                     Edit
                   </Button>
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <Badge color="cyan">{riskTypeFullName}</Badge>
+                <Badge color="cyan" className="rounded-md">
+                  {riskTypeFullName}
+                </Badge>
               </TableCell>
               <TableCell className="text-xs whitespace-normal">{risk.deskripsi_risiko}</TableCell>
               <TableCell className="text-xs whitespace-normal">{risk.risk_causes}</TableCell>
