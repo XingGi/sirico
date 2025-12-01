@@ -14,10 +14,19 @@ Platform ini dibagi menjadi beberapa modul inti:
 - **Risk Management Levels (Manual)**:
   - **Modul Dasar**: Alur kerja 3 langkah (Konteks, Identifikasi, Analisis) untuk asesmen tingkat unit kerja, dengan fitur ekspor ke Excel.
   - **Modul Madya**: Alur kerja 5 langkah (Struktur, Kriteria, KPI, Input Risiko, Peta Risiko) yang lebih detail dan terhubung dengan template peta risiko kustom.
-- **Modul GRC Lanjutan**:
+- **Modul GRC**:
   - **RSCA (Risk & Control Self-Assessment)**: Memungkinkan admin membuat siklus kuesioner untuk diisi oleh departemen.
   - **BPR (Business Process Review)**: Memetakan langkah-langkah proses bisnis dan mengidentifikasi potensi risiko di setiap langkah.
   - **BIA (Business Impact Analysis)**: Mendefinisikan aset kritis dan dependensinya, serta menjalankan simulasi AI untuk memprediksi dampak kegagalan.
+- **Quick Risk Scan (QRC)**: 🆕 Modul diagnosa cepat kesehatan risiko perusahaan:
+  - **QRC Client**: Dashboard khusus untuk pengguna eksternal/klien. Memungkinkan pemilihan metode asesmen:
+    - **Standard**: Kuesioner pilihan ganda cepat dengan skor otomatis.
+    - **Deep Analysis (Essay)**: Kuesioner deskriptif mendalam untuk analisis kualitatif.
+    - **Limitasi & Kuota**: Sistem kuota otomatis untuk membatasi penggunaan fitur per pengguna.
+  - **QRC Consultant**: Dashboard khusus konsultan untuk memantau, me-review, dan memberikan analisis ahli.
+    - **AI Assistant**: Integrasi Google Gemini untuk menghasilkan analisis SWOT dan rekomendasi strategis otomatis berdasarkan jawaban klien.
+    - **Expert Review**: Konsultan dapat memberikan penilaian manual, catatan, dan menyunting laporan akhir.
+    - **PDF Export**: Cetak laporan analisis profesional langsung dari sistem.
 - **Admin Panel**:
   - **Member Management**: Mengelola pengguna, peran (roles), dan batasan (limits) asesmen.
   - **Role & Permission**: Mengatur hak akses granular untuk setiap fitur.
@@ -32,7 +41,7 @@ Platform ini dibagi menjadi beberapa modul inti:
   - ORM: **SQLAlchemy**
   - Migrasi: **Flask-Migrate** (Alembic)
   - Autentikasi: **Flask-JWT-Extended** (JWT)
-  - AI: **Google Gemini** (via `google-generativeai`)
+  - AI: **Google Gemini** (Model: `gemini-1.5-flash` untuk analisis QRC cepat & akurat)
 - **Frontend**:
   - Library: **React 18**
   - Bundler: **Vite**
@@ -271,6 +280,19 @@ Menyediakan alur kerja manual untuk asesmen.
 - **RSCA**: Admin membuat siklus dan pertanyaan. Pengguna dari departemen terkait (dilihat dari `user.department_id`) mengisi kuesioner. AI dapat dipanggil untuk menganalisis semua jawaban dan menemukan kelemahan.
 - **BPR**: Pengguna memetakan proses bisnis dan langkah-langkahnya (`ProcessStepNode`). AI dapat memberikan saran potensi risiko untuk setiap langkah.
 - **BIA**: Pengguna mendefinisikan Aset Kritis (`CriticalAsset`) dan dependensinya. AI dapat menjalankan simulasi (`analyze_bia_with_gemini`) untuk memprediksi dampak kualitatif dan kuantitatif jika sebuah aset gagal.
+
+### Quick Risk Scan (QRC)
+
+Modul end-to-end untuk penilaian risiko cepat antara Klien dan Konsultan.
+
+- **Input (Client)**:
+  - Menggunakan `QrcWizardPage` (Standard) atau `QrcEssayWizardPage` (Deep Analysis) untuk pengumpulan data.
+  - Validasi kuota (`limit_qrc_standard`, `limit_qrc_essay`) dilakukan di backend sebelum asesmen dimulai.
+- **Review (Consultant)**:
+  - Konsultan mengakses `QrcReviewWorkspace` untuk melihat jawaban klien.
+  - Untuk tipe Standard, skor dihitung otomatis. Untuk tipe Essay, konsultan dapat memberikan *Expert Judgment Scoring* melalui slider manual.
+  - Fitur **Generate AI Analysis** mengirimkan seluruh konteks jawaban ke Gemini Pro (`gemini-1.5-flash`) untuk menghasilkan narasi: *Ringkasan Eksekutif, Analisis Kekuatan/Kelemahan, dan Rekomendasi Strategis*.
+- **Output**: Laporan final dapat diekspor ke PDF menggunakan template cetak HTML yang rapi.
 
 ### Admin Panel
 
