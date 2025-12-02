@@ -17,6 +17,7 @@ const QrcReviewWorkspace = () => {
   const [saving, setSaving] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [loadingStep, setLoadingStep] = useState("");
 
   const [notes, setNotes] = useState("");
   const [finalReport, setFinalReport] = useState("");
@@ -101,15 +102,28 @@ const QrcReviewWorkspace = () => {
 
   const handleGenerateAI = async () => {
     setGeneratingAI(true);
+    setLoadingStep("Memulai analisis AI...");
+
+    const timers = [
+      setTimeout(() => setLoadingStep("Menganalisis pola jawaban responden..."), 1500),
+      setTimeout(() => setLoadingStep("Mengidentifikasi risiko kritikal & kelemahan..."), 3500),
+      setTimeout(() => setLoadingStep("Menyusun draf laporan strategis..."), 6000),
+    ];
+
     try {
       const result = await qrcService.generateAIAnalysis(id);
       const newContent = result.analysis;
+
       setFinalReport((prev) => (prev ? prev + "\n\n--- [AI GENERATED ANALYSIS] ---\n\n" + newContent : newContent));
+
+      setGeneratingAI(false);
       setShowAiModal(true);
+      toast.success("Analisis AI berhasil dibuat!");
     } catch (error) {
       toast.error("Gagal generate AI.");
-    } finally {
       setGeneratingAI(false);
+    } finally {
+      timers.forEach(clearTimeout);
     }
   };
 
@@ -474,6 +488,48 @@ const QrcReviewWorkspace = () => {
       </div>
       <QrcAiSuccessModal isOpen={showAiModal} onClose={() => setShowAiModal(false)} onReview={() => setShowAiModal(false)} />
       <FullscreenEditor />
+      {generatingAI && (
+        <div className="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl border border-indigo-100 max-w-sm w-full text-center relative overflow-hidden">
+            {/* Dekorasi Background */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full blur-3xl opacity-60 -translate-y-1/2 translate-x-1/2"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl opacity-60 translate-y-1/2 -translate-x-1/2"></div>
+
+            <div className="relative z-10">
+              {/* Icon CPU Berdenyut */}
+              <div className="w-16 h-16 mx-auto bg-indigo-50 rounded-full flex items-center justify-center mb-6 ring-4 ring-indigo-50/50">
+                <FiCpu className="text-indigo-600 text-3xl animate-pulse" />
+              </div>
+
+              <h3 className="text-xl font-bold text-slate-800 mb-2">AI Sedang Bekerja</h3>
+
+              {/* Teks Step yang Berubah */}
+              <p className="text-sm text-slate-500 mb-8 font-medium min-h-[24px] transition-all duration-500">{loadingStep}</p>
+
+              {/* Progress Bar Indeterminate (Animasi Jalan) */}
+              <div className="relative h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                {/* Kita gunakan style inline untuk animasi sederhana jika class custom tidak ada */}
+                <div
+                  className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                  style={{
+                    animation: "shimmer 1.5s infinite linear",
+                    backgroundSize: "200% 100%",
+                  }}
+                ></div>
+                {/* Fallback animasi css sederhana */}
+                <style>{`
+                  @keyframes shimmer {
+                    0% { left: -30%; }
+                    100% { left: 100%; }
+                  }
+                `}</style>
+              </div>
+
+              <p className="text-xs text-slate-400 mt-4">Proses ini memakan waktu ±5-10 detik.</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

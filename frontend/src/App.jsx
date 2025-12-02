@@ -44,6 +44,7 @@ import QrcEssayWizardPage from "./features/qrc/QrcEssayWizardPage";
 import QrcConsultantDashboard from "./features/qrc/QrcConsultantDashboard";
 import QrcReviewWorkspace from "./features/qrc/QrcReviewWorkspace";
 import QrcTemplatePage from "./features/qrc/QrcTemplatePage";
+import ApiKeySettingPage from "./features/account/ApiKeySettingPage";
 import { FiActivity, FiCpu, FiPieChart } from "react-icons/fi";
 import { Title, Text } from "@tremor/react";
 const PlaceholderComponent = ({ title }) => (
@@ -147,6 +148,7 @@ function App() {
               <Route path="/admin/rsca" element={<RscaAdminPage />} />
               <Route path="/admin/rsca/results/:cycleId" element={<RscaResultPage />} />
               <Route path="/admin/mitigation-monitor" element={<ActionPlanMonitorPage />} />
+              <Route path="/account/api-key" element={<ApiKeySettingPage />} />
             </Route>
           </Route>
         </Route>

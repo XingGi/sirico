@@ -340,6 +340,11 @@ function Sidebar({ isOpen, toggle }) {
             <Link to="/password-setting" onClick={() => setIsUserMenuOpen(false)} className="flex items-center px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
               <FiLock className="mr-3" /> Password
             </Link>
+            {user?.role === "admin" && (
+              <Link to="/account/api-key" onClick={() => setIsUserMenuOpen(false)} className="flex items-center px-3 py-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors mt-1 mb-1 border border-blue-100">
+                <FiKey className="mr-3" /> API Key Setting
+              </Link>
+            )}
             <div className="h-px bg-gray-100 my-1"></div>
             <button onClick={handleLogout} className="flex w-full items-center px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
               <FiLogOut className="mr-3" /> Logout

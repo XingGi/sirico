@@ -1,6 +1,6 @@
 # backend/app/routes/admin.py
 from flask import request, jsonify, Blueprint
-from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate, SubmittedRisk, ActionPlan, HorizonScanResult, QrcAssessment
+from app.models import db, Role, Permission, User, BasicAssessment, MadyaAssessment, RiskAssessment, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, RiskMapTemplate, SubmittedRisk, ActionPlan, HorizonScanResult, QrcAssessment, MasterData
 from app import bcrypt, ma
 from marshmallow import fields
 from .auth import admin_required, permission_required
@@ -934,3 +934,61 @@ def update_action_plan_status(plan_id):
         "msg": f"Status Rencana Aksi berhasil diubah menjadi '{new_status}'.",
         "action_plan": ActionPlanSchema().dump(action_plan) # Kirim data terbaru
     }), 200
+    
+@admin_bp.route('/system-config/api-key', methods=['GET', 'POST'])
+@admin_required()
+def manage_api_key():
+    """
+    Mengelola API Key Gemini (System Config).
+    GET: Cek apakah key sudah ada (return masked key).
+    POST: Simpan/Update key baru.
+    """
+    if request.method == 'GET':
+        # Cari config dengan key GEMINI_API_KEY
+        config = MasterData.query.filter_by(category='SYSTEM_CONFIG', key='GEMINI_API_KEY').first()
+        has_key = False
+        masked_key = ""
+        
+        if config and config.value:
+            has_key = True
+            val = config.value
+            # Masking: Tampilkan 4 huruf awal ... 4 huruf akhir
+            if len(val) > 8:
+                masked_key = f"{val[:4]}...{val[-4:]}"
+            else:
+                masked_key = "********"
+        
+        return jsonify({
+            'has_key': has_key,
+            'masked_key': masked_key
+        }), 200
+
+    if request.method == 'POST':
+        data = request.get_json()
+        new_key = data.get('api_key')
+        
+        if not new_key:
+            return jsonify({'message': 'API Key tidak boleh kosong'}), 400
+            
+        # Cek apakah sudah ada di database
+        config = MasterData.query.filter_by(category='SYSTEM_CONFIG', key='GEMINI_API_KEY').first()
+        
+        if not config:
+            # Jika belum ada, buat baru
+            config = MasterData(
+                category='SYSTEM_CONFIG',
+                key='GEMINI_API_KEY',
+                value=new_key,
+            )
+            db.session.add(config)
+        else:
+            # Jika sudah ada, update nilainya
+            config.value = new_key
+            
+        try:
+            db.session.commit()
+            return jsonify({'message': 'API Key berhasil diperbarui'}), 200
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error saving API Key: {e}")
+            return jsonify({'message': 'Gagal menyimpan API Key ke database'}), 500
