@@ -93,17 +93,23 @@ cd sirico-dev
 
     ```txt
     flask
-    flask_sqlalchemy
-    flask_migrate
-    flask_bcrypt
-    flask_jwt_extended
-    flask_cors
+    flask-sqlalchemy
+    flask-migrate
+    flask-bcrypt
+    flask-jwt-extended
+    flask-cors
+    flask-marshmallow
+    marshmallow-sqlalchemy
     python-dotenv
     google-generativeai
     psycopg2-binary
     feedparser
     beautifulsoup4
+    lxml
+    requests
+    deep-translator
     openpyxl
+    gunicorn
     ```
 
     ```bash
@@ -290,8 +296,8 @@ Modul end-to-end untuk penilaian risiko cepat antara Klien dan Konsultan.
   - Validasi kuota (`limit_qrc_standard`, `limit_qrc_essay`) dilakukan di backend sebelum asesmen dimulai.
 - **Review (Consultant)**:
   - Konsultan mengakses `QrcReviewWorkspace` untuk melihat jawaban klien.
-  - Untuk tipe Standard, skor dihitung otomatis. Untuk tipe Essay, konsultan dapat memberikan *Expert Judgment Scoring* melalui slider manual.
-  - Fitur **Generate AI Analysis** mengirimkan seluruh konteks jawaban ke Gemini Pro (`gemini-1.5-flash`) untuk menghasilkan narasi: *Ringkasan Eksekutif, Analisis Kekuatan/Kelemahan, dan Rekomendasi Strategis*.
+  - Untuk tipe Standard, skor dihitung otomatis. Untuk tipe Essay, konsultan dapat memberikan _Expert Judgment Scoring_ melalui slider manual.
+  - Fitur **Generate AI Analysis** mengirimkan seluruh konteks jawaban ke Gemini Pro (`gemini-1.5-flash`) untuk menghasilkan narasi: _Ringkasan Eksekutif, Analisis Kekuatan/Kelemahan, dan Rekomendasi Strategis_.
 - **Output**: Laporan final dapat diekspor ke PDF menggunakan template cetak HTML yang rapi.
 
 ### Admin Panel
