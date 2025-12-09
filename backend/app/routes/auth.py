@@ -126,7 +126,7 @@ def login():
 @jwt_required()
 def get_current_user():
     """Mengambil detail pengguna yang sedang login."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user:
         return jsonify({"msg": "User tidak ditemukan"}), 404
@@ -151,7 +151,7 @@ def logout():
 @jwt_required()
 def get_account_details():
     """Mengambil detail lengkap pengguna yang sedang login."""
-    current_user_id_str = get_jwt_identity()
+    current_user_id_str = int(get_jwt_identity())
     
     try:
         current_user_id = int(current_user_id_str) # Konversi ke integer
@@ -202,7 +202,7 @@ def get_account_details():
 @jwt_required()
 def update_account_details():
     """Memperbarui detail (non-sensitif) pengguna yang sedang login."""
-    current_user_id_str = get_jwt_identity()
+    current_user_id_str = int(get_jwt_identity())
     try:
         current_user_id = int(current_user_id_str)
     except ValueError:
@@ -262,7 +262,7 @@ def update_account_details():
 @jwt_required()
 def change_password():
     """Mengubah password pengguna yang sedang login."""
-    current_user_id_str = get_jwt_identity()
+    current_user_id_str = int(get_jwt_identity())
     try:
         current_user_id = int(current_user_id_str)
     except ValueError:

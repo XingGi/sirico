@@ -16,3 +16,4 @@ requests
 deep-translator
 openpyxl
 gunicorn
+Pillow

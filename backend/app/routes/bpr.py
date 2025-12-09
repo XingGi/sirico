@@ -54,7 +54,7 @@ def format_risk(risk):
 @jwt_required()
 def create_bpr_document():
     """Membuat dokumen BPR baru (Header)."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     data = request.get_json()
     
@@ -87,7 +87,7 @@ def create_bpr_document():
 @jwt_required()
 def get_bpr_documents():
     """Mengambil daftar BPR (bisa difilter per departemen/user)."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     query = BprDocument.query.join(Department).filter(
@@ -276,7 +276,7 @@ def clone_bpr_document(doc_id):
     Menduplikasi dokumen BPR (Clone & Re-evaluate).
     Menyalin Header, Node, Edge, dan Risiko ke periode/versi baru.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     # 1. Ambil Dokumen Sumber

@@ -458,7 +458,7 @@ def create_user_admin():
 @admin_required()
 def delete_user_admin(user_id):
     """[Admin] Menghapus user berdasarkan ID."""
-    current_admin_id_str = get_jwt_identity()
+    current_admin_id_str = int(get_jwt_identity())
     current_admin_id = int(current_admin_id_str)
 
     # Keamanan: Admin tidak bisa menghapus diri sendiri
@@ -500,7 +500,7 @@ def get_departments_list():
             )
         else:
             # Mode Manajer Risiko: Filter berdasarkan institusi sendiri
-            current_user_id = get_jwt_identity()
+            current_user_id = int(get_jwt_identity())
             user = User.query.get(current_user_id)
             if not user or not user.institution:
                 # Jika Manajer Risiko tidak punya institusi, kembalikan daftar kosong
@@ -522,7 +522,7 @@ def get_departments_list():
 @permission_required('manage_departments')
 def get_departments_for_institution():
     """Mengambil daftar departemen untuk tabel manajemen."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.institution:
         return jsonify({"msg": "User tidak memiliki institusi."}), 400
@@ -541,7 +541,7 @@ def create_department_for_institution():
     if not data or 'name' not in data:
         return jsonify({"msg": "Nama departemen wajib diisi."}), 400
 
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.institution:
         return jsonify({"msg": "User tidak memiliki institusi."}), 400
@@ -570,7 +570,7 @@ def create_department_for_institution():
 def update_department_for_institution(dept_id):
     """Update departemen (HANYA JIKA MILIK INSTITUSINYA)."""
     dept = Department.query.get_or_404(dept_id)
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or dept.institution != user.institution:
@@ -588,7 +588,7 @@ def update_department_for_institution(dept_id):
 def delete_department_for_institution(dept_id):
     """Hapus departemen."""
     dept = Department.query.get_or_404(dept_id)
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or dept.institution != user.institution:
@@ -604,7 +604,7 @@ def delete_department_for_institution(dept_id):
 @permission_required('manage_rsca_cycles')
 def get_rsca_cycles():
     """Mengambil semua siklus RSCA untuk admin."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.institution:
         return jsonify({"msg": "User tidak memiliki institusi."}), 400
@@ -628,7 +628,7 @@ def create_rsca_cycle():
     if not data or 'nama_siklus' not in data:
         return jsonify({"msg": "Data tidak lengkap"}), 400
 
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.institution:
         return jsonify({"msg": "User tidak memiliki institusi."}), 400
@@ -662,7 +662,7 @@ def update_rsca_cycle(cycle_id):
     Update detail siklus RSCA (nama, tanggal, departemen).
     """
     cycle = RscaCycle.query.get_or_404(cycle_id)
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
 
     # 1. Validasi Keamanan (Institusi)
@@ -763,7 +763,7 @@ def get_rsca_cycle_results(cycle_id):
     Mengambil semua hasil (jawaban) untuk satu siklus RSCA,
     hanya untuk institusi Manajer Risiko.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     cycle = RscaCycle.query.get_or_404(cycle_id)
     
@@ -790,7 +790,7 @@ def update_submitted_risk_status(risk_id):
     """
     Menyetujui atau menolak 'Ajuan Risiko' (Bottom-Up) dari Staf.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     submitted_risk = SubmittedRisk.query.get_or_404(risk_id)
     
@@ -823,7 +823,7 @@ def create_action_plan():
     """
     Membuat Rencana Aksi (Mitigasi) baru.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.institution:
         return jsonify({"msg": "User tidak valid atau tidak memiliki institusi."}), 400
@@ -889,7 +889,7 @@ def get_all_action_plans():
     """
     Mengambil SEMUA Rencana Aksi (Mitigasi) untuk institusi Manajer Risiko.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.institution:
         return jsonify({"msg": "User tidak valid atau tidak memiliki institusi."}), 400
@@ -908,7 +908,7 @@ def update_action_plan_status(plan_id):
     """
     Update status Rencana Aksi (misal: Selesai, Sedang Dikerjakan).
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     action_plan = ActionPlan.query.get_or_404(plan_id)
 

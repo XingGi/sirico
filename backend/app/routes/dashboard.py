@@ -1,6 +1,6 @@
 # backend/app/routes/dashboard.py
 from flask import request, jsonify, Blueprint
-from app.models import KRI, HorizonScanEntry
+from app.models import KRI, HorizonScanEntry, User
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -11,7 +11,7 @@ dashboard_bp = Blueprint('dashboard_bp', __name__)
 @dashboard_bp.route('/kri', methods=['POST'])
 @jwt_required()
 def create_kri():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json()
 
     if not data or not data.get('nama_kri') or not data.get('tipe_data') or data.get('ambang_batas_kritis') is None:
@@ -33,7 +33,7 @@ def create_kri():
 @dashboard_bp.route('/kri', methods=['GET'])
 @jwt_required()
 def get_all_kris():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     kris = KRI.query.filter_by(user_id=current_user_id).all()
     
     kri_list = []
@@ -53,7 +53,7 @@ def get_all_kris():
 @dashboard_bp.route('/kri/<int:id>', methods=['GET'])
 @jwt_required()
 def get_kri(id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     kri = KRI.query.get(id)
 
     if not kri:
@@ -75,13 +75,16 @@ def get_kri(id):
 @dashboard_bp.route('/kri/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_kri(id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     kri = KRI.query.get(id)
 
     if not kri:
         return jsonify({"msg": "KRI tidak ditemukan"}), 404
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
 
-    if kri.user_id != current_user_id:
+    if kri.user_id != current_user_id and not is_admin:
         return jsonify({"msg": "Akses ditolak"}), 403
 
     data = request.get_json()
@@ -98,13 +101,16 @@ def update_kri(id):
 @dashboard_bp.route('/kri/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_kri(id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     kri = KRI.query.get(id)
 
     if not kri:
         return jsonify({"msg": "KRI tidak ditemukan"}), 404
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
 
-    if kri.user_id != current_user_id:
+    if kri.user_id != current_user_id and not is_admin:
         return jsonify({"msg": "Akses ditolak"}), 403
 
     db.session.delete(kri)

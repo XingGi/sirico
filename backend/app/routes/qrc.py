@@ -44,7 +44,7 @@ def check_admin_permission(user_id):
 @qrc_bp.route('/submit', methods=['POST'])
 @jwt_required()
 def submit_assessment():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     data = request.get_json()
@@ -106,14 +106,14 @@ def submit_assessment():
 @qrc_bp.route('/my-history', methods=['GET'])
 @jwt_required()
 def my_history():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     assessments = QrcAssessment.query.filter_by(user_id=user_id).order_by(desc(QrcAssessment.submission_date)).all()
     return jsonify([a.to_dict() for a in assessments]), 200
 
 @qrc_bp.route('/my-limits', methods=['GET'])
 @jwt_required()
 def my_limits():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     # Hitung penggunaan saat ini
@@ -245,7 +245,7 @@ def get_detail(id):
 @qrc_bp.route('/consultant/<int:id>/review', methods=['PUT'])
 @jwt_required()
 def update_review(id):
-    reviewer_id = get_jwt_identity()
+    reviewer_id = int(get_jwt_identity())
     data = request.get_json()
     
     assessment = QrcAssessment.query.get_or_404(id)
@@ -329,7 +329,7 @@ def generate_ai_analysis(id):
 @qrc_bp.route('/admin/questions', methods=['GET'])
 @jwt_required()
 def admin_get_all_questions():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     if not check_admin_permission(current_user_id):
         return jsonify({"msg": "Unauthorized"}), 403
 
@@ -341,7 +341,7 @@ def admin_get_all_questions():
 @qrc_bp.route('/admin/questions', methods=['POST'])
 @jwt_required()
 def create_question():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     if not check_admin_permission(current_user_id):
         return jsonify({"msg": "Unauthorized"}), 403
 
@@ -371,7 +371,7 @@ def create_question():
 @qrc_bp.route('/admin/questions/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_question(id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     if not check_admin_permission(current_user_id):
         return jsonify({"msg": "Unauthorized"}), 403
 
@@ -392,7 +392,7 @@ def update_question(id):
 @qrc_bp.route('/admin/questions/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_question(id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     if not check_admin_permission(current_user_id):
         return jsonify({"msg": "Unauthorized"}), 403
 

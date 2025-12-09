@@ -14,7 +14,7 @@ horizon_bp = Blueprint('horizon_bp', __name__)
 @jwt_required()
 def get_scan_history():
     """Mengambil daftar riwayat scan user."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
     history = HorizonScanResult.query.filter_by(user_id=current_user_id)\
         .order_by(HorizonScanResult.created_at.desc()).all()
@@ -35,7 +35,7 @@ def get_scan_history():
 @jwt_required()
 def get_scan_detail(scan_id):
     """Mengambil detail lengkap satu scan."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     scan = HorizonScanResult.query.filter_by(id=scan_id, user_id=current_user_id).first_or_404()
     
     # Parse JSON raw data kembali ke object
@@ -59,7 +59,7 @@ def get_scan_detail(scan_id):
 @horizon_bp.route('/horizon/scan', methods=['POST'])
 @jwt_required()
 def scan_risks():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if user.limit_horizon is not None:
@@ -125,7 +125,7 @@ def scan_risks():
 @jwt_required()
 def delete_scan_history(scan_id):
     """Menghapus satu riwayat scan."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
     scan = HorizonScanResult.query.filter_by(id=scan_id, user_id=current_user_id).first_or_404()
     
@@ -142,7 +142,7 @@ def delete_scan_history(scan_id):
 @horizon_bp.route('/horizon', methods=['GET'])
 @jwt_required()
 def get_horizon_dashboard():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
     # Ambil 3 scan terbaru
     scans = HorizonScanResult.query.filter_by(user_id=current_user_id)\

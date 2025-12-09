@@ -1,7 +1,7 @@
 # backend/app/routes/bia.py
 import os
 from flask import request, jsonify, Blueprint
-from app.models import db, CriticalAsset, Dependency, KRI
+from app.models import db, CriticalAsset, Dependency, KRI, User
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.ai_services import analyze_bia_with_gemini
 
@@ -11,7 +11,7 @@ bia_bp = Blueprint('bia_bp', __name__)
 @jwt_required()
 def create_critical_asset():
     """Membuat aset kritis baru."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json()
     if not data or not data.get('nama_aset') or not data.get('tipe_aset'):
         return jsonify({"msg": "Nama dan tipe aset wajib diisi."}), 400
@@ -30,7 +30,7 @@ def create_critical_asset():
 @jwt_required()
 def get_critical_assets():
     """Mengambil daftar semua aset kritis milik pengguna."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assets = CriticalAsset.query.filter_by(user_id=current_user_id).all()
     asset_list = [{
         "id": asset.id,
@@ -45,7 +45,7 @@ def get_critical_assets():
 @jwt_required()
 def create_dependency():
     """Membuat hubungan ketergantungan baru antar aset."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json()
     if not data or 'asset_id' not in data or 'depends_on_asset_id' not in data:
         return jsonify({"msg": "asset_id dan depends_on_asset_id wajib diisi."}), 400
@@ -65,7 +65,7 @@ def create_dependency():
 @jwt_required()
 def get_asset_dependencies(asset_id):
     """Mengambil semua ketergantungan untuk sebuah aset spesifik."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     asset = CriticalAsset.query.filter_by(id=asset_id, user_id=current_user_id).first_or_404()
 
     # Aset-aset yang dibutuhkan oleh aset ini (dependencies_on)
@@ -91,7 +91,7 @@ def get_asset_dependencies(asset_id):
 @jwt_required()
 def simulate_bia():
     """Menjalankan simulasi BIA dengan input dari frontend."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
         return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
@@ -103,7 +103,12 @@ def simulate_bia():
     if not asset_id or not duration:
         return jsonify({"msg": "asset_id dan duration wajib diisi."}), 400
 
-    failed_asset = CriticalAsset.query.filter_by(id=asset_id, user_id=current_user_id).first_or_404()
+    failed_asset = CriticalAsset.query.get_or_404(asset_id)
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if failed_asset.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Aset bukan milik Anda."}), 403
 
     # --- Logika untuk menelusuri aset terdampak ---
     impacted_assets_names = set()

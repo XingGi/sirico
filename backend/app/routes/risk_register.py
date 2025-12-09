@@ -11,7 +11,7 @@ risk_register_bp = Blueprint('risk_register_bp', __name__)
 @jwt_required()
 def get_main_risk_register():
     """Mengambil semua risiko dari register utama milik pengguna."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     risks = MainRiskRegister.query.filter_by(user_id=current_user_id).order_by(MainRiskRegister.created_at.desc()).all()
     
     risk_list = [{
@@ -42,7 +42,7 @@ def get_main_risk_register():
 @jwt_required()
 def update_main_risk_register_item(risk_id):
     """Memperbarui satu item di Main Risk Register."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     risk_item = MainRiskRegister.query.filter_by(id=risk_id, user_id=current_user_id).first_or_404()
 
     data = request.get_json()
@@ -73,7 +73,7 @@ def update_main_risk_register_item(risk_id):
 @jwt_required()
 def delete_main_risk_register_item(risk_id):
     """Menghapus satu item dari Main Risk Register."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     risk_item = MainRiskRegister.query.filter_by(id=risk_id, user_id=current_user_id).first_or_404()
 
     db.session.delete(risk_item)
@@ -84,7 +84,7 @@ def delete_main_risk_register_item(risk_id):
 @risk_register_bp.route('/risk-register/bulk-delete', methods=['POST'])
 @jwt_required()
 def bulk_delete_main_risk_register_items():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json()
     risk_ids_to_delete = data.get('risk_ids')
 

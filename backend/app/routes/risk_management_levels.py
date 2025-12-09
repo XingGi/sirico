@@ -46,7 +46,7 @@ risk_management_levels_bp = Blueprint('risk_management_levels_bp', __name__)
 @jwt_required()
 def create_basic_assessment():
     """Endpoint untuk membuat Asesmen Dasar baru beserta konteks dan risikonya."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json()
     
     user = User.query.get(current_user_id)
@@ -137,7 +137,7 @@ def create_basic_assessment():
 @jwt_required()
 def get_all_basic_assessments():
     """Mengambil semua Asesmen Dasar milik pengguna."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessments = BasicAssessment.query.filter_by(user_id=current_user_id).order_by(BasicAssessment.created_at.desc()).all()
     
     assessment_list = [{
@@ -153,7 +153,7 @@ def get_all_basic_assessments():
 @jwt_required()
 def get_basic_assessment_detail(assessment_id):
     """Mengambil detail lengkap dari satu Asesmen Dasar."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = BasicAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
 
     risks_list = [{
@@ -195,8 +195,15 @@ def get_basic_assessment_detail(assessment_id):
 @jwt_required()
 def update_basic_assessment(assessment_id):
     """Memperbarui Asesmen Dasar yang ada."""
-    current_user_id = get_jwt_identity()
-    assessment = BasicAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    current_user_id = int(get_jwt_identity())
+    assessment = BasicAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Asesmen bukan milik Anda."}), 403
+    
     data = request.get_json()
 
     assessment.nama_unit_kerja = data.get('nama_unit_kerja', assessment.nama_unit_kerja)
@@ -268,17 +275,16 @@ def update_basic_assessment(assessment_id):
 @jwt_required()
 def delete_basic_assessment(assessment_id):
     """Menghapus Asesmen Dasar beserta data terkaitnya."""
-    current_user_id = get_jwt_identity()
-    assessment = BasicAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    current_user_id = int(get_jwt_identity())
+    assessment = BasicAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Asesmen bukan milik Anda."}), 403
 
     try:
-        # Jika relasi 'contexts' di model BasicAssessment menggunakan cascade="all, delete",
-        # menghapus assessment akan otomatis menangani tabel asosiasi.
-        # Jika tidak, uncomment baris di bawah ini untuk menghapus relasi many-to-many secara manual:
-        # assessment.contexts.clear() # Hapus asosiasi ke OrganizationalContext
-
-        # Hapus assessment utama. Relasi one-to-many (risks, risk_analyses)
-        # akan terhapus otomatis jika cascade="all, delete-orphan" ada di model.
         db.session.delete(assessment)
         db.session.commit()
         return jsonify({"msg": "Asesmen Dasar berhasil dihapus."}), 200
@@ -291,7 +297,7 @@ def delete_basic_assessment(assessment_id):
 @jwt_required()
 def export_basic_assessment_to_excel(assessment_id):
     """Membuat dan mengirim file Excel dari data Asesmen Dasar dengan styling lengkap."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = BasicAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
 
     wb = openpyxl.Workbook()
@@ -455,7 +461,7 @@ def export_basic_assessment_to_excel(assessment_id):
 @jwt_required()
 def export_madya_assessment_to_excel(assessment_id):
     """Membuat dan mengirim file Excel dari data Asesmen Madya."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
     template = assessment.risk_map_template # Ambil template terkait
     
@@ -1005,7 +1011,7 @@ def export_madya_assessment_to_excel(assessment_id):
 @jwt_required()
 def create_risk_map_template():
     data = request.get_json()
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     if not data or not data.get('name'):
         return jsonify({"msg": "Nama template wajib diisi."}), 400
     
@@ -1041,11 +1047,17 @@ def create_risk_map_template():
 @jwt_required()
 def get_risk_map_templates():
     """Mengambil daftar template (default + milik pengguna)."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
+    
+    try:
+        user_id_int = int(current_user_id)
+    except (ValueError, TypeError):
+        # Jaga-jaga kalau token korup/aneh
+        return jsonify({"msg": "Invalid User ID format"}), 400
     
     # Ambil template default (user_id is None) ATAU yang dimiliki user
     templates = RiskMapTemplate.query.filter(
-        (RiskMapTemplate.user_id == current_user_id) | (RiskMapTemplate.is_default == True)
+        (RiskMapTemplate.user_id == user_id_int) | (RiskMapTemplate.is_default == True)
     ).order_by(RiskMapTemplate.is_default.desc(), RiskMapTemplate.name).all()
 
     result = [
@@ -1083,7 +1095,7 @@ def get_risk_map_template_detail(template_id):
 @jwt_required()
 def update_risk_map_template(template_id):
     template = RiskMapTemplate.query.get_or_404(template_id)
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
 
     # Otorisasi: Pastikan user tidak mengedit template default atau milik user lain
     if template.is_default or str(template.user_id) != current_user_id:
@@ -1118,7 +1130,7 @@ def update_risk_map_template(template_id):
 @jwt_required()
 def delete_risk_map_template(template_id):
     template = RiskMapTemplate.query.get_or_404(template_id)
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
 
     if template.is_default or str(template.user_id) != current_user_id:
         return jsonify({"msg": "Akses ditolak. Anda tidak dapat menghapus template default atau milik pengguna lain."}), 403
@@ -1143,7 +1155,7 @@ def delete_risk_map_template(template_id):
 @jwt_required()
 def create_madya_assessment():
     """Membuat record Madya Assessment baru (awalan)."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json() or {}
     
     user = User.query.get(current_user_id)
@@ -1218,7 +1230,7 @@ def create_madya_assessment():
 @jwt_required()
 def get_madya_assessments_list():
     """Mengambil daftar semua Asesmen Madya milik pengguna."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
 
     # Query asesmen milik user saat ini, urutkan berdasarkan tanggal terbaru
     assessments = MadyaAssessment.query.filter_by(user_id=current_user_id)\
@@ -1242,7 +1254,7 @@ def get_madya_assessments_list():
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-entries', methods=['POST'])
 @jwt_required()
 def add_structure_entry(assessment_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
 
     # --- PERUBAHAN: Ambil data dari JSON, bukan form-data ---
@@ -1277,7 +1289,7 @@ def add_structure_entry(assessment_id):
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-image', methods=['POST'])
 @jwt_required()
 def upload_structure_image(assessment_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
 
     if 'struktur_organisasi_image' not in request.files:
@@ -1323,8 +1335,14 @@ def upload_structure_image(assessment_id):
 @jwt_required()
 def get_madya_assessment_detail(assessment_id):
     """Mengambil detail Madya Assessment, termasuk entri struktur."""
-    current_user_id = get_jwt_identity()
-    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    current_user_id = int(get_jwt_identity())
+    assessment = MadyaAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Asesmen bukan milik Anda."}), 403
 
     structure_entries = [
         {
@@ -1383,7 +1401,7 @@ def get_madya_assessment_detail(assessment_id):
 @jwt_required()
 def update_madya_assessment_filters(assessment_id):
     """Mengupdate nilai filter yang tersimpan untuk Asesmen Madya."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
 
     data = request.get_json()
@@ -1417,8 +1435,14 @@ def update_madya_assessment_filters(assessment_id):
 @jwt_required()
 def delete_madya_assessment(assessment_id):
     """Menghapus Asesmen Madya beserta data terkaitnya."""
-    current_user_id = get_jwt_identity()
-    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    current_user_id = int(get_jwt_identity())
+    assessment = MadyaAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Asesmen bukan milik Anda."}), 403
 
     try:
         # Hapus file gambar struktur organisasi jika ada
@@ -1444,7 +1468,7 @@ def delete_madya_assessment(assessment_id):
 @risk_management_levels_bp.route('/madya-assessments/<int:assessment_id>/structure-image', methods=['DELETE'])
 @jwt_required()
 def delete_structure_image(assessment_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
 
     if not assessment.structure_image_filename:
@@ -1472,9 +1496,15 @@ def delete_structure_image(assessment_id):
 @jwt_required()
 def update_madya_assessment_template(assessment_id):
     """Mengupdate template peta risiko yang digunakan untuk Asesmen Madya."""
-    current_user_id = get_jwt_identity()
-    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+    current_user_id = int(get_jwt_identity())
+    assessment = MadyaAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
 
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Asesmen bukan milik Anda."}), 403
+    
     data = request.get_json()
     new_template_id = data.get('risk_map_template_id')
 
@@ -1494,13 +1524,16 @@ def update_madya_assessment_template(assessment_id):
 @risk_management_levels_bp.route('/madya-assessments/criteria/probability/<int:criteria_id>', methods=['PUT'])
 @jwt_required()
 def update_madya_probability_criteria_entry(criteria_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     criteria_entry = MadyaCriteriaProbability.query.get_or_404(criteria_id)
     
     # Otorisasi: Cek apakah user adalah pemilik asesmen dari kriteria ini
     assessment = MadyaAssessment.query.get_or_404(criteria_entry.assessment_id)
-    if str(assessment.user_id) != current_user_id:
-        return jsonify({"msg": "Akses ditolak."}), 403
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Anda bukan pemilik asesmen ini."}), 403
 
     data = request.get_json()
     
@@ -1516,13 +1549,16 @@ def update_madya_probability_criteria_entry(criteria_id):
 @risk_management_levels_bp.route('/madya-assessments/criteria/impact/<int:criteria_id>', methods=['PUT'])
 @jwt_required()
 def update_madya_impact_criteria_entry(criteria_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     criteria_entry = MadyaCriteriaImpact.query.get_or_404(criteria_id)
 
     # Otorisasi
     assessment = MadyaAssessment.query.get_or_404(criteria_entry.assessment_id)
-    if str(assessment.user_id) != current_user_id:
-        return jsonify({"msg": "Akses ditolak."}), 403
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Anda bukan pemilik asesmen ini."}), 403
         
     data = request.get_json()
     
@@ -1537,7 +1573,7 @@ def update_madya_impact_criteria_entry(criteria_id):
 @risk_management_levels_bp.route('/structure-entries/<int:entry_id>', methods=['PUT', 'DELETE'])
 @jwt_required()
 def manage_structure_entry(entry_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     entry = OrganizationalStructureEntry.query.get_or_404(entry_id)
 
     # Otorisasi: Pastikan entry ini milik asesmen user
@@ -1566,7 +1602,7 @@ def manage_structure_entry(entry_id):
 @jwt_required()
 def add_sasaran_kpi(assessment_id):
     """Menambahkan entri Sasaran Organisasi/KPI baru ke Asesmen Madya."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     # Pastikan asesmen ada dan milik user
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
 
@@ -1594,7 +1630,7 @@ def add_sasaran_kpi(assessment_id):
 @jwt_required()
 def get_sasaran_kpi_list(assessment_id):
     """Mengambil semua entri Sasaran Organisasi/KPI untuk Asesmen Madya."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
 
     # Ambil semua entri sasaran terkait, urutkan berdasarkan ID (atau kriteria lain jika perlu)
@@ -1615,12 +1651,15 @@ def get_sasaran_kpi_list(assessment_id):
 @jwt_required()
 def update_sasaran_target_level(sasaran_id):
     """Memperbarui target level (Risk Appetite) untuk satu Sasaran/KPI."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     sasaran_entry = SasaranOrganisasiKPI.query.get_or_404(sasaran_id)
 
     # Otorisasi: Pastikan entri ini milik asesmen user
     assessment = MadyaAssessment.query.get_or_404(sasaran_entry.assessment_id)
-    if str(assessment.user_id) != current_user_id:
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
         return jsonify({"msg": "Akses ditolak."}), 403
 
     data = request.get_json()
@@ -1644,7 +1683,7 @@ def update_sasaran_target_level(sasaran_id):
 @jwt_required()
 def delete_sasaran_kpi(sasaran_id):
     """Menghapus satu entri Sasaran Organisasi/KPI."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     sasaran_entry = SasaranOrganisasiKPI.query.get_or_404(sasaran_id)
 
     # Otorisasi: Pastikan entri ini milik asesmen user yang sedang login
@@ -1836,8 +1875,15 @@ def update_sasaran_kpi_scores(sasaran_id):
 @jwt_required()
 def add_risk_input(assessment_id):
     """Menambahkan entri Risk Input baru ke Asesmen Madya."""
-    current_user_id = get_jwt_identity()
-    assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
+    current_user_id = int(get_jwt_identity())
+    assessment = MadyaAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Asesmen bukan milik Anda."}), 403
+    
     data = request.get_json()
 
     if not data or not data.get('deskripsi_risiko') or not data.get('kategori_risiko'):
@@ -1947,7 +1993,7 @@ def add_risk_input(assessment_id):
 @jwt_required()
 def get_risk_inputs(assessment_id):
     """Mengambil semua entri Risk Input untuk Asesmen Madya."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = MadyaAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404("Asesmen Madya tidak ditemukan atau bukan milik Anda.")
 
     risk_entries = RiskInputMadya.query.filter_by(assessment_id=assessment.id).order_by(RiskInputMadya.id).all()
@@ -1966,11 +2012,14 @@ def get_risk_inputs(assessment_id):
 @jwt_required()
 def update_risk_input(risk_input_id):
     """Memperbarui satu entri Risk Input."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     risk_input = RiskInputMadya.query.get_or_404(risk_input_id)
 
     assessment = MadyaAssessment.query.get_or_404(risk_input.assessment_id)
-    if str(assessment.user_id) != current_user_id:
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
         return jsonify({"msg": "Akses ditolak."}), 403
 
     data = request.get_json()
@@ -2080,11 +2129,14 @@ def update_risk_input(risk_input_id):
 @jwt_required()
 def delete_risk_input(risk_input_id):
     """Menghapus satu entri Risk Input."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     risk_input = RiskInputMadya.query.get_or_404(risk_input_id)
 
     assessment = MadyaAssessment.query.get_or_404(risk_input.assessment_id)
-    if str(assessment.user_id) != current_user_id:
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
         return jsonify({"msg": "Akses ditolak."}), 403
 
     db.session.delete(risk_input)
@@ -2098,7 +2150,7 @@ def get_all_risk_inputs_global():
     """
     Mengambil SEMUA risk input (Madya) milik user untuk Dashboard Top Risks & Matrix.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
     # 1. Ambil semua MadyaAssessment milik user
     user_assessments = MadyaAssessment.query.filter_by(user_id=current_user_id).all()

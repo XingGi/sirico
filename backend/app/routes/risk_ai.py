@@ -17,7 +17,7 @@ risk_ai_bp = Blueprint('risk_ai_bp', __name__)
 @jwt_required()
 def create_assessment():
     """Endpoint untuk membuat proyek risk assessment baru."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
     user = User.query.get(current_user_id)
     if user.limit_ai is not None:
@@ -71,7 +71,7 @@ def create_assessment():
 @jwt_required()
 def get_all_assessments():
     """Mengambil semua proyek asesmen milik pengguna (hanya data ringkas)."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessments = RiskAssessment.query.filter_by(user_id=current_user_id).order_by(RiskAssessment.tanggal_mulai.desc()).all()
     
     assessment_list = []
@@ -95,8 +95,14 @@ def get_all_assessments():
 @jwt_required()
 def get_assessment_details(assessment_id):
     """Mengambil data detail dari satu asesmen, termasuk risk register-nya."""
-    current_user_id = get_jwt_identity()
-    assessment = RiskAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
+    current_user_id = int(get_jwt_identity())
+    assessment = RiskAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak."}), 403
     
     creator_user = User.query.get(assessment.user_id)
     created_by_user_name = creator_user.nama_lengkap if creator_user else "N/A"
@@ -156,12 +162,15 @@ def get_assessment_details(assessment_id):
 @jwt_required()
 def delete_assessment(assessment_id):
     """Menghapus Risk Assessment AI beserta semua data terkaitnya."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     
-    # Cari asesmen milik user
-    assessment = RiskAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404(
-        "Asesmen tidak ditemukan atau bukan milik Anda."
-    )
+    assessment = RiskAssessment.query.get_or_404(assessment_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    if assessment.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Asesmen bukan milik Anda."}), 403
     
     try:
         MainRiskRegister.query.filter_by(
@@ -183,7 +192,7 @@ def delete_assessment(assessment_id):
 @jwt_required()
 def bulk_delete_assessments():
     """Menghapus beberapa Risk Assessment AI berdasarkan daftar ID."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json()
     requested_ids = data.get('risk_ids') # Harapannya ini adalah array [1, 2, 3]
 
@@ -228,7 +237,7 @@ def bulk_delete_assessments():
 @risk_ai_bp.route('/assessments/analyze', methods=['POST'])
 @jwt_required()
 def analyze_assessment():
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     form_data = request.get_json()
     
     user = User.query.get(current_user_id)
@@ -326,7 +335,7 @@ def analyze_assessment():
 @risk_ai_bp.route('/assessments/<int:assessment_id>/generate-summary', methods=['POST'])
 @jwt_required()
 def generate_summary_for_assessment(assessment_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     assessment = RiskAssessment.query.filter_by(id=assessment_id, user_id=current_user_id).first_or_404()
 
     # Cek apakah summary sudah ada (jangan generate ulang jika tidak perlu)
@@ -388,14 +397,15 @@ def generate_summary_for_assessment(assessment_id):
 @jwt_required()
 def update_risk_item(risk_id):
     """Memperbarui detail satu item risiko."""
-    current_user_id = get_jwt_identity()
-    
-    # Cari risk item berdasarkan ID-nya
+    current_user_id = int(get_jwt_identity())
     risk_item = RiskRegister.query.get_or_404(risk_id)
 
-    # Otorisasi: Pastikan risk item ini milik asesmen yang dibuat oleh user yang sedang login
-    assessment_owner_id = str(risk_item.assessment.user_id)
-    if assessment_owner_id != current_user_id:
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+    
+    assessment_owner_id = risk_item.assessment.user_id
+    
+    if assessment_owner_id != current_user_id and not is_admin:
         return jsonify({"msg": "Akses ditolak. Anda bukan pemilik asesmen ini."}), 403
 
     data = request.get_json()
@@ -432,7 +442,7 @@ def update_risk_item(risk_id):
 @jwt_required()
 def import_to_main_register():
     """Mengimpor risiko dari asesmen ke register utama."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     data = request.get_json()
     risk_ids_to_import = data.get('risk_ids')
 

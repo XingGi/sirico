@@ -85,7 +85,7 @@ def create_rsca_cycle():
 @jwt_required()
 def get_my_rsca_tasks():
     """Mengambil daftar siklus RSCA yang ditugaskan ke departemen pengguna."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or not user.department_id:
@@ -114,7 +114,7 @@ def get_my_submitted_risks():
     Mengambil daftar 'Ajuan Risiko' (Bottom-Up) yang telah dikirim
     oleh pengguna yang sedang login.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user:
@@ -149,7 +149,7 @@ def get_my_action_plan_tasks():
     Mengambil daftar 'Rencana Aksi' (tugas mitigasi) yang ditugaskan
     ke departemen pengguna yang sedang login.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     # 1. Validasi User & Departemen
@@ -196,7 +196,7 @@ def get_rsca_questionnaire(cycle_id):
     Mengambil detail siklus dan daftar pertanyaannya.
     HANYA jika user ditugaskan ke siklus tersebut.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or not user.department_id:
@@ -257,7 +257,7 @@ def get_my_rsca_answers(cycle_id):
     Mengambil jawaban yang sudah ada dari departemen pengguna
     untuk siklus tertentu.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user or not user.department_id:
@@ -281,7 +281,7 @@ def get_my_rsca_answers(cycle_id):
 @jwt_required()
 def submit_rsca_answers(cycle_id):
     """Menerima jawaban kuesioner dari departemen pengguna."""
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     
     if not user.department_id:
@@ -338,7 +338,7 @@ def submit_new_risk(cycle_id):
     Menerima 'Ajuan Risiko' (Bottom-Up) baru dari Staf
     untuk siklus RSCA tertentu.
     """
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
 
     # 1. Validasi User (Keamanan)
@@ -395,7 +395,7 @@ def analyze_rsca_cycle(cycle_id):
     if not gemini_api_key:
         return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan di server."}), 500
 
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     cycle = RscaCycle.query.get_or_404(cycle_id)
 

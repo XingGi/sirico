@@ -1,7 +1,7 @@
 # backend/run_seeds.py
 
 from app import create_app
-from app.seeds import seed_admin, seed_master_data, seed_default_risk_map, seed_roles_permissions
+from app.seeds import seed_admin, seed_master_data, seed_default_risk_map, seed_roles_permissions, seed_qrc_questions, seed_qrc_users
 
 # Script ini bertujuan untuk menjalankan fungsi seeder kita secara manual
 # dengan konteks aplikasi yang benar.
@@ -18,4 +18,6 @@ with app.app_context():
     seed_admin()
     seed_master_data()
     seed_default_risk_map()
+    seed_qrc_questions()
+    seed_qrc_users()
     print("Seeding process complete.")

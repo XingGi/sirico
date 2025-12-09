@@ -318,9 +318,11 @@ def seed_master_data():
     
 def _create_default_template(name, description, level_definitions_data, matrix_scores_data):
     """Membuat satu template peta risiko default if it doesn't exist."""
-    if RiskMapTemplate.query.filter_by(name=name, is_default=True).first():
-        print(f"Default template '{name}' already exists.")
-        return False # Indicate that it was not created
+    existing = RiskMapTemplate.query.filter_by(name=name, is_default=True).first()
+    if existing:
+        # OPSIONAL: Cek apakah isinya lengkap. Untuk sekarang, kita asumsikan user sudah membersihkan data lama.
+        print(f"  [SKIP] Default template '{name}' already exists.")
+        return False
 
     print(f"Creating default template: {name}...")
     try:
@@ -394,7 +396,7 @@ def _create_default_template(name, description, level_definitions_data, matrix_s
         print(f"Default template '{name}' prepared for commit.")
         return True # Indicate successful preparation
     except Exception as e:
-        # db.session.rollback() # Rollback is handled outside
+        db.session.rollback()
         print(f"Error creating template '{name}': {e}")
         return False # Indicate failure
     
