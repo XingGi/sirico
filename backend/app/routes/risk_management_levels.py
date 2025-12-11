@@ -1096,10 +1096,15 @@ def get_risk_map_template_detail(template_id):
 def update_risk_map_template(template_id):
     template = RiskMapTemplate.query.get_or_404(template_id)
     current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
 
     # Otorisasi: Pastikan user tidak mengedit template default atau milik user lain
-    if template.is_default or str(template.user_id) != current_user_id:
-        return jsonify({"msg": "Akses ditolak."}), 403
+    if template.is_default:
+         return jsonify({"msg": "Template default tidak dapat diedit."}), 403
+    
+    if template.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Anda tidak dapat mengedit template milik pengguna lain."}), 403
 
     data = request.get_json()
     
@@ -1131,11 +1136,16 @@ def update_risk_map_template(template_id):
 def delete_risk_map_template(template_id):
     template = RiskMapTemplate.query.get_or_404(template_id)
     current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
 
-    if template.is_default or str(template.user_id) != current_user_id:
-        return jsonify({"msg": "Akses ditolak. Anda tidak dapat menghapus template default atau milik pengguna lain."}), 403
+    if template.is_default:
+        return jsonify({"msg": "Akses ditolak. Template default sistem tidak dapat dihapus."}), 403
     
-    if template.madya_assessments: # Cek apakah list asesmen yang menggunakan template ini tidak kosong
+    if template.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Anda tidak dapat menghapus template milik pengguna lain."}), 403
+    
+    if template.madya_assessments:
         assessment_ids = [a.id for a in template.madya_assessments]
         return jsonify({
             "msg": f"Template tidak dapat dihapus karena sedang digunakan oleh Asesmen Madya ID: {', '.join(map(str, assessment_ids))}"

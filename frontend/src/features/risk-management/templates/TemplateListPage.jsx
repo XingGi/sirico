@@ -6,6 +6,7 @@ import { FiPlus, FiShield, FiEdit, FiTrash2, FiEye, FiLoader, FiLayout, FiCheckC
 import apiClient from "../../../api/api";
 import TemplateViewModal from "./components/TemplateViewModal";
 import NotificationModal from "../../../components/common/NotificationModal";
+import ConfirmationDialog from "../../../components/common/ConfirmationDialog";
 import { useAuth } from "../../../context/AuthContext";
 
 function TemplateListPage() {
@@ -18,9 +19,12 @@ function TemplateListPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(null);
+
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, name: "" });
+
   const [userLimits, setUserLimits] = useState(null);
-  const [limitModal, setLimitModal] = useState({ isOpen: false, message: "" });
+  const [notification, setNotification] = useState({ isOpen: false, title: "", message: "" });
 
   const fetchTemplates = () => {
     setIsLoading(true);
@@ -52,17 +56,26 @@ function TemplateListPage() {
       .finally(() => setIsDetailLoading(false));
   };
 
-  const handleDeleteTemplate = async (templateId, templateName) => {
-    if (window.confirm(`Apakah Anda yakin ingin menghapus template "${templateName}"?`)) {
-      setIsDeleting(templateId);
-      try {
-        await apiClient.delete(`/risk-maps/${templateId}`);
-        setTemplates((prev) => prev.filter((t) => t.id !== templateId));
-      } catch (error) {
-        alert(`Gagal menghapus template: ${error.response?.data?.msg || "Terjadi kesalahan."}`);
-      } finally {
-        setIsDeleting(null);
-      }
+  const handleOpenDeleteModal = (templateId, templateName) => {
+    setDeleteModal({ isOpen: true, id: templateId, name: templateName });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.id) return;
+
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(`/risk-maps/${deleteModal.id}`);
+      setTemplates((prev) => prev.filter((t) => t.id !== deleteModal.id));
+      setDeleteModal({ isOpen: false, id: null, name: "" }); // Tutup modal sukses
+    } catch (error) {
+      setNotification({
+        isOpen: true,
+        title: "Gagal Menghapus",
+        message: error.response?.data?.msg || "Terjadi kesalahan saat menghapus template.",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -72,15 +85,16 @@ function TemplateListPage() {
       return;
     }
     if (!userLimits) {
-      alert("Sedang memuat data limit...");
+      setNotification({ isOpen: true, title: "Memuat Data", message: "Sedang memuat data limit..." });
       return;
     }
     const currentCount = templates.filter((t) => !t.is_default).length;
     const limit = userLimits.template_peta?.limit;
 
     if (limit !== null && currentCount >= limit) {
-      setLimitModal({
+      setNotification({
         isOpen: true,
+        title: "Batas Kuota Tercapai",
         message: `Batas pembuatan Template Peta Risiko kustom Anda telah tercapai (${currentCount}/${limit}). Hubungi admin untuk menambah kuota.`,
       });
     } else {
@@ -158,7 +172,7 @@ function TemplateListPage() {
                     icon={FiTrash2}
                     disabled={template.is_default || isDeleting === template.id}
                     loading={isDeleting === template.id}
-                    onClick={() => handleDeleteTemplate(template.id, template.name)}
+                    onClick={() => handleOpenDeleteModal(template.id, template.name)}
                     title="Hapus Template"
                   />
                 </div>
@@ -176,7 +190,17 @@ function TemplateListPage() {
       </div>
 
       <TemplateViewModal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} templateData={isDetailLoading ? null : viewingTemplate} />
-      <NotificationModal isOpen={limitModal.isOpen} onClose={() => setLimitModal({ isOpen: false, message: "" })} title="Batas Kuota Tercapai" message={limitModal.message} />
+      <NotificationModal isOpen={notification.isOpen} onClose={() => setNotification({ ...notification, isOpen: false })} title={notification.title} message={notification.message} />
+      <ConfirmationDialog
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, id: null, name: "" })}
+        onConfirm={handleConfirmDelete}
+        title="Hapus Template"
+        message={`Apakah Anda yakin ingin menghapus template "${deleteModal.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmButtonText="Hapus Template"
+        confirmButtonColor="red"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
