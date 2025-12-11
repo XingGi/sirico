@@ -1,7 +1,7 @@
 # backend/app/routes/rsca.py
 import os
 from flask import request, jsonify, Blueprint
-from app.models import db, User, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, SubmittedRisk, ActionPlan
+from app.models import db, User, Department, RscaCycle, RscaQuestionnaire, RscaAnswer, SubmittedRisk, ActionPlan, MasterData
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from app.ai_services import analyze_rsca_answers_with_gemini
@@ -391,7 +391,9 @@ def submit_new_risk(cycle_id):
 def analyze_rsca_cycle(cycle_id):
     """Memicu analisis AI pada semua jawaban dari sebuah siklus RSCA."""
     # Dapatkan API Key
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    key_entry = MasterData.query.filter_by(category='SYSTEM_CONFIG', key='GEMINI_API_KEY').first()
+    gemini_api_key = key_entry.value if key_entry else None
+    
     if not gemini_api_key:
         return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan di server."}), 500
 
@@ -426,7 +428,7 @@ def analyze_rsca_cycle(cycle_id):
         full_text_for_ai += "---\n"
 
     # Panggil fungsi analisis AI
-    ai_result = analyze_rsca_answers_with_gemini(full_text_for_ai, gemini_api_key)
+    ai_result = analyze_rsca_answers_with_gemini(full_text_for_ai)
 
     if not ai_result:
         return jsonify({"msg": "Gagal mendapatkan hasil analisis dari AI."}), 500

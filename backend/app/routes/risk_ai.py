@@ -2,7 +2,7 @@
 import os
 import json
 from flask import request, jsonify, Blueprint
-from app.models import db, User, RiskAssessment, RiskRegister, MainRiskRegister
+from app.models import db, User, RiskAssessment, RiskRegister, MainRiskRegister, MasterData
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from sqlalchemy import func
@@ -282,12 +282,14 @@ def analyze_assessment():
     assessment_id = new_assessment.id
 
     # 2. Panggil Layanan AI  ---
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    key_entry = MasterData.query.filter_by(category='SYSTEM_CONFIG', key='GEMINI_API_KEY').first()
+    gemini_api_key = key_entry.value if key_entry else None
+    
     if not gemini_api_key:
         db.session.rollback()
         return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
         
-    identified_risks = analyze_assessment_with_gemini(form_data, gemini_api_key)
+    identified_risks = analyze_assessment_with_gemini(form_data)
 
     # 3. Simpan hasil identifikasi ke RiskRegister
     if identified_risks:
@@ -357,7 +359,9 @@ def generate_summary_for_assessment(assessment_id):
         }), 200 # 200 OK (bukan 201 Created)
 
     # Jika summary belum ada, panggil AI
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    key_entry = MasterData.query.filter_by(category='SYSTEM_CONFIG', key='GEMINI_API_KEY').first()
+    gemini_api_key = key_entry.value if key_entry else None
+    
     if not gemini_api_key:
         return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
 
@@ -374,7 +378,7 @@ def generate_summary_for_assessment(assessment_id):
     ]
 
     print(f"Membuat ringkasan untuk Asesmen {assessment_id}...")
-    analysis_content = generate_detailed_risk_analysis_with_gemini(risk_list_for_ai, gemini_api_key)
+    analysis_content = generate_detailed_risk_analysis_with_gemini(risk_list_for_ai)
     
     if analysis_content:
         # Simpan hasil ke asesmen yang ada
@@ -398,12 +402,12 @@ def generate_summary_for_assessment(assessment_id):
 def update_risk_item(risk_id):
     """Memperbarui detail satu item risiko."""
     current_user_id = int(get_jwt_identity())
+    
     risk_item = RiskRegister.query.get_or_404(risk_id)
 
     user = User.query.get(current_user_id)
     is_admin = any(r.name == 'Admin' for r in user.roles)
-    
-    assessment_owner_id = risk_item.assessment.user_id
+    assessment_owner_id = int(risk_item.assessment.user_id)
     
     if assessment_owner_id != current_user_id and not is_admin:
         return jsonify({"msg": "Akses ditolak. Anda bukan pemilik asesmen ini."}), 403
@@ -411,8 +415,12 @@ def update_risk_item(risk_id):
     data = request.get_json()
     if not data:
         return jsonify({"msg": "Request body tidak boleh kosong"}), 400
+    
+    print(f"DEBUG UPDATE RISK {risk_id}: {data}")
 
     # Update semua field yang mungkin diubah dari sidebar
+    risk_item.title = data.get('title', risk_item.title)
+    risk_item.risk_type = data.get('risk_type', risk_item.risk_type)
     risk_item.objective = data.get('objective', risk_item.objective)
     risk_item.deskripsi_risiko = data.get('deskripsi_risiko', risk_item.deskripsi_risiko)
     risk_item.risk_causes = data.get('risk_causes', risk_item.risk_causes)
@@ -433,10 +441,13 @@ def update_risk_item(risk_id):
     risk_item.residual_likelihood = safe_int(data.get('residual_likelihood'), risk_item.residual_likelihood)
     risk_item.residual_impact = safe_int(data.get('residual_impact'), risk_item.residual_impact)
 
-    # Simpan perubahan ke database
-    db.session.commit()
-
-    return jsonify({"msg": "Item risiko berhasil diperbarui."}), 200
+    try:
+        db.session.commit()
+        return jsonify({"msg": "Item risiko berhasil diperbarui."}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"ERROR SAVING RISK: {e}")
+        return jsonify({"msg": "Gagal menyimpan perubahan ke database."}), 500
 
 @risk_ai_bp.route('/risk-register/import', methods=['POST'])
 @jwt_required()
@@ -452,29 +463,37 @@ def import_to_main_register():
     imported_count = 0
     for risk_id in risk_ids_to_import:
         original_risk = RiskRegister.query.get(risk_id)
+        user = User.query.get(current_user_id)
+        is_admin = any(r.name == 'Admin' for r in user.roles)
         
-        # Otorisasi: pastikan risiko ini milik pengguna
-        if original_risk and str(original_risk.assessment.user_id) == current_user_id:
-            new_main_risk = MainRiskRegister(
-                title=original_risk.title,
-                kode_risiko=original_risk.kode_risiko,
-                objective=original_risk.objective,
-                risk_type=original_risk.risk_type,
-                deskripsi_risiko=original_risk.deskripsi_risiko,
-                risk_causes=original_risk.risk_causes,
-                risk_impacts=original_risk.risk_impacts,
-                existing_controls=original_risk.existing_controls,
-                control_effectiveness=original_risk.control_effectiveness,
-                inherent_likelihood=original_risk.inherent_likelihood,
-                inherent_impact=original_risk.inherent_impact,
-                mitigation_plan=original_risk.mitigation_plan,
-                residual_likelihood=original_risk.residual_likelihood,
-                residual_impact=original_risk.residual_impact,
-                user_id=current_user_id,
-                source_assessment_id=original_risk.assessment_id
-            )
-            db.session.add(new_main_risk)
-            imported_count += 1
+        if original_risk:
+            is_owner = (original_risk.assessment.user_id == current_user_id)
+            
+            if is_owner or is_admin:
+                new_main_risk = MainRiskRegister(
+                    title=original_risk.title,
+                    kode_risiko=original_risk.kode_risiko,
+                    objective=original_risk.objective,
+                    risk_type=original_risk.risk_type,
+                    deskripsi_risiko=original_risk.deskripsi_risiko,
+                    risk_causes=original_risk.risk_causes,
+                    risk_impacts=original_risk.risk_impacts,
+                    existing_controls=original_risk.existing_controls,
+                    control_effectiveness=original_risk.control_effectiveness,
+                    inherent_likelihood=original_risk.inherent_likelihood,
+                    inherent_impact=original_risk.inherent_impact,
+                    mitigation_plan=original_risk.mitigation_plan,
+                    residual_likelihood=original_risk.residual_likelihood,
+                    residual_impact=original_risk.residual_impact,
+                    user_id=current_user_id,
+                    source_assessment_id=original_risk.assessment_id
+                )
+                db.session.add(new_main_risk)
+                imported_count += 1
             
     db.session.commit()
+    
+    if imported_count == 0:
+        return jsonify({"msg": "Tidak ada risiko yang diimpor. Pastikan Anda memilih risiko yang valid."}), 400
+    
     return jsonify({"msg": f"{imported_count} risiko berhasil diimpor ke Register Utama."}), 201

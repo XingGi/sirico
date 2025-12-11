@@ -1,7 +1,7 @@
 # backend/app/routes/bia.py
 import os
 from flask import request, jsonify, Blueprint
-from app.models import db, CriticalAsset, Dependency, KRI, User
+from app.models import db, CriticalAsset, Dependency, KRI, User, MasterData
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.ai_services import analyze_bia_with_gemini
 
@@ -92,7 +92,9 @@ def get_asset_dependencies(asset_id):
 def simulate_bia():
     """Menjalankan simulasi BIA dengan input dari frontend."""
     current_user_id = int(get_jwt_identity())
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    key_entry = MasterData.query.filter_by(category='SYSTEM_CONFIG', key='GEMINI_API_KEY').first()
+    gemini_api_key = key_entry.value if key_entry else None
+    
     if not gemini_api_key:
         return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan."}), 500
 
@@ -133,8 +135,7 @@ def simulate_bia():
         failed_asset_name=failed_asset.nama_aset,
         downtime=duration,
         impacted_assets=list(impacted_assets_names),
-        kris=kri_list,
-        api_key=gemini_api_key
+        kris=kri_list
     )
 
     if not analysis_result:

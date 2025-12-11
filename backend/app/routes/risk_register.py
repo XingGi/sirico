@@ -1,6 +1,6 @@
 # backend/app/routes/risk_register.py
 from flask import request, jsonify, Blueprint
-from app.models import MainRiskRegister
+from app.models import MainRiskRegister, User
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -43,7 +43,13 @@ def get_main_risk_register():
 def update_main_risk_register_item(risk_id):
     """Memperbarui satu item di Main Risk Register."""
     current_user_id = int(get_jwt_identity())
-    risk_item = MainRiskRegister.query.filter_by(id=risk_id, user_id=current_user_id).first_or_404()
+    risk_item = MainRiskRegister.query.get_or_404(risk_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if risk_item.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak. Item ini bukan milik Anda."}), 403
 
     data = request.get_json()
     if not data:
@@ -74,7 +80,13 @@ def update_main_risk_register_item(risk_id):
 def delete_main_risk_register_item(risk_id):
     """Menghapus satu item dari Main Risk Register."""
     current_user_id = int(get_jwt_identity())
-    risk_item = MainRiskRegister.query.filter_by(id=risk_id, user_id=current_user_id).first_or_404()
+    risk_item = MainRiskRegister.query.get_or_404(risk_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if risk_item.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak."}), 403
 
     db.session.delete(risk_item)
     db.session.commit()
