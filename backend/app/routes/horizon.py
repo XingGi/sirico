@@ -3,7 +3,7 @@ import json
 import os
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models import db, User, HorizonScanResult
+from app.models import db, User, HorizonScanResult, MasterData
 from horizon_scanner import run_horizon_scan
 from app.ai_services import summarize_horizon_scan
 from sqlalchemy import func
@@ -36,7 +36,13 @@ def get_scan_history():
 def get_scan_detail(scan_id):
     """Mengambil detail lengkap satu scan."""
     current_user_id = int(get_jwt_identity())
-    scan = HorizonScanResult.query.filter_by(id=scan_id, user_id=current_user_id).first_or_404()
+    scan = HorizonScanResult.query.get_or_404(scan_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if scan.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak."}), 403
     
     # Parse JSON raw data kembali ke object
     raw_news = []
@@ -100,8 +106,13 @@ def scan_risks():
     if not news_results:
          return jsonify({"msg": "Gagal mengambil data berita."}), 500
 
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    title, report_html = summarize_horizon_scan(scan_params, news_results, gemini_key)
+    key_entry = MasterData.query.filter_by(category='SYSTEM_CONFIG', key='GEMINI_API_KEY').first()
+    gemini_key_check = key_entry.value if key_entry else None
+
+    if not gemini_key_check:
+        return jsonify({"msg": "Konfigurasi API Key AI tidak ditemukan di database."}), 500
+    
+    title, report_html = summarize_horizon_scan(scan_params, news_results)
 
     # 4. Simpan ke Database
     new_scan = HorizonScanResult(
@@ -127,7 +138,13 @@ def delete_scan_history(scan_id):
     """Menghapus satu riwayat scan."""
     current_user_id = int(get_jwt_identity())
     
-    scan = HorizonScanResult.query.filter_by(id=scan_id, user_id=current_user_id).first_or_404()
+    scan = HorizonScanResult.query.get_or_404(scan_id)
+    
+    user = User.query.get(current_user_id)
+    is_admin = any(r.name == 'Admin' for r in user.roles)
+
+    if scan.user_id != current_user_id and not is_admin:
+        return jsonify({"msg": "Akses ditolak."}), 403
     
     try:
         db.session.delete(scan)
