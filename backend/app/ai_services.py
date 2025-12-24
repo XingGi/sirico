@@ -21,13 +21,9 @@ def configure_genai():
     except Exception as e:
         print(f"Warning: Gagal membaca API Key dari DB, mencoba environment variable. Error: {e}")
 
-    # 2. Fallback ke .env jika di DB kosong
-    if not api_key:
-        api_key = os.environ.get("GEMINI_API_KEY")
-
     if not api_key:
         # Lempar error agar bisa ditangkap oleh fungsi pemanggil
-        raise ValueError("Gemini API Key tidak ditemukan di Database maupun .env!")
+        raise ValueError("Gemini API Key tidak ditemukan di Database")
 
     # Konfigurasi ulang genai
     genai.configure(api_key=api_key)

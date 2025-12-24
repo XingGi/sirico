@@ -8,6 +8,9 @@ from werkzeug.utils import secure_filename
 
 master_data_bp = Blueprint('master_data_bp', __name__)
 
+SENSITIVE_CATEGORIES = ['SYSTEM_CONFIG', 'SECRETS', 'KEYS']
+SENSITIVE_KEYS = ['GEMINI_API_KEY', 'DB_PASSWORD', 'SECRET_KEY', 'API_KEY']
+
 # === ENDPOINTS UNTUK MASTER DATA ===
 @master_data_bp.route('/master-data', methods=['GET'])
 @jwt_required()
@@ -17,20 +20,33 @@ def get_master_data():
     if not category:
         return jsonify({"msg": "Parameter 'category' wajib diisi."}), 400
     
+    if category in SENSITIVE_CATEGORIES:
+        return jsonify({"msg": "Akses ke kategori ini dibatasi."}), 403
+    
     data = MasterData.query.filter_by(category=category.upper()).all()
     result = [{"key": item.key, "value": item.value} for item in data]
     return jsonify(result)
 
 @master_data_bp.route('/admin/master-data', methods=['GET'])
-@admin_required() # <-- Menggunakan decorator admin
+@admin_required()
 def get_all_master_data():
     """[Admin] Mengambil semua master data, dikelompokkan."""
     all_data = MasterData.query.order_by(MasterData.category, MasterData.id).all()
     grouped_data = {}
+    
     for item in all_data:
         if item.category not in grouped_data:
             grouped_data[item.category] = []
-        grouped_data[item.category].append({"id": item.id, "key": item.key, "value": item.value})
+            
+        display_value = item.value
+        if item.category in SENSITIVE_CATEGORIES or item.key in SENSITIVE_KEYS:
+            # Tampilkan 4 karakter terakhir saja (atau bintang semua)
+            if display_value and len(display_value) > 4:
+                display_value = "****************" + display_value[-4:]
+            else:
+                display_value = "****************"
+                
+        grouped_data[item.category].append({"id": item.id, "key": item.key, "value": display_value})
     return jsonify(grouped_data)
 
 @master_data_bp.route('/admin/master-data', methods=['POST'])
@@ -68,7 +84,20 @@ def update_master_data(id):
 
     # Update key dan value jika ada di data yang dikirim
     item.key = data.get('key', item.key)
-    item.value = data.get('value', item.value)
+    
+    new_value = data.get('value')
+    if new_value is not None:
+        # Cek apakah ini item sensitif
+        is_sensitive = item.category in SENSITIVE_CATEGORIES or item.key in SENSITIVE_KEYS
+        
+        # Jika sensitif DAN value yang dikirim diawali bintang-bintang (artinya user gak ngubah isinya)
+        # MAKA: JANGAN UPDATE value di DB (biarkan value lama yang asli)
+        if is_sensitive and new_value.startswith("****************"):
+            pass # Ignore update
+        else:
+            # Jika user ngetik key baru (gak ada bintangnya), atau bukan data sensitif
+            # MAKA: Update dengan value baru
+            item.value = new_value
 
     db.session.commit()
     return jsonify({"msg": "Data berhasil diperbarui"})

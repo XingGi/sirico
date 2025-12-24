@@ -1,8 +1,8 @@
-// frontend/src/components/AIGeneratedAnalysis.jsx
+// frontend/src/features/risk-ai/components/AIGeneratedAnalysis.jsx
 
-import React, { useState, useEffect } from "react";
-import { Card, Title, Text, Accordion, AccordionHeader, AccordionBody, Flex, Icon } from "@tremor/react";
-import { FiCpu, FiAlertOctagon, FiChevronsRight, FiZap, FiClipboard, FiTrendingUp, FiArrowRight, FiLoader, FiAlertCircle } from "react-icons/fi";
+import React, { useState } from "react";
+import { Card, Title, Text, Accordion, AccordionHeader, AccordionBody, Flex, Icon, Button } from "@tremor/react";
+import { FiCpu, FiAlertOctagon, FiChevronsRight, FiZap, FiClipboard, FiTrendingUp, FiArrowRight, FiLoader, FiAlertCircle, FiPlay } from "react-icons/fi";
 import apiClient from "../../../api/api";
 
 // Komponen kecil untuk setiap seksi agar lebih rapi
@@ -17,87 +17,105 @@ const AnalysisSection = ({ icon, title, children }) => (
 );
 
 function AIGeneratedAnalysis({ analysisData, assessmentId, onSummaryLoaded }) {
-  // const [analysis, setAnalysis] = useState(analysisData);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // Cek apakah data summary *belum* ada
-    if (analysisData && !analysisData.ai_executive_summary) {
-      console.log("Summary tidak ditemukan. Memulai fetch summary untuk Asesmen ID:", assessmentId);
-      setIsLoading(true);
-      setError(null);
+  // --- LOGIC BARU: MANUAL TRIGGER ---
+  const handleGenerateClick = async () => {
+    setIsLoading(true);
+    setError(null);
 
-      const fetchSummary = async () => {
-        try {
-          // Panggil API baru yang kita buat di backend
-          const response = await apiClient.post(`/assessments/${assessmentId}/generate-summary`);
-          // Update state lokal dengan data summary yang baru diterima
-          onSummaryLoaded(response.data);
-        } catch (err) {
-          console.error("Gagal memuat AI Summary:", err);
-          setError(err.response?.data?.msg || "AI gagal membuat ringkasan eksekutif.");
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      fetchSummary();
+    try {
+      const response = await apiClient.post(`/assessments/${assessmentId}/generate-summary`);
+      onSummaryLoaded(response.data);
+    } catch (err) {
+      console.error("Gagal memuat AI Summary:", err);
+      setError(err.response?.data?.msg || "AI gagal membuat ringkasan eksekutif.");
+    } finally {
+      setIsLoading(false);
     }
-  }, [assessmentId, analysisData, onSummaryLoaded]);
+  };
 
   const { ai_executive_summary, ai_risk_profile_analysis, ai_immediate_priorities, ai_critical_risks_discussion, ai_implementation_plan, ai_next_steps } = analysisData || {};
 
-  // --- Tampilan saat Loading (Panggilan AI ke-2) ---
+  // --- Tampilan saat Loading ---
   if (isLoading) {
     return (
-      <Card className="mt-6 rounded-xl shadow-lg">
-        <Flex justifyContent="center" alignItems="center" className="space-x-3 py-10">
-          <Icon icon={FiLoader} className="animate-spin" size="lg" color="blue" />
-          <div className="text-left">
-            <Title className="text-tremor-content-strong">AI Sedang Bekerja</Title>
-            <Text>Menulis ringkasan eksekutif dan rekomendasi... (Ini bisa memakan waktu hingga 30 detik)</Text>
+      <Card className="mt-6 rounded-xl shadow-lg border-l-4 border-indigo-500">
+        <Flex flexDirection="col" alignItems="center" className="py-10 space-y-4 text-center">
+          <div className="p-4 bg-indigo-50 rounded-full">
+            <Icon icon={FiLoader} className="animate-spin text-indigo-600" size="xl" />
+          </div>
+          <div>
+            <Title className="text-indigo-900">AI Sedang Menganalisis...</Title>
+            <Text className="max-w-md mx-auto mt-2">Sedang membaca profil risiko, mengidentifikasi pola, dan menyusun rekomendasi strategis. Estimasi waktu: 10-30 detik.</Text>
           </div>
         </Flex>
       </Card>
     );
   }
 
+  // --- Tampilan saat Error ---
   if (error) {
     return (
       <Card className="mt-6 rounded-xl shadow-lg bg-rose-50 border-rose-200">
-        <Flex justifyContent="center" alignItems="center" className="space-x-3 py-10">
+        <Flex flexDirection="col" alignItems="center" className="py-8 text-center space-y-3">
           <Icon icon={FiAlertCircle} size="lg" color="rose" />
-          <div className="text-left">
-            <Title className="text-rose-800">Gagal Membuat Ringkasan</Title>
-            <Text className="text-rose-700">{error}</Text>
-          </div>
+          <Title className="text-rose-800">Gagal Membuat Analisis</Title>
+          <Text className="text-rose-700">{error}</Text>
+          <Button variant="secondary" color="rose" onClick={handleGenerateClick} className="mt-2">
+            Coba Lagi
+          </Button>
         </Flex>
       </Card>
     );
   }
 
+  // --- TAMPILAN JIKA BELUM ADA ANALISIS (TOMBOL MANUAL) ---
   if (!ai_executive_summary) {
-    return null;
+    return (
+      <Card className="mt-6 rounded-xl shadow-sm border-2 border-dashed border-indigo-200 bg-indigo-50/30">
+        <Flex flexDirection="col" alignItems="center" className="py-8 text-center space-y-4">
+          <div className="p-3 bg-white rounded-full shadow-sm">
+            <FiCpu className="w-8 h-8 text-indigo-500" />
+          </div>
+          <div>
+            <Title className="text-slate-700">Analisis AI Belum Dibuat</Title>
+            <Text className="text-slate-500 max-w-lg mx-auto mt-1">Dapatkan ringkasan eksekutif, profil risiko, dan rekomendasi mitigasi instan menggunakan AI.</Text>
+          </div>
+          <Button size="lg" icon={FiPlay} onClick={handleGenerateClick} className="shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all">
+            Generate AI Analysis
+          </Button>
+        </Flex>
+      </Card>
+    );
   }
 
+  // --- Tampilan Hasil Analisis ---
   return (
     <Card className="mt-6 rounded-xl shadow-lg border-l-4 border-purple-500 ring-1 ring-gray-100">
-      <div className="flex flex-col sm:flex-row items-start gap-4 mb-2">
-        <div className="flex-shrink-0 p-3 rounded-xl bg-purple-50 text-purple-600">
-          <FiCpu className="w-6 h-6 text-blue-600" />
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-4">
+          <div className="flex-shrink-0 p-3 rounded-xl bg-purple-50 text-purple-600">
+            <FiCpu className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <Title className="text-xl text-slate-800">AI-Generated Analysis</Title>
+            <Text className="text-sm text-slate-500">Kesimpulan cerdas dan rekomendasi strategis.</Text>
+          </div>
         </div>
-        <div>
-          <Title className="text-xl text-slate-800">AI-Generated Analysis</Title>
-          <Text className="text-sm text-slate-500">Intelligent risk assessment conclusions and recommendations.</Text>
-        </div>
+
+        {/* Tombol Regenerate Manual */}
+        <Button size="xs" variant="secondary" icon={FiCpu} onClick={handleGenerateClick}>
+          Regenerate
+        </Button>
       </div>
 
-      <Accordion className="mt-6 border border-gray-200 rounded-xl overflow-hidden">
+      <Accordion className="mt-2 border border-gray-200 rounded-xl overflow-hidden" defaultOpen={true}>
         <AccordionHeader className="bg-gray-50 hover:bg-gray-100 px-4 py-3">
           <div className="flex items-center gap-2">
             <FiAlertOctagon className="w-5 h-5 text-purple-600" />
-            <span className="font-bold text-slate-700 text-sm md:text-base">AI Analysis & Conclusion</span>
+            <span className="font-bold text-slate-700 text-sm md:text-base">Hasil Analisis Lengkap</span>
           </div>
         </AccordionHeader>
         <AccordionBody className="px-4 py-2 bg-white">

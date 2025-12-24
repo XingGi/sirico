@@ -951,12 +951,7 @@ def manage_api_key():
         
         if config and config.value:
             has_key = True
-            val = config.value
-            # Masking: Tampilkan 4 huruf awal ... 4 huruf akhir
-            if len(val) > 8:
-                masked_key = f"{val[:4]}...{val[-4:]}"
-            else:
-                masked_key = "********"
+            masked_key = "****************"
         
         return jsonify({
             'has_key': has_key,
